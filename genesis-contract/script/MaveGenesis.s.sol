@@ -2,18 +2,17 @@
 pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
-import {Counter} from "../src/Counter.sol";
+import {MaveGenesis} from "../src/MaveGenesis.sol";
 
-contract CounterScript is Script {
-    Counter public counter;
+contract MaveGenesisScript is Script {
+    MaveGenesis public maveGenesis;
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
-
-        counter = new Counter();
-
+        maveGenesis = new MaveGenesis();
+        console.log("MaveGenesis deployed at:", address(maveGenesis));
         vm.stopBroadcast();
     }
 }
