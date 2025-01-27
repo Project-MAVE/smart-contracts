@@ -12,7 +12,7 @@ contract MaveGenesis is AccessControl, ERC721 {
     uint256 constant mintEndTime = 1767139200;
     string constant BASE_URI = "ipfs://QmZ/";
     mapping(uint256 => address) public originalMinter;
-    mapping(address => bool) public refunded;
+    mapping(uint256 => bool) public refunded;
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
 
     constructor() ERC721("MaveGenesis", "MAVE") {
@@ -53,12 +53,12 @@ contract MaveGenesis is AccessControl, ERC721 {
     function refund(uint256 tokenId) public {
         require(block.timestamp > mintEndTime, "Mint not ended");
         require(totalSupply < MAX_SUPPLY, "All tokens minted");
-        require(!refunded[msg.sender], "Already refunded");
+        require(!refunded[tokenId], "Already refunded");
         require(
             originalMinter[tokenId] == msg.sender,
             "Not the original minter"
         );
-        refunded[msg.sender] = true;
+        refunded[tokenId] = true;
         payable(msg.sender).transfer(mintPrice);
     }
 }
