@@ -50,7 +50,9 @@ contract MaveGenesisTest is Test, AccessControl {
         vm.warp(1735689600);
         maveGenesis.mint{value: 0.01 ether}(1);
         vm.warp(1767139201);
+        vm.deal(bob, 0 ether);
         maveGenesis.refund(0);
         assertEq(maveGenesis.refunded(0), true);
+        assertEq(bob.balance, 0.01 ether);
     }
 }
