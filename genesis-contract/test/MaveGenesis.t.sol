@@ -29,16 +29,6 @@ contract MaveGenesisTest is Test, AccessControl {
         assertEq(maveGenesis.originalMinter(0), bob);
     }
 
-    function test_refund() public {
-        vm.startPrank(bob);
-        vm.deal(bob, 0.01 ether);
-        vm.warp(1735689600);
-        maveGenesis.mint{value: 0.01 ether}(1);
-        vm.warp(1767139201);
-        maveGenesis.refund(0);
-        assertEq(maveGenesis.refunded(0), true);
-    }
-
     function test_full_mint() public {
         vm.startPrank(bob);
         vm.deal(bob, 10000 * 0.01 ether);
@@ -52,5 +42,15 @@ contract MaveGenesisTest is Test, AccessControl {
         vm.warp(1767139201);
         vm.expectRevert("All tokens minted");
         maveGenesis.refund(0);
+    }
+
+    function test_refund() public {
+        vm.startPrank(bob);
+        vm.deal(bob, 0.01 ether);
+        vm.warp(1735689600);
+        maveGenesis.mint{value: 0.01 ether}(1);
+        vm.warp(1767139201);
+        maveGenesis.refund(0);
+        assertEq(maveGenesis.refunded(0), true);
     }
 }
