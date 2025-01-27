@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
+
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract MaveGenesis is AccessControl, ERC721 {
-    uint256 constant MAX_SUPPLY = 10000;
+    uint256 constant MAX_SUPPLY = 9999;
     uint256 public totalSupply = 0;
     uint256 constant mintPrice = 0.01 ether;
     uint256 constant mintStartTime = 1735689600;
@@ -33,9 +34,10 @@ contract MaveGenesis is AccessControl, ERC721 {
         require(msg.value >= mintPrice * amount, "Insufficient funds");
 
         for (uint256 i = 0; i < amount; i++) {
-            _mint(msg.sender, totalSupply + i);
+            _mint(msg.sender, totalSupply);
+            originalMinter[totalSupply] = msg.sender;
+            totalSupply++;
         }
-        totalSupply += amount;
     }
 
     function tokenURI(
