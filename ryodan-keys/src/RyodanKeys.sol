@@ -5,18 +5,24 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract MaveGenesis is AccessControl, ERC721 {
-    uint256 constant MAX_SUPPLY = 9999;
+contract RyodanKeys is AccessControl, ERC721 {
+    uint256 constant MAX_SUPPLY = 6400;
+    uint256 constant MAX_MINT_AMOUNT = 100;
+    uint256 constant TREASURY_MINT_AMOUNT = 500;
+    uint256 constant WL_MINT_AMOUNT = 1000;
     uint256 public totalSupply = 0;
     uint256 constant mintPrice = 0.01 ether;
-    uint256 constant mintStartTime = 1735689600;
     uint256 constant mintEndTime = 1767139200;
     string constant BASE_URI = "ipfs://QmZ/";
+    bool public isPublicMintActive = false;
+    bool public isWhitelistMintActive = false;
+    mapping(address => uint256) public mintedAmount;
+    mapping(address => bool) public whitelisted;
     mapping(uint256 => address) public originalMinter;
     mapping(uint256 => bool) public refunded;
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
 
-    constructor() ERC721("MaveGenesis", "MAVE") {
+    constructor() ERC721("RyodanKeys", "RK") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(TREASURY_ROLE, msg.sender);
     }
@@ -28,22 +34,63 @@ contract MaveGenesis is AccessControl, ERC721 {
     }
 
     function mint(uint256 amount) public payable {
-        require(block.timestamp >= mintStartTime, "Mint not started");
         require(block.timestamp <= mintEndTime, "Mint ended");
-        require(totalSupply + amount <= MAX_SUPPLY, "Max supply reached");
+        require(
+            isPublicMintActive || isWhitelistMintActive,
+            "Mint not active"
+        );
+        require(
+            totalSupply + amount <= MAX_SUPPLY - TREASURY_MINT_AMOUNT,
+            "Max supply reached"
+        );
         require(msg.value >= mintPrice * amount, "Insufficient funds");
-
+        require(
+            mintedAmount[msg.sender] + amount <= MAX_MINT_AMOUNT,
+            "Max mint amount reached"
+        );
+        if (isWhitelistMintActive) {
+            require(whitelisted[msg.sender], "Not whitelisted");
+        }
         for (uint256 i = 0; i < amount; i++) {
             _mint(msg.sender, totalSupply);
             originalMinter[totalSupply] = msg.sender;
             totalSupply++;
         }
+        mintedAmount[msg.sender] += amount;
     }
 
     function tokenURI(
         uint256 tokenId
     ) public pure override returns (string memory) {
         return string.concat(BASE_URI, Strings.toString(tokenId), ".json");
+    }
+
+    function setPublicMintActive(
+        bool active
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        isPublicMintActive = active;
+    }
+
+    function setWhitelistMintActive(
+        bool active
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        isWhitelistMintActive = active;
+    }
+
+    function addToWhitelist(
+        address[] calldata addresses
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i = 0; i < addresses.length; i++) {
+            whitelisted[addresses[i]] = true;
+        }
+    }
+
+    function removeFromWhitelist(
+        address[] calldata addresses
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i = 0; i < addresses.length; i++) {
+            whitelisted[addresses[i]] = false;
+        }
     }
 
     function withdraw() public onlyRole(TREASURY_ROLE) {
