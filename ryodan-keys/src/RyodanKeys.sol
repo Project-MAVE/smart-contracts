@@ -35,10 +35,7 @@ contract RyodanKeys is AccessControl, ERC721 {
 
     function mint(uint256 amount) public payable {
         require(block.timestamp <= mintEndTime, "Mint ended");
-        require(
-            isPublicMintActive || isWhitelistMintActive,
-            "Mint not active"
-        );
+        require(isPublicMintActive || isWhitelistMintActive, "Mint not active");
         require(
             totalSupply + amount <= MAX_SUPPLY - TREASURY_MINT_AMOUNT,
             "Max supply reached"
@@ -54,6 +51,20 @@ contract RyodanKeys is AccessControl, ERC721 {
         for (uint256 i = 0; i < amount; i++) {
             _mint(msg.sender, totalSupply);
             originalMinter[totalSupply] = msg.sender;
+            totalSupply++;
+        }
+        mintedAmount[msg.sender] += amount;
+    }
+
+    function treasuryMint(uint256 amount) public onlyRole(TREASURY_ROLE) {
+        require(totalSupply + amount <= MAX_SUPPLY, "Max supply reached");
+        require(block.timestamp <= mintEndTime, "Mint ended");
+        require(
+            mintedAmount[msg.sender] + amount <= TREASURY_MINT_AMOUNT,
+            "Max mint amount reached"
+        );
+        for (uint256 i = 0; i < amount; i++) {
+            _mint(msg.sender, totalSupply);
             totalSupply++;
         }
         mintedAmount[msg.sender] += amount;

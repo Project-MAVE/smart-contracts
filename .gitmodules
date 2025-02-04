@@ -1,6 +1,6 @@
-[submodule "genesis-contract/lib/forge-std"]
-	path = genesis-contract/lib/forge-std
+[submodule "ryodan-keys/lib/forge-std"]
+	path = ryodan-keys/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "genesis-contract/lib/openzeppelin-contracts"]
-	path = genesis-contract/lib/openzeppelin-contracts
+[submodule "ryodan-keys/lib/openzeppelin-contracts"]
+	path = ryodan-keys/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
