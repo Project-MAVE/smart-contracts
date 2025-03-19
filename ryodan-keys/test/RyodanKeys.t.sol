@@ -5,22 +5,24 @@ import {Test, console} from "forge-std/Test.sol";
 import {RyodanKeys} from "../src/RyodanKeys.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {console} from "forge-std/console.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract RyodanKeysTest is Test, AccessControl {
     RyodanKeys public ryodanKeys;
     address bob = makeAddr("bob");
     address alice = makeAddr("alice");
+    address treasury = makeAddr("treasury");
 
     function setUp() public {
         ryodanKeys = new RyodanKeys();
         ryodanKeys.grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        ryodanKeys.grantRole(ryodanKeys.TREASURY_ROLE(), msg.sender);
+        ryodanKeys.grantRole(ryodanKeys.TREASURY_ROLE(), treasury);
     }
 
     function test_ownership() public view {
         assertEq(ryodanKeys.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), true);
         assertEq(
-            ryodanKeys.hasRole(ryodanKeys.TREASURY_ROLE(), msg.sender),
+            ryodanKeys.hasRole(ryodanKeys.TREASURY_ROLE(), treasury),
             true
         );
     }
@@ -75,5 +77,45 @@ contract RyodanKeysTest is Test, AccessControl {
         ryodanKeys.refund(0);
         assertEq(ryodanKeys.refunded(0), true);
         assertEq(bob.balance, 0.01 ether);
+    }
+
+    function test_soldout() public {
+        ryodanKeys.setPublicMintActive(true);
+        // Mint 500 to treasury
+        ryodanKeys.treasuryMint(500, bob);
+        // Test fail overminting to treasury
+        vm.expectRevert("Max supply reached while minting to treasury");
+        ryodanKeys.treasuryMint(1, alice);
+        // Mint 5900 to users
+        for (uint256 i = 0; i < 5900; i++) {
+            address user = makeAddr(
+                string(abi.encodePacked("user", Strings.toString(i)))
+            );
+            vm.startPrank(user);
+            vm.deal(user, 0.01 ether);
+            ryodanKeys.mint{value: 0.01 ether}(1);
+        }
+        // Test fail overminting to user
+        vm.expectRevert("Max supply reached");
+        vm.startPrank(bob);
+        vm.deal(bob, 0.01 ether);
+        ryodanKeys.mint{value: 0.01 ether}(1);
+        // Test withdraw
+        vm.startPrank(treasury);
+        ryodanKeys.withdraw();
+        assertEq(treasury.balance, 59 ether);
+        // Test transfer after minting is over
+        vm.startPrank(bob);
+        ryodanKeys.transferFrom(bob, alice, 0);
+        assertEq(ryodanKeys.ownerOf(0), alice);
+    }
+
+    function test_transfer() public {
+        ryodanKeys.setPublicMintActive(true);
+        vm.startPrank(bob);
+        vm.deal(bob, 0.01 ether);
+        ryodanKeys.mint{value: 0.01 ether}(1);
+        vm.expectRevert("RyodanKeys is not transferable since not all tokens have been minted");
+        ryodanKeys.transferFrom(bob, alice, 0);
     }
 }

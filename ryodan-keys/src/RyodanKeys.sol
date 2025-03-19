@@ -6,11 +6,13 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract RyodanKeys is AccessControl, ERC721 {
-    uint256 constant MAX_SUPPLY = 6400;
+    uint256 constant MAX_PUBLIC_SUPPLY = 5900;
+    uint256 constant MAX_TREASURY_SUPPLY = 500;
     uint256 constant MAX_MINT_AMOUNT = 100;
-    uint256 constant TREASURY_MINT_AMOUNT = 500;
     uint256 constant WL_MINT_AMOUNT = 1000;
     uint256 public totalSupply = 0;
+    uint256 public mintedByUsers = 0;
+    uint256 public mintedByTreasury = 0;
     uint256 constant mintPrice = 0.01 ether;
     uint256 constant mintEndTime = 1767139200;
     string constant BASE_URI = "ipfs://QmZ/";
@@ -37,7 +39,7 @@ contract RyodanKeys is AccessControl, ERC721 {
         require(block.timestamp <= mintEndTime, "Mint ended");
         require(isPublicMintActive || isWhitelistMintActive, "Mint not active");
         require(
-            totalSupply + amount <= MAX_SUPPLY - TREASURY_MINT_AMOUNT,
+            mintedByUsers + amount <= MAX_PUBLIC_SUPPLY,
             "Max supply reached"
         );
         require(msg.value >= mintPrice * amount, "Insufficient funds");
@@ -52,22 +54,19 @@ contract RyodanKeys is AccessControl, ERC721 {
             _mint(msg.sender, totalSupply);
             originalMinter[totalSupply] = msg.sender;
             totalSupply++;
+            mintedByUsers++;
         }
         mintedAmount[msg.sender] += amount;
     }
 
-    function treasuryMint(uint256 amount) public onlyRole(TREASURY_ROLE) {
-        require(totalSupply + amount <= MAX_SUPPLY, "Max supply reached");
+    function treasuryMint(uint256 amount, address to) public onlyRole(TREASURY_ROLE) {
+        require(mintedByTreasury + amount <= MAX_TREASURY_SUPPLY, "Max supply reached while minting to treasury");
         require(block.timestamp <= mintEndTime, "Mint ended");
-        require(
-            mintedAmount[msg.sender] + amount <= TREASURY_MINT_AMOUNT,
-            "Max mint amount reached"
-        );
         for (uint256 i = 0; i < amount; i++) {
-            _mint(msg.sender, totalSupply);
+            _mint(to, totalSupply);
             totalSupply++;
+            mintedByTreasury++;
         }
-        mintedAmount[msg.sender] += amount;
     }
 
     function tokenURI(
@@ -106,19 +105,35 @@ contract RyodanKeys is AccessControl, ERC721 {
 
     function withdraw() public onlyRole(TREASURY_ROLE) {
         require(address(this).balance > 0, "No balance to withdraw");
-        require(totalSupply == MAX_SUPPLY, "Not all tokens minted");
-        payable(msg.sender).transfer(address(this).balance);
+        require(totalSupply == MAX_PUBLIC_SUPPLY + MAX_TREASURY_SUPPLY, "Not all tokens minted");
+        (bool sent, bytes memory _data) = payable(msg.sender).call{
+                value: address(this).balance
+            }("");
+        require(sent, "Failed to send Ether");
     }
 
     function refund(uint256 tokenId) public {
         require(block.timestamp > mintEndTime, "Mint not ended");
-        require(totalSupply < MAX_SUPPLY, "All tokens minted");
+        require(totalSupply < MAX_PUBLIC_SUPPLY + MAX_TREASURY_SUPPLY, "All tokens minted");
         require(!refunded[tokenId], "Already refunded");
-        require(
-            originalMinter[tokenId] == msg.sender,
-            "Not the original minter"
-        );
         refunded[tokenId] = true;
-        payable(msg.sender).transfer(mintPrice);
+        (bool sent, bytes memory _data) = payable(originalMinter[tokenId]).call{
+                value: mintPrice
+            }("");
+        require(sent, "Failed to send Ether");
+    }
+
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override returns (address) {
+        if (totalSupply < MAX_PUBLIC_SUPPLY + MAX_TREASURY_SUPPLY) {
+            require(
+                _ownerOf(tokenId) == address(0),
+                "RyodanKeys is not transferable since not all tokens have been minted"
+            );
+        }
+        return super._update(to, tokenId, auth);
     }
 }
