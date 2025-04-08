@@ -28,7 +28,7 @@ contract RyodanKeysTest is Test, AccessControl {
     }
 
     function test_mint() public {
-        ryodanKeys.setPublicMintActive(true);
+        ryodanKeys.setPublicMintActive(true, 20);
         vm.startPrank(bob);
         vm.deal(bob, 0.01 ether);
         ryodanKeys.mint{value: 0.01 ether}(1);
@@ -36,7 +36,7 @@ contract RyodanKeysTest is Test, AccessControl {
     }
 
     function test_whitelist_mint() public {
-        ryodanKeys.setWhitelistMintActive(true);
+        ryodanKeys.setWhitelistMintActive(true, 10);
         address[] memory whitelist = new address[](1);
         whitelist[0] = bob;
         ryodanKeys.addToWhitelist(whitelist);
@@ -47,28 +47,36 @@ contract RyodanKeysTest is Test, AccessControl {
     }
 
     function test_whitelist_fail() public {
-        ryodanKeys.setWhitelistMintActive(true);
+        ryodanKeys.setWhitelistMintActive(true, 10);
         vm.expectRevert("Not whitelisted");
         vm.startPrank(alice);
         vm.deal(alice, 0.01 ether);
         ryodanKeys.mint{value: 0.01 ether}(1);
     }
 
+    function test_whitelist_fail_limit() public {
+        ryodanKeys.setWhitelistMintActive(true, 2000);
+        address[] memory whitelist = new address[](1);
+        whitelist[0] = bob;
+        ryodanKeys.addToWhitelist(whitelist);
+        vm.startPrank(bob);
+        vm.deal(bob, 101 ether);
+        ryodanKeys.mint{value: 100 ether}(1000);
+        vm.expectRevert("Max whitelist mint amount reached");
+        ryodanKeys.mint{value: 0.01 ether}(1);
+    }
+
     function test_limit_fail() public {
-        ryodanKeys.setPublicMintActive(true);
+        ryodanKeys.setPublicMintActive(true, 20);
         vm.startPrank(bob);
         vm.deal(bob, 0.01 ether * 101);
         ryodanKeys.mint{value: 0.01 ether * 20}(20);
-        ryodanKeys.mint{value: 0.01 ether * 20}(20);
-        ryodanKeys.mint{value: 0.01 ether * 20}(20);
-        ryodanKeys.mint{value: 0.01 ether * 20}(20);
-        ryodanKeys.mint{value: 0.01 ether * 20}(20);
-        vm.expectRevert("Max mint amount reached");
+        vm.expectRevert("Max mint amount reached for address");
         ryodanKeys.mint{value: 0.01 ether}(1);
     }
 
     function test_refund() public {
-        ryodanKeys.setPublicMintActive(true);
+        ryodanKeys.setPublicMintActive(true, 20);
         vm.startPrank(bob);
         vm.deal(bob, 0.01 ether);
         ryodanKeys.mint{value: 0.01 ether}(1);
@@ -80,7 +88,7 @@ contract RyodanKeysTest is Test, AccessControl {
     }
 
     function test_soldout() public {
-        ryodanKeys.setPublicMintActive(true);
+        ryodanKeys.setPublicMintActive(true, 20);
         // Mint 500 to treasury
         ryodanKeys.treasuryMint(500, bob);
         // Test fail overminting to treasury
@@ -111,7 +119,7 @@ contract RyodanKeysTest is Test, AccessControl {
     }
 
     function test_transfer() public {
-        ryodanKeys.setPublicMintActive(true);
+        ryodanKeys.setPublicMintActive(true, 20);
         vm.startPrank(bob);
         vm.deal(bob, 0.01 ether);
         ryodanKeys.mint{value: 0.01 ether}(1);
