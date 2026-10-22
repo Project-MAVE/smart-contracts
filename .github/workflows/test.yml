@@ -55,7 +55,8 @@ jobs:
         run: python3 scripts/export-abi.py --check
 
       - name: Install Slither
-        run: python3 -m pip install --only-binary=:all: slither-analyzer==0.11.6
+        run: |
+          python3 -m pip install --only-binary=:all: slither-analyzer==0.11.6
 
       - name: Run Slither
         run: slither . --config-file slither.config.json
