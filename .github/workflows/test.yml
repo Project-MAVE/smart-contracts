@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FOUNDRY_PROFILE: ci
+
+defaults:
+  run:
+    working-directory: ryodan-keys
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Foundry project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+
+      - name: Show Forge version
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+
+      - name: Check frontend ABI
+        run: python3 scripts/export-abi.py --check
+
+      - name: Install Slither
+        run: python3 -m pip install --only-binary=:all: slither-analyzer==0.11.6
+
+      - name: Run Slither
+        run: slither . --config-file slither.config.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.1'
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+
+      - name: Install console dependencies without lifecycle scripts
+        working-directory: console
+        run: npm ci --ignore-scripts
+
+      - name: Validate and build console
+        working-directory: console
+        run: |
+          npm test
+          npm run build
+
+      - name: Install browser for local-chain UI tests
+        working-directory: console
+        run: npx playwright install --with-deps chromium
+
+      - name: Exercise console against local Anvil
+        working-directory: console
+        run: npm run test:browser

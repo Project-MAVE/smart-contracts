@@ -1,0 +1,79 @@
+{
+  "chainId": 11155111,
+  "deployer": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+  "version": 2,
+  "purpose": "refund",
+  "transactions": {
+    "Extend deadline by one day": {
+      "hash": "0xddb5321bbc897966b797c7729f7105186edb15eda4a45b9abddaa3eae773510e",
+      "blockNumber": 11950362,
+      "status": 1,
+      "gasUsed": "38871"
+    },
+    "Restore original deadline": {
+      "hash": "0x615ffbfc80c69a6d1a9126a6dcda064b9083d95905abf1e99508ed2c6cb98131",
+      "blockNumber": 11950364,
+      "status": 1,
+      "gasUsed": "38871"
+    },
+    "Enable public mint": {
+      "hash": "0x1ec246d6f28311333986a94d096a5695322d3ffb0d6d7dc201e436a417b8df30",
+      "blockNumber": 11950366,
+      "status": 1,
+      "gasUsed": "142384"
+    },
+    "Mint paid test key": {
+      "hash": "0x6a8e00a3bba19fdb36d3b2ac8b318548c6c97d57da443abc432b587e6ff9af7c",
+      "blockNumber": 11950368,
+      "status": 1,
+      "gasUsed": "697979"
+    },
+    "Mint treasury test key": {
+      "hash": "0x8cf0e91dd3a31135789476672f682e9cacfbac2a8afaaccfb06d440b1b30f909",
+      "blockNumber": 11950370,
+      "status": 1,
+      "gasUsed": "273726"
+    },
+    "Shorten deadline for refund QA": {
+      "hash": "0xb5397c6862a50809e81e8f22c05f6bf6d7a076d425420c697276082a2a80e750",
+      "blockNumber": 11950372,
+      "status": 1,
+      "gasUsed": "38871"
+    },
+    "Refund paid token 0": {
+      "hash": "0x06cef2ed089ae2dee3e602f79bbf93e8608bf7c614085c7436e4ff471c1a10b0",
+      "blockNumber": 11950385,
+      "status": 1,
+      "gasUsed": "289267"
+    }
+  },
+  "checks": [
+    "Exact runtime bytecode matches current compiler artifact",
+    "Contract version 2",
+    "Test wallet is admin",
+    "Test wallet is treasury",
+    "Paid and treasury mint counters",
+    "Receipt: Extend deadline by one day",
+    "Receipt: Restore original deadline",
+    "Receipt: Enable public mint",
+    "Receipt: Mint paid test key",
+    "Receipt: Mint treasury test key",
+    "Receipt: Shorten deadline for refund QA",
+    "Refunds available after shortened deadline",
+    "Expired sale cannot be reopened even before first refund",
+    "Repeated refund rejected",
+    "Expired sale cannot be reopened after refund",
+    "Refund burned paid key",
+    "Refund returned all paid reserves",
+    "Receipt: Refund paid token 0"
+  ],
+  "address": "0xBc5338c4a71961d999Ec9551a2636850ec1561e0",
+  "deploymentTransaction": "0x70cb9dc3beec0f22aa1d070439b644f0523695f68cb670cbea552d7e40b5af48",
+  "initialDeadline": 1792440708,
+  "hiddenMetadataURI": "data:application/json;base64,eyJuYW1lIjoiUnlvZGFuIEtleSAvIHNlYWxlZCIsImRlc2NyaXB0aW9uIjoiU2Vwb2xpYSB2MiB0ZXN0IGNvbGxlY3Rpb24uIEZpbmFsIG1ldGFkYXRhIGlzIG5vdCByZXZlYWxlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU3RhdGUiLCJ2YWx1ZSI6IlVucmV2ZWFsZWQifV19",
+  "deploymentBlock": 11950360,
+  "runtimeCodeHash": "0xa0737afdcf0713445ab782007692280e510129a37b51d1db8402f1f19dfe4bfb",
+  "shortenedDeadline": 1792439742,
+  "currentDeadline": 1792439742,
+  "lastVerifiedBlock": 11950422
+}

@@ -1,0 +1,113 @@
+{
+  "tool": "Slither 0.11.6",
+  "detectorsRun": 102,
+  "contractsAnalyzed": 20,
+  "success": true,
+  "findings": [
+    {
+      "check": "arbitrary-send-eth",
+      "impact": "High",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.withdraw() (test/fixtures/LegacyRyodanKeys.sol#98-103) sends eth to arbitrary user\n\tDangerous calls:\n\t- (sent,_data) = address(msg.sender).call{value: address(this).balance}() (test/fixtures/LegacyRyodanKeys.sol#101)\n",
+      "markdown": "[LegacyRyodanKeys.withdraw()](test/fixtures/LegacyRyodanKeys.sol#L98-L103) sends eth to arbitrary user\n\tDangerous calls:\n\t- [(sent,_data) = address(msg.sender).call{value: address(this).balance}()](test/fixtures/LegacyRyodanKeys.sol#L101)\n"
+    },
+    {
+      "check": "arbitrary-send-eth",
+      "impact": "High",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.refund(uint256) (test/fixtures/LegacyRyodanKeys.sol#105-112) sends eth to arbitrary user\n\tDangerous calls:\n\t- (sent,_data) = address(originalMinter[tokenId]).call{value: mintPrice}() (test/fixtures/LegacyRyodanKeys.sol#110)\n",
+      "markdown": "[LegacyRyodanKeys.refund(uint256)](test/fixtures/LegacyRyodanKeys.sol#L105-L112) sends eth to arbitrary user\n\tDangerous calls:\n\t- [(sent,_data) = address(originalMinter[tokenId]).call{value: mintPrice}()](test/fixtures/LegacyRyodanKeys.sol#L110)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.refund(uint256) (test/fixtures/LegacyRyodanKeys.sol#105-112) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(block.timestamp > mintEndTime,Mint not ended) (test/fixtures/LegacyRyodanKeys.sol#106)\n",
+      "markdown": "[LegacyRyodanKeys.refund(uint256)](test/fixtures/LegacyRyodanKeys.sol#L105-L112) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(block.timestamp > mintEndTime,Mint not ended)](test/fixtures/LegacyRyodanKeys.sol#L106)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.mint(uint256) (test/fixtures/LegacyRyodanKeys.sol#38-56) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(block.timestamp <= mintEndTime,Mint ended) (test/fixtures/LegacyRyodanKeys.sol#39)\n",
+      "markdown": "[LegacyRyodanKeys.mint(uint256)](test/fixtures/LegacyRyodanKeys.sol#L38-L56) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(block.timestamp <= mintEndTime,Mint ended)](test/fixtures/LegacyRyodanKeys.sol#L39)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.treasuryMint(uint256,address) (test/fixtures/LegacyRyodanKeys.sol#58-66) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(block.timestamp <= mintEndTime,Mint ended) (test/fixtures/LegacyRyodanKeys.sol#60)\n",
+      "markdown": "[LegacyRyodanKeys.treasuryMint(uint256,address)](test/fixtures/LegacyRyodanKeys.sol#L58-L66) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(block.timestamp <= mintEndTime,Mint ended)](test/fixtures/LegacyRyodanKeys.sol#L60)\n"
+    },
+    {
+      "check": "costly-loop",
+      "impact": "Informational",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.mint(uint256) (test/fixtures/LegacyRyodanKeys.sol#38-56) has costly operations inside a loop:\n\t- mintedByUsers ++ (test/fixtures/LegacyRyodanKeys.sol#53)\n",
+      "markdown": "[LegacyRyodanKeys.mint(uint256)](test/fixtures/LegacyRyodanKeys.sol#L38-L56) has costly operations inside a loop:\n\t- [mintedByUsers ++](test/fixtures/LegacyRyodanKeys.sol#L53)\n"
+    },
+    {
+      "check": "costly-loop",
+      "impact": "Informational",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.mint(uint256) (test/fixtures/LegacyRyodanKeys.sol#38-56) has costly operations inside a loop:\n\t- totalSupply ++ (test/fixtures/LegacyRyodanKeys.sol#52)\n",
+      "markdown": "[LegacyRyodanKeys.mint(uint256)](test/fixtures/LegacyRyodanKeys.sol#L38-L56) has costly operations inside a loop:\n\t- [totalSupply ++](test/fixtures/LegacyRyodanKeys.sol#L52)\n"
+    },
+    {
+      "check": "costly-loop",
+      "impact": "Informational",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.treasuryMint(uint256,address) (test/fixtures/LegacyRyodanKeys.sol#58-66) has costly operations inside a loop:\n\t- totalSupply ++ (test/fixtures/LegacyRyodanKeys.sol#63)\n",
+      "markdown": "[LegacyRyodanKeys.treasuryMint(uint256,address)](test/fixtures/LegacyRyodanKeys.sol#L58-L66) has costly operations inside a loop:\n\t- [totalSupply ++](test/fixtures/LegacyRyodanKeys.sol#L63)\n"
+    },
+    {
+      "check": "costly-loop",
+      "impact": "Informational",
+      "confidence": "Medium",
+      "description": "LegacyRyodanKeys.treasuryMint(uint256,address) (test/fixtures/LegacyRyodanKeys.sol#58-66) has costly operations inside a loop:\n\t- mintedByTreasury ++ (test/fixtures/LegacyRyodanKeys.sol#64)\n",
+      "markdown": "[LegacyRyodanKeys.treasuryMint(uint256,address)](test/fixtures/LegacyRyodanKeys.sol#L58-L66) has costly operations inside a loop:\n\t- [mintedByTreasury ++](test/fixtures/LegacyRyodanKeys.sol#L64)\n"
+    },
+    {
+      "check": "solc-version",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Version constraint ^0.8.13 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess\n\t- StorageWriteRemovalBeforeConditionalTermination\n\t- AbiReencodingHeadOverflowWithStaticArrayCleanup\n\t- DirtyBytesArrayToStorage\n\t- InlineAssemblyMemorySideEffects\n\t- DataLocationChangeInInternalOverride\n\t- NestedCalldataArrayAbiReencodingSizeValidation.\nIt is used by:\n\t- ^0.8.13 (test/fixtures/LegacyRyodanKeys.sol#2)\n",
+      "markdown": "Version constraint ^0.8.13 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess\n\t- StorageWriteRemovalBeforeConditionalTermination\n\t- AbiReencodingHeadOverflowWithStaticArrayCleanup\n\t- DirtyBytesArrayToStorage\n\t- InlineAssemblyMemorySideEffects\n\t- DataLocationChangeInInternalOverride\n\t- NestedCalldataArrayAbiReencodingSizeValidation.\nIt is used by:\n\t- [^0.8.13](test/fixtures/LegacyRyodanKeys.sol#L2)\n"
+    },
+    {
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Low level call in LegacyRyodanKeys.refund(uint256) (test/fixtures/LegacyRyodanKeys.sol#105-112):\n\t- (sent,_data) = address(originalMinter[tokenId]).call{value: mintPrice}() (test/fixtures/LegacyRyodanKeys.sol#110)\n",
+      "markdown": "Low level call in [LegacyRyodanKeys.refund(uint256)](test/fixtures/LegacyRyodanKeys.sol#L105-L112):\n\t- [(sent,_data) = address(originalMinter[tokenId]).call{value: mintPrice}()](test/fixtures/LegacyRyodanKeys.sol#L110)\n"
+    },
+    {
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Low level call in LegacyRyodanKeys.withdraw() (test/fixtures/LegacyRyodanKeys.sol#98-103):\n\t- (sent,_data) = address(msg.sender).call{value: address(this).balance}() (test/fixtures/LegacyRyodanKeys.sol#101)\n",
+      "markdown": "Low level call in [LegacyRyodanKeys.withdraw()](test/fixtures/LegacyRyodanKeys.sol#L98-L103):\n\t- [(sent,_data) = address(msg.sender).call{value: address(this).balance}()](test/fixtures/LegacyRyodanKeys.sol#L101)\n"
+    },
+    {
+      "check": "naming-convention",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Constant LegacyRyodanKeys.mintPrice (test/fixtures/LegacyRyodanKeys.sol#17) is not in UPPER_CASE_WITH_UNDERSCORES\n",
+      "markdown": "Constant [LegacyRyodanKeys.mintPrice](test/fixtures/LegacyRyodanKeys.sol#L17) is not in UPPER_CASE_WITH_UNDERSCORES\n"
+    },
+    {
+      "check": "naming-convention",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Variable LegacyRyodanKeys.MAX_MINT_AMOUNT (test/fixtures/LegacyRyodanKeys.sol#12) is not in mixedCase\n",
+      "markdown": "Variable [LegacyRyodanKeys.MAX_MINT_AMOUNT](test/fixtures/LegacyRyodanKeys.sol#L12) is not in mixedCase\n"
+    },
+    {
+      "check": "naming-convention",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Constant LegacyRyodanKeys.mintEndTime (test/fixtures/LegacyRyodanKeys.sol#18) is not in UPPER_CASE_WITH_UNDERSCORES\n",
+      "markdown": "Constant [LegacyRyodanKeys.mintEndTime](test/fixtures/LegacyRyodanKeys.sol#L18) is not in UPPER_CASE_WITH_UNDERSCORES\n"
+    }
+  ]
+}

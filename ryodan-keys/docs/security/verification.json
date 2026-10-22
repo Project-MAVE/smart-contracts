@@ -1,0 +1,996 @@
+{
+  "compiler": {
+    "version": "0.8.37+commit.f401782d"
+  },
+  "settings": {
+    "remappings": [
+      "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+      "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+      "forge-std/=lib/forge-std/src/",
+      "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+      "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+    ],
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "compilationTarget": {
+      "src/RyodanKeys.sol": "RyodanKeys"
+    },
+    "evmVersion": "cancun",
+    "libraries": {}
+  },
+  "sourceSha256": "190351af85c4f8bc8daebcf5dd7d7b0e557fe654da0289788b909a99c3de22a0",
+  "abiSha256": "4962d5ac96e68f3328038b08a5d617cacfd3e4363787f95c8aa2a312af18427a",
+  "dependencies": {
+    "openzeppelin-contracts": "cab19933c33c2ad1d4c7a84864a3601dddfd16f3",
+    "forge-std": "bf647bd6046f2f7da30d0c2bf435e5c76a780c1b"
+  },
+  "profile": "ci",
+  "coverage": {
+    "src/RyodanKeys.sol": {
+      "lines": [
+        104,
+        104
+      ],
+      "statements": [
+        112,
+        112
+      ],
+      "branches": [
+        64,
+        64
+      ],
+      "functions": [
+        17,
+        17
+      ]
+    },
+    "script/RyodanKeys.s.sol": {
+      "lines": [
+        14,
+        14
+      ],
+      "statements": [
+        18,
+        18
+      ],
+      "branches": [
+        2,
+        2
+      ],
+      "functions": [
+        1,
+        1
+      ]
+    }
+  },
+  "tests": [
+    {
+      "suite": "test/DeployScript.t.sol:DeployScriptTest",
+      "test": "test_DeploymentScriptAllowsLocalAnvil()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 2627917
+        }
+      }
+    },
+    {
+      "suite": "test/DeployScript.t.sol:DeployScriptTest",
+      "test": "test_DeploymentScriptAssignsExplicitRolesOnSepolia()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 2656374
+        }
+      }
+    },
+    {
+      "suite": "test/DeployScript.t.sol:DeployScriptTest",
+      "test": "test_DeploymentScriptRejectsExpiredConfiguration()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 140476
+        }
+      }
+    },
+    {
+      "suite": "test/DeployScript.t.sol:DeployScriptTest",
+      "test": "test_DeploymentScriptRejectsMainnet()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 8827
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacyDifferentPaidTokensEachHaveOneLegitimateRefund()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 80609
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacyExpiredDeadlinePreventsRestart()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 18174
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacyFreeTreasuryTokenDestroysPaidRefundReserve()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 146598
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacyMetadataAcceptsUnmintedIdAndIgnoresTokenId()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 15733
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacyNonexistentIdsDestroyAllRefundReserves()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 141900
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacySameTokenCannotBeRefundedTwice()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 46836
+        }
+      }
+    },
+    {
+      "suite": "test/LegacyRegression.t.sol:LegacyRegressionTest",
+      "test": "test_LegacyZeroMintAndOverpaymentAreAccepted()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 100561
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.invariant.t.sol:RyodanKeysInvariantTest",
+      "test": "invariant_AllLiveTokensBelongToTrackedActors()",
+      "status": "Success",
+      "kind": {
+        "Invariant": {
+          "runs": 256,
+          "calls": 32768,
+          "reverts": 0,
+          "metrics": {
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.invalidRefund": {
+              "calls": 4061,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.advance": {
+              "calls": 4143,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.refundPaid": {
+              "calls": 4149,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.attemptTransfer": {
+              "calls": 4114,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.withdrawIfSuccessful": {
+              "calls": 4071,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintTreasury": {
+              "calls": 4060,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintPaid": {
+              "calls": 4045,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.changePhaseAndWhitelist": {
+              "calls": 4125,
+              "reverts": 0,
+              "discards": 0
+            }
+          },
+          "failed_corpus_replays": 0,
+          "optimization_best_value": null
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.invariant.t.sol:RyodanKeysInvariantTest",
+      "test": "invariant_EtherIsConservedAndRefundsStaySolvent()",
+      "status": "Success",
+      "kind": {
+        "Invariant": {
+          "runs": 256,
+          "calls": 32768,
+          "reverts": 0,
+          "metrics": {
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.invalidRefund": {
+              "calls": 4061,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.withdrawIfSuccessful": {
+              "calls": 4071,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintTreasury": {
+              "calls": 4060,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.changePhaseAndWhitelist": {
+              "calls": 4125,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.advance": {
+              "calls": 4143,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.attemptTransfer": {
+              "calls": 4114,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintPaid": {
+              "calls": 4045,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.refundPaid": {
+              "calls": 4149,
+              "reverts": 0,
+              "discards": 0
+            }
+          },
+          "failed_corpus_replays": 0,
+          "optimization_best_value": null
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.invariant.t.sol:RyodanKeysInvariantTest",
+      "test": "invariant_PhasesNeverOverlap()",
+      "status": "Success",
+      "kind": {
+        "Invariant": {
+          "runs": 256,
+          "calls": 32768,
+          "reverts": 0,
+          "metrics": {
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.invalidRefund": {
+              "calls": 4061,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.withdrawIfSuccessful": {
+              "calls": 4071,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.refundPaid": {
+              "calls": 4149,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintPaid": {
+              "calls": 4045,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.changePhaseAndWhitelist": {
+              "calls": 4125,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.attemptTransfer": {
+              "calls": 4114,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintTreasury": {
+              "calls": 4060,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.advance": {
+              "calls": 4143,
+              "reverts": 0,
+              "discards": 0
+            }
+          },
+          "failed_corpus_replays": 0,
+          "optimization_best_value": null
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.invariant.t.sol:RyodanKeysInvariantTest",
+      "test": "invariant_SupplyAndCapsRemainConsistent()",
+      "status": "Success",
+      "kind": {
+        "Invariant": {
+          "runs": 256,
+          "calls": 32768,
+          "reverts": 0,
+          "metrics": {
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.attemptTransfer": {
+              "calls": 4114,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintPaid": {
+              "calls": 4045,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.advance": {
+              "calls": 4143,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.mintTreasury": {
+              "calls": 4060,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.invalidRefund": {
+              "calls": 4061,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.changePhaseAndWhitelist": {
+              "calls": 4125,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.withdrawIfSuccessful": {
+              "calls": 4071,
+              "reverts": 0,
+              "discards": 0
+            },
+            "test/RyodanKeys.invariant.t.sol:SaleHandler.refundPaid": {
+              "calls": 4149,
+              "reverts": 0,
+              "discards": 0
+            }
+          },
+          "failed_corpus_replays": 0,
+          "optimization_best_value": null
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_DeadlineBoundary(uint256,uint256)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 2684881,
+            "stipend": 21656
+          },
+          "runs": 1000,
+          "mean_gas": 2734390,
+          "median_gas": 2797568,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_InvalidRefundIdsPreserveSolvency(uint256)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 230119,
+            "stipend": 21480
+          },
+          "runs": 1000,
+          "mean_gas": 208643,
+          "median_gas": 208639,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_MintAccountingAndWalletLimit(uint256)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 1574430,
+            "stipend": 21480
+          },
+          "runs": 1000,
+          "mean_gas": 1171503,
+          "median_gas": 1122722,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_OnlyExactPaymentAccepted(uint256,uint256)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 86627,
+            "stipend": 21656
+          },
+          "runs": 1000,
+          "mean_gas": 64447,
+          "median_gas": 64286,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_RefundCannotBeStolen(address)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 229168,
+            "stipend": 21432
+          },
+          "runs": 1000,
+          "mean_gas": 207736,
+          "median_gas": 207736,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_RefundOrderCannotExceedAmountPaid(uint256)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 761236,
+            "stipend": 21480
+          },
+          "runs": 1000,
+          "mean_gas": 739736,
+          "median_gas": 739788,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "testFuzz_UnauthorizedSaleAdministration(address,bool,uint256)",
+      "status": "Success",
+      "kind": {
+        "Fuzz": {
+          "first_case": {
+            "gas": 38432,
+            "stipend": 21952
+          },
+          "runs": 1000,
+          "mean_gas": 16331,
+          "median_gas": 16480,
+          "failed_corpus_replays": 0
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ConstructorAssignsOnlyExplicitRoles()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 30522
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ConstructorRejectsEmptyMetadata()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 135757
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ConstructorRejectsPastOrCurrentDeadline()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 259530
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ConstructorRejectsZeroRoles()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 261664
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ForcedEtherCannotChangeOutcomeOrRefundAmount()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 229830
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_FreeTreasuryTokenCannotClaimRefund()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 286718
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_HiddenMetadataAndNonexistentId()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 258401
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_InterfaceSupport()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 12488
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintAtDeadlineAndRejectAfterDeadline()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 218652
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintCallbackCannotReenterAndSeesReservedState()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 1052064
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintCannotOverflowAmount()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 48557
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintInactiveReverts()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 15934
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintRejectsUnderpaymentAndOverpayment()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 77760
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintTracksSequentialIdsAndLifetimeLimits()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 435183
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_MintZeroReverts()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 43527
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_OnlyAdminCanManageSaleAndMetadata()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 37884
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_OnlyTreasuryCanMintOrWithdraw()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 19212
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_PaidSelloutWithoutTreasuryIsNotSuccessful()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 282338733
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_PausingOrChangingLimitsAfterExpiryCannotBlockRefunds()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 252344
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_PhasesAreMutuallyExclusiveAndPausable()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 46696
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_PublicSupplyCapCannotBeExceeded()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 282268510
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RefundAfterApprovalClearsApprovalAndOwnership()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 254592
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RefundBurnsTokenAndPaysOnlyOnce()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 317580
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RefundCallbackCannotReenterAnotherPaidToken()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 1074285
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RefundRejectsNonexistentIdsWithoutDestroyingReserves()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 338823
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RefundToRecipientAndZeroRecipientRejection()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 237867
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RejectingEtherReceiverCanRetryRefundToAnotherAddress()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 1078950
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RejectingNFTReceiverRollsBackTreasuryCounters()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 853729
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RejectingTreasuryCannotLoseProceeds()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 295904777
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RevealIsOneShotAndEmitsMetadataUpdate()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 295141709
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RevealRejectsEmptyOrMalformedBaseURI()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 295099924
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RevealRequiresSellout()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 15660
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_RevokedTreasuryLosesAccess()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 23314
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_SafeMintRejectsNonReceiverWithoutTakingPayment()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 287145
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_SoldOutWithdrawsExactlyOnceAndEnablesTransfers()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 295182615
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ThirdPartyCannotTriggerOrRedirectRefund()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 213855
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_TransfersAndApprovedTransfersLockedUntilSoldOut()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 233457
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_TreasuryCallbackCannotReenter()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 1016960
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_TreasuryCapAndDeadline()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 12893383
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_TreasuryDoesNotConsumeWalletAllowance()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 248882
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_TreasuryRejectsZeroAmountAndRecipient()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 83669
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_WalletLimitIsSharedAcrossPhases()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 310347
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_WhitelistCapIsPartOfPublicSupply()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 48081446
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_WhitelistIncludesAndRemovesWallets()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 261903
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_WithdrawCallbackCannotReenter()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 295915127
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_WithdrawCannotTakeRefundReserves()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 205875
+        }
+      }
+    },
+    {
+      "suite": "test/RyodanKeys.t.sol:RyodanKeysTest",
+      "test": "test_ZeroWalletLimitsRejected()",
+      "status": "Success",
+      "kind": {
+        "Unit": {
+          "gas": 14950
+        }
+      }
+    }
+  ]
+}

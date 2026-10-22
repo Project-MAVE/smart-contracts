@@ -1,0 +1,24 @@
+{
+  "name": "ryodan-control",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test test/*.test.js",
+    "test:browser": "node scripts/browser-test.mjs",
+    "deploy:sepolia": "node scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "ethers": "6.17.0"
+  },
+  "devDependencies": {
+    "playwright": "1.64.0",
+    "vite": "8.3.4"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

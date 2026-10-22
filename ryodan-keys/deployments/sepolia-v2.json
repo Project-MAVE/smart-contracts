@@ -1,0 +1,58 @@
+{
+  "chainId": 11155111,
+  "deployer": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+  "version": 2,
+  "purpose": "management",
+  "transactions": {
+    "Extend deadline by one day": {
+      "hash": "0xa02531cc51da45317d89529771c4a0a46e52213afdcc329939cccaf78bc62861",
+      "blockNumber": 11950340,
+      "status": 1,
+      "gasUsed": "38871"
+    },
+    "Restore original deadline": {
+      "hash": "0xd444268179504d88fa15e46cdb574b7477e9af8fd6df9ed25d06f8a68650899b",
+      "blockNumber": 11950342,
+      "status": 1,
+      "gasUsed": "38861"
+    },
+    "Enable public mint": {
+      "hash": "0x24381e04a9c24d25f95e6febb182ca062a1afc457fff889128a63fa61a84a6e6",
+      "blockNumber": 11950344,
+      "status": 1,
+      "gasUsed": "142384"
+    },
+    "Mint paid test key": {
+      "hash": "0xea222031d93dc131cba59e5de7d23824011fdaf57e70249140840cfe641c4377",
+      "blockNumber": 11950346,
+      "status": 1,
+      "gasUsed": "697979"
+    },
+    "Mint treasury test key": {
+      "hash": "0x19c618c2f6800dc007e1707d521d36ab3d14468f0a620ebb9e28897532af76a7",
+      "blockNumber": 11950348,
+      "status": 1,
+      "gasUsed": "273726"
+    }
+  },
+  "checks": [
+    "Exact runtime bytecode matches current compiler artifact",
+    "Contract version 2",
+    "Test wallet is admin",
+    "Test wallet is treasury",
+    "Paid and treasury mint counters",
+    "Receipt: Extend deadline by one day",
+    "Receipt: Restore original deadline",
+    "Receipt: Enable public mint",
+    "Receipt: Mint paid test key",
+    "Receipt: Mint treasury test key"
+  ],
+  "address": "0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B",
+  "deploymentTransaction": "0xc93cc7a6b4c675e545980b88b23f0df7fffb2f8026c77d07134c43a8118676f2",
+  "initialDeadline": 1795031232,
+  "hiddenMetadataURI": "data:application/json;base64,eyJuYW1lIjoiUnlvZGFuIEtleSAvIHNlYWxlZCIsImRlc2NyaXB0aW9uIjoiU2Vwb2xpYSB2MiB0ZXN0IGNvbGxlY3Rpb24uIEZpbmFsIG1ldGFkYXRhIGlzIG5vdCByZXZlYWxlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU3RhdGUiLCJ2YWx1ZSI6IlVucmV2ZWFsZWQifV19",
+  "deploymentBlock": 11950338,
+  "runtimeCodeHash": "0xa0737afdcf0713445ab782007692280e510129a37b51d1db8402f1f19dfe4bfb",
+  "currentDeadline": 1795031232,
+  "lastVerifiedBlock": 11950357
+}

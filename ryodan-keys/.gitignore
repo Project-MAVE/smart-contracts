@@ -7,8 +7,11 @@ out/
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
-# Docs
-docs/
-
 # Dotenv file
 .env
+
+# Foundry broadcast files can contain sensitive execution details
+broadcast/
+
+# Python generated files
+__pycache__/

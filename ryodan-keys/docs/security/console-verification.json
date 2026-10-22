@@ -1,0 +1,71 @@
+{
+  "frontendUnitTests": 9,
+  "browser": {
+    "checks": [
+      "Disconnected read-only state reflects actual local contract",
+      "Wallet connection and on-chain operator role detection",
+      "UI exact-value mint, review, real receipt and minted token IDs",
+      "UI deadline update sends exact UTC timestamp",
+      "UI exclusive phase transition and whitelist management",
+      "UI treasury mint and withdrawal blocked before sellout",
+      "UI token metadata inspection and premature reveal guard",
+      "UI grant and revoke administrator role",
+      "UI prevents accidental administrator self-revocation",
+      "Account switching clears old privileges",
+      "Wrong network blocks writes and network switch recovers",
+      "Wallet rejection sends no transaction and resets controls",
+      "Pending transaction survives reload, prevents duplicate sends and reconciles",
+      "Expired-sale UI locks deadline, refunds once and rejects duplicate claim",
+      "Full 6,400-key sale: UI permanent reveal and 59 ETH withdrawal",
+      "All six views fit a 390px mobile viewport",
+      "No uncaught browser errors"
+    ],
+    "contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "chainId": 31337
+  },
+  "publicSite": {
+    "url": "https://ryodan.grooooog.space",
+    "checkedAt": "2026-10-19T20:11:53.119Z",
+    "address": "0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B",
+    "metrics": "MINTED / LIFETIME\n2\nOF 6,400 KEYS\nCONTRACT BALANCE\n0.01 ETH\nSALE / REFUND RESERVES\nSALE STATUS\nPUBLIC\nMAX 3 PAID / WALLET\nMETADATA\nSEALED\nAWAITING REVEAL",
+    "checks": [
+      "HTTP 200",
+      "Live Sepolia state",
+      "v2 selected by default",
+      "Etherscan address links",
+      "Earlier test deployment selectable",
+      "Read-only without wallet",
+      "Six mobile views without overflow",
+      "No uncaught browser errors"
+    ]
+  },
+  "solidityTests": 78,
+  "ciFuzzRuns": 1000,
+  "ciInvariantRuns": 256,
+  "ciInvariantDepth": 128,
+  "slither": {
+    "version": "0.11.6",
+    "highUnsuppressed": 0,
+    "medium": 0,
+    "low": 7,
+    "informational": 3
+  },
+  "npmAudit": {
+    "advisories": 0
+  },
+  "npmSignatures": {
+    "invalid": [],
+    "missing": []
+  },
+  "visualReview": {
+    "checkedAt": "2026-10-19T20:11:53.119Z",
+    "viewports": [
+      "1440px desktop",
+      "390px mobile"
+    ],
+    "officialBrandColor": "#e6332a",
+    "logoSource": "https://ryodan.io/assets/Ryodan_logo_white.svg",
+    "faviconSource": "https://ryodan.io/assets/icons/favicon.svg?v=2",
+    "screenshotsInspected": true
+  }
+}

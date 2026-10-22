@@ -1,0 +1,78 @@
+{
+  "tool": "Slither 0.11.6",
+  "detectorsRun": 102,
+  "contractsAnalyzed": 23,
+  "success": true,
+  "findings": [
+    {
+      "check": "arbitrary-send-eth",
+      "impact": "High",
+      "confidence": "Medium",
+      "description": "RyodanKeys.withdraw() (src/RyodanKeys.sol#147-154) sends eth to arbitrary user\n\tDangerous calls:\n\t- (sent,None) = address(msg.sender).call{value: amount}() (src/RyodanKeys.sol#151)\n",
+      "markdown": "[RyodanKeys.withdraw()](src/RyodanKeys.sol#L147-L154) sends eth to arbitrary user\n\tDangerous calls:\n\t- [(sent,None) = address(msg.sender).call{value: amount}()](src/RyodanKeys.sol#L151)\n"
+    },
+    {
+      "check": "events-maths",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "RyodanKeys.mint(uint256) (src/RyodanKeys.sol#65-87) should emit an event for: \n\t- mintedByUsers += amount (src/RyodanKeys.sol#79) \n\t- totalSupply += amount (src/RyodanKeys.sol#81) \n",
+      "markdown": "[RyodanKeys.mint(uint256)](src/RyodanKeys.sol#L65-L87) should emit an event for: \n\t- [mintedByUsers += amount](src/RyodanKeys.sol#L79) \n\t- [totalSupply += amount](src/RyodanKeys.sol#L81) \n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "RyodanKeys.mint(uint256) (src/RyodanKeys.sol#65-87) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(block.timestamp <= mintEndTime,Mint ended) (src/RyodanKeys.sol#66)\n",
+      "markdown": "[RyodanKeys.mint(uint256)](src/RyodanKeys.sol#L65-L87) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(block.timestamp <= mintEndTime,Mint ended)](src/RyodanKeys.sol#L66)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "RyodanKeys.refundsAvailable() (src/RyodanKeys.sol#61-63) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp > mintEndTime && ! soldOut() (src/RyodanKeys.sol#62)\n",
+      "markdown": "[RyodanKeys.refundsAvailable()](src/RyodanKeys.sol#L61-L63) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [block.timestamp > mintEndTime && ! soldOut()](src/RyodanKeys.sol#L62)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "RyodanKeys._refund(uint256,address) (src/RyodanKeys.sol#164-179) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(block.timestamp > mintEndTime,Mint not ended) (src/RyodanKeys.sol#165)\n",
+      "markdown": "[RyodanKeys._refund(uint256,address)](src/RyodanKeys.sol#L164-L179) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(block.timestamp > mintEndTime,Mint not ended)](src/RyodanKeys.sol#L165)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "RyodanKeys.treasuryMint(uint256,address) (src/RyodanKeys.sol#89-99) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(block.timestamp <= mintEndTime,Mint ended) (src/RyodanKeys.sol#90)\n",
+      "markdown": "[RyodanKeys.treasuryMint(uint256,address)](src/RyodanKeys.sol#L89-L99) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(block.timestamp <= mintEndTime,Mint ended)](src/RyodanKeys.sol#L90)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "RyodanKeys.constructor(uint256,string,address,address) (src/RyodanKeys.sol#43-51) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- require(bool,string)(endTime > block.timestamp,Deadline must be in the future) (src/RyodanKeys.sol#44)\n",
+      "markdown": "[RyodanKeys.constructor(uint256,string,address,address)](src/RyodanKeys.sol#L43-L51) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- [require(bool,string)(endTime > block.timestamp,Deadline must be in the future)](src/RyodanKeys.sol#L44)\n"
+    },
+    {
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Low level call in RyodanKeys.withdraw() (src/RyodanKeys.sol#147-154):\n\t- (sent,None) = address(msg.sender).call{value: amount}() (src/RyodanKeys.sol#151)\n",
+      "markdown": "Low level call in [RyodanKeys.withdraw()](src/RyodanKeys.sol#L147-L154):\n\t- [(sent,None) = address(msg.sender).call{value: amount}()](src/RyodanKeys.sol#L151)\n"
+    },
+    {
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Low level call in RyodanKeys._refund(uint256,address) (src/RyodanKeys.sol#164-179):\n\t- (sent,None) = recipient.call{value: mintPrice}() (src/RyodanKeys.sol#176)\n",
+      "markdown": "Low level call in [RyodanKeys._refund(uint256,address)](src/RyodanKeys.sol#L164-L179):\n\t- [(sent,None) = recipient.call{value: mintPrice}()](src/RyodanKeys.sol#L176)\n"
+    },
+    {
+      "check": "naming-convention",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Variable RyodanKeys.MAX_MINT_AMOUNT (src/RyodanKeys.sol#20) is not in mixedCase\n",
+      "markdown": "Variable [RyodanKeys.MAX_MINT_AMOUNT](src/RyodanKeys.sol#L20) is not in mixedCase\n"
+    }
+  ]
+}
