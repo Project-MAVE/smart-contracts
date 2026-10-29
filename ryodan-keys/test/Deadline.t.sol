@@ -96,7 +96,7 @@ contract DeadlineTest is RyodanKeysFixture {
         assertTrue(keys.refundsAvailable());
         uint256 price = keys.mintPrice();
         vm.expectRevert("Mint ended");
-        keys.mint{value: price}(1);
+        keys.mint{value: price}(1, 4, 0.01 ether);
         vm.expectRevert("Mint ended");
         keys.setMintEndTime(nextEnd + 2);
         vm.prank(bob);

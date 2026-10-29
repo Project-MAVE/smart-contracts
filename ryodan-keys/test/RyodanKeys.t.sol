@@ -32,7 +32,7 @@ contract CallbackWallet is IERC721Receiver {
     }
 
     function buy(uint256 amount) external payable {
-        keys.mint{value: msg.value}(amount);
+        keys.mint{value: msg.value}(amount, keys.currentPhase(), keys.mintPrice());
     }
 
     function claim(uint256 id) external {
@@ -74,7 +74,7 @@ contract CallbackWallet is IERC721Receiver {
 
 contract NonReceiverWallet {
     function buy(RyodanKeys keys) external payable {
-        keys.mint{value: msg.value}(1);
+        keys.mint{value: msg.value}(1, 4, 0.01 ether);
     }
 }
 
@@ -95,20 +95,24 @@ abstract contract RyodanKeysFixture is Test {
     }
 
     function _open(uint256 limit) internal {
-        keys.setPublicMintActive(true, limit);
+        keys.configurePhase(4, 0.01 ether, limit);
+        while (keys.currentPhase() < 4) keys.advancePhase();
+        keys.setMintPaused(false);
     }
 
     function _buy(address buyer, uint256 amount) internal {
         uint256 value = amount * keys.mintPrice();
         vm.deal(buyer, buyer.balance + value);
+        uint8 phaseId = keys.currentPhase();
+        uint256 price = keys.mintPrice();
         vm.prank(buyer);
-        keys.mint{value: value}(amount);
+        keys.mint{value: value}(amount, phaseId, price);
     }
 
     function _whitelist(address account) internal {
         address[] memory accounts = new address[](1);
         accounts[0] = account;
-        keys.addToWhitelist(accounts);
+        keys.setPhaseAllowlist(1, accounts, true);
     }
 
     function _sellOut() internal {
@@ -126,8 +130,8 @@ contract RyodanKeysTest is RyodanKeysFixture {
         assertTrue(keys.hasRole(keys.TREASURY_ROLE(), treasury));
         assertFalse(keys.hasRole(keys.DEFAULT_ADMIN_ROLE(), treasury));
         assertEq(keys.mintEndTime(), end);
-        assertFalse(keys.isPublicMintActive());
-        assertFalse(keys.isWhitelistMintActive());
+        assertEq(keys.currentPhase(), 0);
+        assertTrue(keys.mintPaused());
     }
 
     function test_ConstructorRejectsPastOrCurrentDeadline() public {
@@ -160,13 +164,13 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function test_MintInactiveReverts() public {
         vm.expectRevert("Mint not active");
-        keys.mint(1);
+        keys.mint(1, 4, 0.01 ether);
     }
 
     function test_MintZeroReverts() public {
         _open(1);
         vm.expectRevert("Zero mint amount");
-        keys.mint(0);
+        keys.mint(0, 4, 0.01 ether);
     }
 
     function test_MintRejectsUnderpaymentAndOverpayment() public {
@@ -174,9 +178,9 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.deal(bob, 1 ether);
         vm.startPrank(bob);
         vm.expectRevert("Incorrect payment");
-        keys.mint{value: 0.009 ether}(1);
+        keys.mint{value: 0.009 ether}(1, 4, 0.01 ether);
         vm.expectRevert("Incorrect payment");
-        keys.mint{value: 0.011 ether}(1);
+        keys.mint{value: 0.011 ether}(1, 4, 0.01 ether);
         vm.stopPrank();
         assertEq(keys.totalSupply(), 0);
         assertEq(address(keys).balance, 0);
@@ -200,7 +204,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.deal(bob, 0.01 ether);
         vm.prank(bob);
         vm.expectRevert("Max mint amount reached for address");
-        keys.mint{value: 0.01 ether}(1);
+        keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
     }
 
     function test_MintAtDeadlineAndRejectAfterDeadline() public {
@@ -215,79 +219,32 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.deal(bob, 0.01 ether);
         vm.prank(bob);
         vm.expectRevert("Mint ended");
-        keys.mint{value: 0.01 ether}(1);
+        keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
         assertTrue(keys.refundsAvailable());
     }
 
     function test_MintCannotOverflowAmount() public {
-        _open(type(uint256).max);
+        _open(5900);
         vm.expectRevert("Max supply reached");
-        keys.mint(type(uint256).max);
+        keys.mint(type(uint256).max, 4, 0.01 ether);
     }
 
-    function test_PhasesAreMutuallyExclusiveAndPausable() public {
+    function test_PhaseIsPausableWithoutResettingAllowance() public {
         _open(3);
-        keys.setWhitelistMintActive(true, 2);
-        assertFalse(keys.isPublicMintActive());
-        assertTrue(keys.isWhitelistMintActive());
-        _open(4);
-        assertTrue(keys.isPublicMintActive());
-        assertFalse(keys.isWhitelistMintActive());
-        keys.setPublicMintActive(false, 4);
-        assertFalse(keys.isPublicMintActive());
-        assertFalse(keys.isWhitelistMintActive());
-        vm.expectRevert("Mint not active");
-        keys.mint(1);
-    }
-
-    function test_ZeroWalletLimitsRejected() public {
-        vm.expectRevert("Zero wallet limit");
-        keys.setPublicMintActive(true, 0);
-        vm.expectRevert("Zero wallet limit");
-        keys.setWhitelistMintActive(true, 0);
-    }
-
-    function test_WhitelistIncludesAndRemovesWallets() public {
-        keys.setWhitelistMintActive(true, 3);
-        vm.deal(bob, 1 ether);
-        vm.prank(bob);
-        vm.expectRevert("Not whitelisted");
-        keys.mint{value: 0.01 ether}(1);
-        _whitelist(bob);
-        _buy(bob, 1);
-        assertEq(keys.mintedByWhitelist(), 1);
-        address[] memory accounts = new address[](1);
-        accounts[0] = bob;
-        keys.removeFromWhitelist(accounts);
-        vm.prank(bob);
-        vm.expectRevert("Not whitelisted");
-        keys.mint{value: 0.01 ether}(1);
-    }
-
-    function test_WalletLimitIsSharedAcrossPhases() public {
-        keys.setWhitelistMintActive(true, 2);
-        _whitelist(bob);
         _buy(bob, 2);
-        _open(2);
-        vm.deal(bob, 1 ether);
-        vm.prank(bob);
-        vm.expectRevert("Max mint amount reached for address");
-        keys.mint{value: 0.01 ether}(1);
-        assertEq(keys.mintedByWhitelist(), 2);
+        keys.setMintPaused(true);
+        vm.expectRevert("Mint not active");
+        keys.mint(1, 4, 0.01 ether);
+        keys.setMintPaused(false);
+        _buy(bob, 1);
+        assertEq(keys.remainingAllowance(4, bob), 0);
     }
 
-    function test_WhitelistCapIsPartOfPublicSupply() public {
-        keys.setWhitelistMintActive(true, 1001);
-        _whitelist(bob);
-        _buy(bob, 1000);
-        vm.deal(bob, 1 ether);
-        vm.prank(bob);
-        vm.expectRevert("Max whitelist mint amount reached");
-        keys.mint{value: 0.01 ether}(1);
-        _open(1001);
-        _buy(bob, 1);
-        assertEq(keys.mintedByUsers(), 1001);
-        assertEq(keys.mintedByWhitelist(), 1000);
+    function test_InvalidWalletLimitsRejected() public {
+        vm.expectRevert("Invalid wallet limit");
+        keys.configurePhase(4, 0.01 ether, 0);
+        vm.expectRevert("Invalid wallet limit");
+        keys.configurePhase(4, 0.01 ether, 5901);
     }
 
     function test_TreasuryCapAndDeadline() public {
@@ -328,14 +285,14 @@ contract RyodanKeysTest is RyodanKeysFixture {
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, bob, bytes32(0));
         vm.startPrank(bob);
         vm.expectRevert(denied);
-        keys.setPublicMintActive(true, 3);
+        keys.advancePhase();
         vm.expectRevert(denied);
-        keys.setWhitelistMintActive(true, 3);
+        keys.configurePhase(1, 0.005 ether, 3);
         address[] memory accounts = new address[](0);
         vm.expectRevert(denied);
-        keys.addToWhitelist(accounts);
+        keys.setPhaseAllowlist(1, accounts, true);
         vm.expectRevert(denied);
-        keys.removeFromWhitelist(accounts);
+        keys.setPhaseAllowlist(1, accounts, false);
         vm.expectRevert(denied);
         keys.reveal("ipfs://test/");
         vm.expectRevert(denied);
@@ -420,12 +377,12 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_PublicSupplyCapCannotBeExceeded() public {
-        _open(6000);
+        _open(5900);
         _buy(bob, 5900);
         vm.deal(alice, 1 ether);
         vm.prank(alice);
         vm.expectRevert("Max supply reached");
-        keys.mint{value: 0.01 ether}(1);
+        keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
     }
 
     function test_HiddenMetadataAndNonexistentId() public {
@@ -586,7 +543,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_MintCallbackCannotReenterAndSeesReservedState() public {
         _open(1);
         CallbackWallet wallet = new CallbackWallet(keys);
-        wallet.configure(abi.encodeCall(keys.mint, (0)), false, false);
+        wallet.configure(abi.encodeCall(keys.mint, (0, 4, 0.01 ether)), false, false);
         vm.deal(address(this), 1 ether);
         wallet.buy{value: 0.01 ether}(1);
         assertTrue(wallet.attempted());
@@ -676,7 +633,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.deal(bob, 1 ether);
         vm.prank(bob);
         vm.expectRevert("Max mint amount reached for address");
-        keys.mint{value: 0.01 ether}(1);
+        keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
     }
 
     function testFuzz_InvalidRefundIdsPreserveSolvency(uint256 id) public {
@@ -710,12 +667,12 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function testFuzz_OnlyExactPaymentAccepted(uint256 paymentSeed, uint256 amountSeed) public {
         uint256 amount = bound(amountSeed, 1, 20);
         uint256 payment = bound(paymentSeed, 0, 0.5 ether);
-        vm.assume(payment != amount * keys.mintPrice());
         _open(20);
+        vm.assume(payment != amount * keys.mintPrice());
         vm.deal(bob, payment);
         vm.prank(bob);
         vm.expectRevert("Incorrect payment");
-        keys.mint{value: payment}(amount);
+        keys.mint{value: payment}(amount, 4, 0.01 ether);
         assertEq(address(keys).balance, 0);
         assertEq(keys.mintedByUsers(), 0);
     }
@@ -742,10 +699,10 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.prank(bob);
         if (timestamp > deadline) {
             vm.expectRevert("Mint ended");
-            keys.mint{value: 0.01 ether}(1);
+            keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
             assertTrue(keys.refundsAvailable());
         } else {
-            keys.mint{value: 0.01 ether}(1);
+            keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
             assertFalse(keys.refundsAvailable());
         }
     }
@@ -757,8 +714,8 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, bytes32(0))
         );
-        keys.setPublicMintActive(active, limit);
-        assertFalse(keys.isPublicMintActive());
+        keys.configurePhase(active ? 1 : 2, 0.005 ether, limit);
+        assertEq(keys.currentPhase(), 0);
     }
 
     function test_RefundAfterApprovalClearsApprovalAndOwnership() public {
@@ -794,8 +751,10 @@ contract RyodanKeysTest is RyodanKeysFixture {
         _open(1);
         _buy(bob, 1);
         vm.warp(end + 1);
-        keys.setPublicMintActive(false, 100);
-        keys.setWhitelistMintActive(true, 100);
+        vm.expectRevert("Mint ended");
+        keys.setMintPaused(true);
+        vm.expectRevert("Mint ended");
+        keys.configurePhase(4, 0.01 ether, 100);
         assertTrue(keys.refundsAvailable());
         vm.prank(bob);
         keys.refund(0);

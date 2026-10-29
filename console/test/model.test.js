@@ -56,3 +56,24 @@ test('reveal and treasury withdrawal require soldout and appropriate roles', () 
   assert.notEqual(gate('withdraw', { ...sale, soldOut: true, treasuryRole: false }, context), '');
   assert.notEqual(gate('withdraw', { ...sale, soldOut: true, balance: 0n }, context), '');
 });
+
+const modern = { ...sale, version: 3n, currentPhase: 1n, paused: false, reserved: 16n, phaseAllowance: 4n, phaseWalletMinted: 0n, walletMinted: 10n, publicActive: false, whitelistActive: true, whitelisted: true };
+test('v3 allowances are per phase, independent of lifetime purchases', () => {
+  assert.equal(remaining(modern), 4n);
+  assert.equal(remaining({ ...modern, phaseAllowance: 0n }), 0n);
+  assert.equal(remaining({ ...modern, currentPhase: 3n, paid: 5890n, reserved: 8n }), 2n);
+  assert.equal(phase(modern), 'PIONEER');
+  assert.equal(phase({ ...modern, currentPhase: 2n }), 'OPERATIVE');
+  assert.equal(phase({ ...modern, currentPhase: 3n }), 'RECRUIT');
+  assert.equal(phase({ ...modern, currentPhase: 4n }), 'CIVILIAN');
+  assert.equal(phase({ ...modern, paused: true }), 'PAUSED');
+  assert.equal(phase({ ...modern, currentPhase: 0n }), 'NOT STARTED');
+});
+test('v3 phase controls require admin, open sale and a sequential transition', () => {
+  for (const kind of ['phaseAdmin', 'advance', 'pause']) {
+    assert.equal(gate(kind, modern, context), '');
+    for (const patch of [{ version: 2n }, { admin: false }, { timestamp: 201n }, { soldOut: true }]) assert.notEqual(gate(kind, { ...modern, ...patch }, context), '');
+  }
+  assert.notEqual(gate('advance', { ...modern, currentPhase: 4n }, context), '');
+  assert.notEqual(gate('pause', { ...modern, currentPhase: 0n }, context), '');
+});

@@ -37,7 +37,13 @@ export function metadataBase(value) {
   return uri;
 }
 
+export const phaseNames = ['Not started', 'Pioneer', 'Operative', 'Recruit', 'Civilian'];
+
 export function remaining(s) {
+  if (s.version >= 3n) {
+    const supply = s.maxPaid - s.paid - (s.currentPhase > 2n ? s.reserved : 0n);
+    return s.phaseAllowance < supply ? s.phaseAllowance : supply;
+  }
   const wallet = s.limit > s.walletMinted ? s.limit - s.walletMinted : 0n;
   return [s.maxPaid - s.paid, wallet, s.whitelistActive ? s.maxWhitelist - s.whitelistMinted : s.maxPaid]
     .reduce((a, b) => a < b ? a : b);
@@ -47,6 +53,7 @@ export function phase(s) {
   if (s.soldOut) return 'SOLD OUT';
   if (s.timestamp > s.deadline) return 'EXPIRED';
   if (s.paid === s.maxPaid) return 'PAID CAP';
+  if (s.version >= 3n) return s.currentPhase === 0n ? 'NOT STARTED' : s.paused ? 'PAUSED' : phaseNames[Number(s.currentPhase)].toUpperCase();
   if (s.publicActive) return 'PUBLIC';
   if (s.whitelistActive) return 'WHITELIST';
   return 'PAUSED';
@@ -58,14 +65,21 @@ export function gate(kind, s, context) {
   if (!s || context.stale) return 'Refresh contract state before submitting.';
   if (!context.account) return 'Connect a wallet to continue.';
   if (!context.correctChain) return 'Switch your wallet to the displayed network.';
-  if (['admin', 'deadline', 'reveal'].includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
+  if (['admin', 'phaseAdmin', 'allowlist', 'advance', 'pause', 'deadline', 'reveal'].includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
   if (['treasuryMint', 'withdraw'].includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
+  if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {
+    if (s.version < 3n) return 'Four-phase controls require a v3 deployment.';
+    if (s.timestamp > s.deadline || s.soldOut) return 'Sale configuration is closed after expiry or sellout.';
+    if (kind === 'allowlist' && s.currentPhase === 4n) return 'All allowlist phases are closed. Civilian is public.';
+    if (kind === 'advance' && s.currentPhase === 4n) return 'Civilian is the final phase.';
+    if (kind === 'pause' && s.currentPhase === 0n) return 'Start Pioneer before resuming minting.';
+  }
   if (kind === 'deadline' && s.version < 2n) return 'This earlier deployment has an immutable deadline. Select the v2 contract.';
   if (['mint', 'treasuryMint', 'deadline'].includes(kind) && s.timestamp > s.deadline) return 'The sale has expired. Minting and deadline changes are closed.';
   if (kind === 'deadline' && s.soldOut) return 'The deadline is locked after sellout.';
   if (kind === 'mint') {
     if (!s.publicActive && !s.whitelistActive) return 'Minting is paused.';
-    if (s.whitelistActive && !s.whitelisted) return 'This wallet is not on the whitelist.';
+    if (s.whitelistActive && !s.whitelisted) return 'This wallet is not on the active phase allowlist.';
     if (remaining(s) <= 0n) return 'The remaining supply or your wallet allowance is exhausted.';
   }
   if (kind === 'treasuryMint' && s.treasuryMinted === s.maxTreasury) return 'All treasury keys have been minted.';

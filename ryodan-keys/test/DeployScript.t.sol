@@ -40,7 +40,7 @@ contract DeployScriptTest is Test {
         vm.chainId(31337);
         RyodanKeys keys = script.run();
         assertGt(address(keys).code.length, 0);
-        assertFalse(keys.isPublicMintActive());
+        assertEq(keys.currentPhase(), 0);
     }
 
     function test_DeploymentScriptRejectsMainnet() public {

@@ -1,0 +1,198 @@
+{
+  "chainId": 11155111,
+  "deployer": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+  "version": 3,
+  "purpose": "refund",
+  "transactions": {
+    "Extend deadline by one day": {
+      "hash": "0x6293dea35a013b41bd21756434c8c8805e9f04ffff79c43a266917eb0a026443",
+      "blockNumber": 12019995,
+      "status": 1,
+      "gasUsed": "38793"
+    },
+    "Restore original deadline": {
+      "hash": "0x0e8c17c9f3181f7457b044c1253a39f9a0a9caa19de789e1c63762ea0c4d5929",
+      "blockNumber": 12019997,
+      "status": 1,
+      "gasUsed": "38793"
+    },
+    "Allowlist test wallet for Pioneer": {
+      "hash": "0xeb36ae7a59db31bbc2126e3c27cc92130373317094dc1970f19c063686177cbc",
+      "blockNumber": 12020000,
+      "status": 1,
+      "gasUsed": "478783"
+    },
+    "Start Pioneer": {
+      "hash": "0x98a134e9210b3577164154665787db14ee300bc4e7c5888e1e291898db3efbc2",
+      "blockNumber": 12020002,
+      "status": 1,
+      "gasUsed": "44190"
+    },
+    "Resume Pioneer": {
+      "hash": "0xfa8c90c7097e94710a7eb1ce57f65156af74e09c2db1dcf6b09f576862d216e8",
+      "blockNumber": 12020004,
+      "status": 1,
+      "gasUsed": "36749"
+    },
+    "Mint Pioneer test key": {
+      "hash": "0xb0b9b57765a871cd38e7cdbb580d822358149c7adb93be6b97da83716c3ba714",
+      "blockNumber": 12020007,
+      "status": 1,
+      "gasUsed": "1170857"
+    },
+    "Mint treasury test key": {
+      "hash": "0x80ef9ea4815dd0a857c77efc80b5e3825d8c2175f7bf673fcd0b5949f65719ed",
+      "blockNumber": 12020009,
+      "status": 1,
+      "gasUsed": "273673"
+    },
+    "Advance to Operative": {
+      "hash": "0xf6b7ffff29a4a1c93c0c1d4883ec63917a68873bcd1ad681c50e44d60ed62f56",
+      "blockNumber": 12020011,
+      "status": 1,
+      "gasUsed": "61668"
+    },
+    "Allowlist test wallet for Operative": {
+      "hash": "0x7bdcadfbf7417e44d98da964ee25e9beca759d207a8ef5f55e7c75d2a4aa84a6",
+      "blockNumber": 12020013,
+      "status": 1,
+      "gasUsed": "478783"
+    },
+    "Resume Operative": {
+      "hash": "0x05391c99f1338faa0a4ba2f30d504c21bcf6d2ec48f478cf51681845ebd72a1b",
+      "blockNumber": 12020015,
+      "status": 1,
+      "gasUsed": "36749"
+    },
+    "Mint Operative test key": {
+      "hash": "0x6ee882525d8e45a92ffe327df65ef243653ee63aad1ec11ac422e0fc9c4955e0",
+      "blockNumber": 12020017,
+      "status": 1,
+      "gasUsed": "779165"
+    },
+    "Advance to Recruit": {
+      "hash": "0x3bea5964a557e20eb7a4e24624b9938a350d346cc19505549a5f372c595953a0",
+      "blockNumber": 12020019,
+      "status": 1,
+      "gasUsed": "61668"
+    },
+    "Allowlist test wallet for Recruit": {
+      "hash": "0x7a9161bad9d099f04e2458409fff631a78a6d3fabba4d0ddbe91252276f7ef73",
+      "blockNumber": 12020021,
+      "status": 1,
+      "gasUsed": "255568"
+    },
+    "Resume Recruit": {
+      "hash": "0x1d4f8a0b23370dce3a773231dd67a10c9910e27ce40e34f49465a74804aa85b9",
+      "blockNumber": 12020023,
+      "status": 1,
+      "gasUsed": "36749"
+    },
+    "Mint Recruit test key": {
+      "hash": "0xb4a0932322d109715e181c06d2d4c710924c13199560a449789e80a6fbf3c040",
+      "blockNumber": 12020025,
+      "status": 1,
+      "gasUsed": "756933"
+    },
+    "Advance to Civilian": {
+      "hash": "0x8add9103f3a33cc8b4e00e66d7267c77f5d75d52868e902384b819372788ef1c",
+      "blockNumber": 12020027,
+      "status": 1,
+      "gasUsed": "44190"
+    },
+    "Resume Civilian": {
+      "hash": "0xd93f98acba03d67590f42a2baa88e97069f111182b65b424bfefb7d1e23ca6a5",
+      "blockNumber": 12020030,
+      "status": 1,
+      "gasUsed": "36749"
+    },
+    "Mint Civilian test key": {
+      "hash": "0x43c841252cec7b4a3690bf5792e141fc94bfb50051e330e093e6020d7bde0303",
+      "blockNumber": 12020032,
+      "status": 1,
+      "gasUsed": "754665"
+    },
+    "Shorten deadline for refund QA": {
+      "hash": "0xd8cbe32c8ab6c2039e88d8cac0cd3a7941a492310aaa95d6efbc720f57ce3212",
+      "blockNumber": 12020034,
+      "status": 1,
+      "gasUsed": "38793"
+    },
+    "Refund paid token 0": {
+      "hash": "0xa6fa48fdacdcd22b744344717af96e6976ccd10208198441933fa56ea9dddd64",
+      "blockNumber": 12020048,
+      "status": 1,
+      "gasUsed": "291341"
+    },
+    "Refund paid token 2": {
+      "hash": "0x0a358216ea6b43e1315d3308763b4a2d118f97fe0a05c917f2584c56f5d6b1d9",
+      "blockNumber": 12020050,
+      "status": 1,
+      "gasUsed": "193433"
+    },
+    "Refund paid token 3": {
+      "hash": "0xf69ac0dfd72fe7a9997c02216645dfedbc3cb74c7e5175bdd44e5eb29fbbbf56",
+      "blockNumber": 12020052,
+      "status": 1,
+      "gasUsed": "193433"
+    },
+    "Refund paid token 4": {
+      "hash": "0xbb99737666a6e5dfc04b966f8a04c3a4304373786dd77b9cd15efaac14e764f2",
+      "blockNumber": 12020054,
+      "status": 1,
+      "gasUsed": "193433"
+    }
+  },
+  "checks": [
+    "Exact runtime bytecode matches current compiler artifact",
+    "Contract version 3",
+    "Test wallet is admin",
+    "Test wallet is treasury",
+    "Pioneer token records original payment",
+    "Four independent phase counters",
+    "All unused GTD allocations released before Civilian",
+    "Mixed-price reserve equals 0.018 ETH",
+    "Cannot reopen previous phase",
+    "Cannot choose another mint phase",
+    "Paid and treasury mint counters",
+    "Receipt: Extend deadline by one day",
+    "Receipt: Restore original deadline",
+    "Receipt: Allowlist test wallet for Pioneer",
+    "Receipt: Start Pioneer",
+    "Receipt: Resume Pioneer",
+    "Receipt: Mint Pioneer test key",
+    "Receipt: Mint treasury test key",
+    "Receipt: Advance to Operative",
+    "Receipt: Allowlist test wallet for Operative",
+    "Receipt: Resume Operative",
+    "Receipt: Mint Operative test key",
+    "Receipt: Advance to Recruit",
+    "Receipt: Allowlist test wallet for Recruit",
+    "Receipt: Resume Recruit",
+    "Receipt: Mint Recruit test key",
+    "Receipt: Advance to Civilian",
+    "Receipt: Resume Civilian",
+    "Receipt: Mint Civilian test key",
+    "Receipt: Shorten deadline for refund QA",
+    "Refunds available after shortened deadline",
+    "Expired sale cannot be reopened even before first refund",
+    "Repeated refund rejected",
+    "Expired sale cannot be reopened after refund",
+    "Refund burned paid key",
+    "Refund returned all paid reserves",
+    "Receipt: Refund paid token 0",
+    "Receipt: Refund paid token 2",
+    "Receipt: Refund paid token 3",
+    "Receipt: Refund paid token 4"
+  ],
+  "address": "0x30f41eA9af605cB63C9Fb86af945e9D137B3d804",
+  "deploymentTransaction": "0x4faf289193f2491cb0513a38875cfba2d9c052b4fcccd60f12642d6677b331f9",
+  "initialDeadline": 1793286324,
+  "hiddenMetadataURI": "data:application/json;base64,eyJuYW1lIjoiUnlvZGFuIEtleSAvIHNlYWxlZCIsImRlc2NyaXB0aW9uIjoiU2Vwb2xpYSB2MyB0ZXN0IGNvbGxlY3Rpb24uIEZpbmFsIG1ldGFkYXRhIGlzIG5vdCByZXZlYWxlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU3RhdGUiLCJ2YWx1ZSI6IlVucmV2ZWFsZWQifV19",
+  "deploymentBlock": 12019993,
+  "runtimeCodeHash": "0x50a6ef567f2cc4691eba36a21cfbcca6d2f9c5854e5f6d0dc98445af47cfbe62",
+  "shortenedDeadline": 1793283306,
+  "currentPhase": 4,
+  "currentDeadline": 1793283306,
+  "lastVerifiedBlock": 12020077
+}

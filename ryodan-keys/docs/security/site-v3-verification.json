@@ -1,0 +1,21 @@
+{
+  "url": "https://ryodan.grooooog.space",
+  "checkedAt": "2026-10-29T14:22:54.394Z",
+  "address": "0x3120e791E078ACF04601d623307B0e6866633E7A",
+  "metrics": "MINTED / LIFETIME\n2\nOF 6,400 KEYS\nCONTRACT BALANCE\n0.005 ETH\nSALE / REFUND RESERVES\nSALE STATUS\nPIONEER\nPioneer \u00b7 4 / WALLET / PHASE\nMETADATA\nSEALED\nAWAITING REVEAL",
+  "checks": [
+    "HTTP 200",
+    "Live Sepolia state",
+    "v3 selected by default",
+    "Etherscan address links",
+    "v2 legacy controls and v1 read compatibility",
+    "Read-only without wallet",
+    "Six mobile views without overflow",
+    "Primary RPC failure recovers through live ethPandaOps fallback",
+    "No unexpected browser or network errors"
+  ],
+  "screenshotsVisuallyReviewed": [
+    "sepolia-desktop.png",
+    "sepolia-mobile.png"
+  ]
+}

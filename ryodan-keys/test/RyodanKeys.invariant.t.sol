@@ -17,27 +17,34 @@ contract SaleHandler is Test {
     function initialize(RyodanKeys keys_) external {
         require(address(keys) == address(0));
         keys = keys_;
-        keys.setPublicMintActive(true, 5900);
+        address[] memory accounts = new address[](4);
+        for (uint256 i; i < 4; i++) {
+            accounts[i] = actors[i];
+        }
+        for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
+            keys.configurePhase(phaseId, uint256(phaseId) * 0.001 ether, 30);
+            if (phaseId < 4) keys.setPhaseAllowlist(phaseId, accounts, true);
+        }
+        keys.advancePhase();
+        keys.setMintPaused(false);
     }
 
     function mintPaid(uint256 actorSeed, uint256 amountSeed) external {
         if (block.timestamp > keys.mintEndTime()) return;
-        if (!keys.isPublicMintActive() && !keys.isWhitelistMintActive()) return;
+        if (keys.mintPaused()) return;
         address actor = actors[actorSeed % actors.length];
-        if (keys.isWhitelistMintActive() && !keys.whitelisted(actor)) return;
+        uint8 phaseId = keys.currentPhase();
         uint256 available = keys.MAX_PUBLIC_SUPPLY() - keys.mintedByUsers();
-        uint256 walletAvailable = keys.MAX_MINT_AMOUNT() - keys.mintedAmount(actor);
+        if (phaseId > 2) available -= keys.totalGtdReserved();
+        uint256 walletAvailable = keys.remainingAllowance(phaseId, actor);
         if (walletAvailable < available) available = walletAvailable;
-        if (keys.isWhitelistMintActive()) {
-            uint256 whitelistAvailable = keys.WL_MINT_AMOUNT() - keys.mintedByWhitelist();
-            if (whitelistAvailable < available) available = whitelistAvailable;
-        }
         if (available == 0) return;
         uint256 amount = bound(amountSeed, 1, available > 30 ? 30 : available);
         uint256 value = amount * keys.mintPrice();
         vm.deal(actor, actor.balance + value);
+        uint256 price = keys.mintPrice();
         vm.prank(actor);
-        keys.mint{value: value}(amount);
+        keys.mint{value: value}(amount, phaseId, price);
         paid += value;
     }
 
@@ -50,18 +57,28 @@ contract SaleHandler is Test {
     }
 
     function changePhaseAndWhitelist(uint256 seed) external {
-        address[] memory accounts = new address[](1);
-        accounts[0] = actors[seed % actors.length];
-        if (seed % 2 == 0) keys.addToWhitelist(accounts);
-        else keys.removeFromWhitelist(accounts);
-        if (seed % 3 == 0) {
-            keys.setPublicMintActive(true, 5900);
-        } else if (seed % 3 == 1) {
-            keys.setWhitelistMintActive(true, 5900);
-        } else {
-            keys.setPublicMintActive(false, 5900);
-            keys.setWhitelistMintActive(false, 5900);
+        if (block.timestamp > keys.mintEndTime() || keys.soldOut()) return;
+        uint8 phaseId = keys.currentPhase();
+        if (seed % 12 == 0 && phaseId < 4) {
+            keys.advancePhase();
+        } else if (seed % 3 == 0) {
+            keys.setMintPaused(seed % 2 == 0);
+        } else if (phaseId < 4) {
+            address[] memory accounts = new address[](1);
+            accounts[0] = actors[seed % actors.length];
+            keys.setPhaseAllowlist(phaseId, accounts, seed % 2 == 0);
         }
+    }
+
+    function changeConfiguration(uint256 phaseSeed, uint256 limitSeed, uint256 priceSeed) external {
+        if (block.timestamp > keys.mintEndTime() || keys.soldOut()) return;
+        uint8 phaseId = uint8(bound(phaseSeed, keys.currentPhase(), 4));
+        uint256 limit = bound(limitSeed, 1, 50);
+        uint256 price = bound(priceSeed, 1, 0.1 ether);
+        (,,,,, uint256 maximumMinted) = keys.phases(phaseId);
+        bool shouldSucceed = phaseId > 2 || limit >= maximumMinted;
+        (bool ok,) = address(keys).call(abi.encodeCall(keys.configurePhase, (phaseId, price, limit)));
+        assertEq(ok, shouldSucceed);
     }
 
     function advance(uint256 stepSeed) external {
@@ -87,7 +104,7 @@ contract SaleHandler is Test {
         if (minter == address(0) || keys.refunded(id)) return;
         vm.prank(minter);
         keys.refundTo(id, payable(actors[recipientSeed % actors.length]));
-        returned += keys.mintPrice();
+        returned += keys.mintPayment(id);
     }
 
     function invalidRefund(uint256 idSeed) external {
@@ -129,7 +146,7 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         handler = new SaleHandler();
         keys = new RyodanKeys(block.timestamp + 7 days, "ipfs://hidden/hidden.json", address(handler), address(handler));
         handler.initialize(keys);
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](10);
         selectors[0] = handler.mintPaid.selector;
         selectors[1] = handler.mintTreasury.selector;
         selectors[2] = handler.changePhaseAndWhitelist.selector;
@@ -139,6 +156,7 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         selectors[6] = handler.attemptTransfer.selector;
         selectors[7] = handler.withdrawIfSuccessful.selector;
         selectors[8] = handler.changeDeadline.selector;
+        selectors[9] = handler.changeConfiguration.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }
@@ -146,22 +164,54 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
     function invariant_SupplyAndCapsRemainConsistent() public view {
         assertLe(keys.mintedByUsers(), 5900);
         assertLe(keys.mintedByTreasury(), 500);
-        assertLe(keys.mintedByWhitelist(), 1000);
-        assertLe(keys.mintedByWhitelist(), keys.mintedByUsers());
+        uint256 phaseTotal;
+        for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
+            (,, uint256 minted,,,) = keys.phases(phaseId);
+            phaseTotal += minted;
+        }
+        assertEq(phaseTotal, keys.mintedByUsers());
         assertEq(keys.totalSupply() + keys.totalRefunded(), keys.mintedByUsers() + keys.mintedByTreasury());
     }
 
     function invariant_EtherIsConservedAndRefundsStaySolvent() public view {
         assertEq(address(keys).balance + handler.returned() + handler.withdrawn(), handler.paid());
-        assertEq(handler.paid(), keys.mintedByUsers() * keys.mintPrice());
-        assertEq(handler.returned(), keys.totalRefunded() * keys.mintPrice());
+        uint256 historicalPayments;
+        uint256 refundedPayments;
+        uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
+        for (uint256 id; id < minted; ++id) {
+            uint256 payment = keys.mintPayment(id);
+            if (keys.originalMinter(id) == address(0)) assertEq(payment, 0);
+            historicalPayments += payment;
+            if (keys.refunded(id)) refundedPayments += payment;
+        }
+        assertEq(handler.paid(), historicalPayments);
+        assertEq(handler.returned(), refundedPayments);
         if (!keys.soldOut()) {
-            assertGe(address(keys).balance, (keys.mintedByUsers() - keys.totalRefunded()) * keys.mintPrice());
+            assertGe(address(keys).balance, historicalPayments - refundedPayments);
         }
     }
 
     function invariant_PhasesNeverOverlap() public view {
-        assertFalse(keys.isPublicMintActive() && keys.isWhitelistMintActive());
+        assertGe(keys.currentPhase(), 1);
+        assertLe(keys.currentPhase(), 4);
+        for (uint8 phaseId = 1; phaseId < keys.currentPhase(); phaseId++) {
+            assertEq(keys.remainingAllowance(phaseId, handler.actors(0)), 0);
+        }
+    }
+
+    function invariant_GtdReservationsEqualUnclaimedAllocations() public view {
+        uint256 total;
+        for (uint8 phaseId = 1; phaseId <= 2; phaseId++) {
+            uint256 expected;
+            for (uint256 i; i < 4; i++) {
+                expected += keys.remainingAllowance(phaseId, handler.actors(i));
+            }
+            (,,,, uint256 reserved,) = keys.phases(phaseId);
+            assertEq(reserved, expected);
+            total += reserved;
+        }
+        assertEq(total, keys.totalGtdReserved());
+        assertLe(total + keys.mintedByUsers(), keys.MAX_PUBLIC_SUPPLY());
     }
 
     function invariant_AllLiveTokensBelongToTrackedActors() public view {

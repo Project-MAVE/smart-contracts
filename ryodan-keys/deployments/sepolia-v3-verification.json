@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-29T14:24:19.389Z",
+  "chainId": 11155111,
+  "rpc": "https://rpc.sepolia.ethpandaops.io",
+  "address": "0x30f41eA9af605cB63C9Fb86af945e9D137B3d804",
+  "block": 12020086,
+  "liveSupply": 1,
+  "totalRefunded": 4,
+  "paidMinted": 4,
+  "treasuryMinted": 1,
+  "gtdReserved": 0,
+  "balanceWei": "0",
+  "refunds": [
+    {
+      "tokenId": 0,
+      "amountWei": "5000000000000000",
+      "amountETH": "0.005",
+      "hash": "0xa6fa48fdacdcd22b744344717af96e6976ccd10208198441933fa56ea9dddd64",
+      "block": 12020048,
+      "recipient": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+      "recipientBalanceDeltaPlusGasVerified": true
+    },
+    {
+      "tokenId": 2,
+      "amountWei": "2000000000000000",
+      "amountETH": "0.002",
+      "hash": "0x0a358216ea6b43e1315d3308763b4a2d118f97fe0a05c917f2584c56f5d6b1d9",
+      "block": 12020050,
+      "recipient": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+      "recipientBalanceDeltaPlusGasVerified": true
+    },
+    {
+      "tokenId": 3,
+      "amountWei": "1000000000000000",
+      "amountETH": "0.001",
+      "hash": "0xf69ac0dfd72fe7a9997c02216645dfedbc3cb74c7e5175bdd44e5eb29fbbbf56",
+      "block": 12020052,
+      "recipient": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+      "recipientBalanceDeltaPlusGasVerified": true
+    },
+    {
+      "tokenId": 4,
+      "amountWei": "10000000000000000",
+      "amountETH": "0.01",
+      "hash": "0xbb99737666a6e5dfc04b966f8a04c3a4304373786dd77b9cd15efaac14e764f2",
+      "block": 12020054,
+      "recipient": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+      "recipientBalanceDeltaPlusGasVerified": true
+    }
+  ],
+  "refundedTotalETH": "0.018"
+}

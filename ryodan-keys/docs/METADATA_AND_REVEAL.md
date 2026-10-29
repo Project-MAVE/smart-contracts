@@ -1,5 +1,7 @@
 # Metadata and reveal operations
 
+Updated for v3 (2026-10-29): four sale phases do not change metadata or reveal. Token IDs remain sequential across all phases and treasury mints. Reveal remains one permanent admin transaction after all 6,400 NFTs mint; it is not selectable by a holder. Use the v3 deployment manifest and ABI for new integrations.
+
 Current management UI: [ryodan.grooooog.space](https://ryodan.grooooog.space). Select **v2 / active management**, address [`0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B`](https://sepolia.etherscan.io/address/0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B). The earlier v1 contracts remain separate deployments.
 
 ## Original implementation

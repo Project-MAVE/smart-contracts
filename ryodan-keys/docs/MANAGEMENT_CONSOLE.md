@@ -1,96 +1,76 @@
 # Ryodan management console
 
-Updated: 2026-10-19. Live UI: **[https://ryodan.grooooog.space](https://ryodan.grooooog.space)**.
+Updated 2026-10-29 for v3. Public console: **[ryodan.grooooog.space](https://ryodan.grooooog.space)**.
 
-This is a static, wallet-signed Ethereum Sepolia operator console. It supports public/whitelist minting, sale phases, editable v2 deadlines, whitelist membership, treasury allocation, sale withdrawals, one-shot metadata reveal, role administration and refunds. The UI can be read without connecting a wallet.
+V3 management contract: [`0x3120e791E078ACF04601d623307B0e6866633E7A`](https://sepolia.etherscan.io/address/0x3120e791E078ACF04601d623307B0e6866633E7A). Initial deadline: **2026-11-28 14:01:12 UTC**; read its current value on chain. Separate v3 refund QA: [`0x30f41eA9af605cB63C9Fb86af945e9D137B3d804`](https://sepolia.etherscan.io/address/0x30f41eA9af605cB63C9Fb86af945e9D137B3d804).
+
+A static Ethereum Sepolia console for four-phase minting, per-phase prices and wallet limits, guarantees/allowlists, editable deadline, treasury, reveal, roles and refunds. It is readable without a wallet; every write is simulated, reviewed and signed in the connected wallet.
 
 ## Contract and wallet
 
-| Item | Value |
-| --- | --- |
-| Network | Ethereum Sepolia, chain ID `11155111` (`0xaa36a7`) |
-| Default v2 contract | [`0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B`](https://sepolia.etherscan.io/address/0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B) |
-| Test admin and treasury wallet | `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc` |
-| v2 refund QA contract | [`0xBc5338c4a71961d999Ec9551a2636850ec1561e0`](https://sepolia.etherscan.io/address/0xBc5338c4a71961d999Ec9551a2636850ec1561e0) |
-| Earlier v1 mint test | [`0x85b1024194cFd547Eb81877f8efF77587e7604f9`](https://sepolia.etherscan.io/address/0x85b1024194cFd547Eb81877f8efF77587e7604f9) |
-| Earlier v1 refund QA | [`0x0Ea00FA17cA2f4D44C3BB697d1C98C42567086F7`](https://sepolia.etherscan.io/address/0x0Ea00FA17cA2f4D44C3BB697d1C98C42567086F7) |
+The selected address and Sepolia Etherscan link are always visible under **Target contract**. `console/src/deployment.json` defines the default deployment; `deployments/sepolia-v3.json` records the v3 management deployment and `deployments/sepolia-v3-refund.json` its separate expired QA sale. Earlier v2/v1 deployments retain their own rules, balances and NFTs; they are not upgraded or migrated. The console reads the on-chain version and uses the matching ABI.
 
-Use **Target contract** to choose a deployment. The full selected address is a Sepolia Etherscan link. Every submitted/confirmed transaction in the session log links to its transaction page. The contract is not upgradeable: v2 has a new address and does not migrate previous NFTs or funds.
+Network: **Ethereum Sepolia / 11155111**. Test admin and treasury wallet: **`0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`**. Its secret is stored as `YOMI_RYODAN_SEPOLIA_DEPLOYER` in hush and was shared separately through an expiring Send. No key or Send URL is stored in this guide or the browser application. Import that key in your wallet application and verify the resulting address, then connect to the console. Use your wallet's in-app browser on mobile.
 
-The v2 active sale initially has one paid token, one treasury token, a wallet limit of 3, public mint enabled, 0.01 ETH in reserve and sealed metadata. These are verified initial conditions, not permanently fixed values; always read current chain state in the console.
+Production customers must use their own wallets. The dedicated test wallet and Sepolia addresses are not production configuration.
 
-## Connect the test wallet
+## Phase setup and progression
 
-1. Obtain the dedicated test wallet's private key through the separately shared expiring Bitwarden Send. The key is stored under hush name `YOMI_RYODAN_SEPOLIA_DEPLOYER`; this document never contains it or its sharing link.
-2. Import that key into your Ethereum wallet application's import-account screen. Verify the resulting public address equals the test wallet above. If the wallet requires a `0x` prefix, add it to the 64 hexadecimal characters in that import screen.
-3. Open the console in the same browser and select **Connect wallet**. Choose Ethereum Sepolia when prompted. For mobile, use the wallet's in-app browser, which must expose an EIP-1193 provider.
-4. Check **Access control → Connected identity**. The dedicated test wallet should have both Administrator and Treasury privileges.
+| Phase | Default price | Default total per wallet in that phase | Access |
+| --- | --- | --- | --- |
+| Pioneer | 0.005 ETH | 4 | Guaranteed, allowlist |
+| Operative | 0.002 ETH | 6 | Guaranteed, allowlist |
+| Recruit | 0.001 ETH | 6 | First come, allowlist |
+| Civilian | 0.01 ETH | 10 | First come, open to everyone |
 
-The site never asks for a private key and never signs on the server. Other connected wallets can mint if eligible but cannot administer the contract unless an admin grants the required role. This implementation uses the browser's injected wallet; it does not include WalletConnect QR pairing.
+The 50%, 80%, 90% discounts are applied to the initial public price. Each price is independently configurable; changing the public price does not recalculate other prices. Wallet limits are independent across phases, while multiple mint transactions in the same phase consume the same allowance. No additional lifetime cap exists.
 
-## How a transaction works
+1. Open **Sale controls**. The four-step strip shows configured prices, limits, mint counts, current phase and closed phases.
+2. Under **Phase price & wallet limit**, choose a current/future phase, enter its exact ETH price and total allowance per wallet, then review and sign. Choosing here only edits settings; it does not activate that phase.
+3. Under **Allowlist management**, select Pioneer, Operative or Recruit and add addresses, up to 100 per transaction. Each phase has a separate list. Civilian has no list.
+4. For Pioneer/Operative, the contract reserves each listed wallet's remaining phase allowance. The combined guarantees must fit the 5,900-token paid supply. Adding too many wallets or raising limits beyond available inventory reverts atomically. Removing a member releases its remaining allocation. Guaranteed limits cannot be lowered below the highest historical mint count of one wallet in that phase.
+5. **Start Pioneer** moves from not started to Pioneer, paused. Check settings and membership, then **Resume**. Pausing and resuming never resets counters or stops the deadline.
+6. **Advance to Operative**, then Recruit, then Civilian, in order. Every advance permanently closes the old phase and releases its unused guarantees. The new phase starts paused and needs an explicit resume. You cannot go backward or skip a step.
 
-Every operation follows the same flow: enter values, select **Review**, inspect the exact network, contract, signer, method, arguments and ETH value, then select **Sign in wallet**. The console first simulates the call and estimates gas, and rechecks state before signing. The wallet displays the final fee.
+The admin determines when to advance. There are no automatic per-phase start/end timestamps. The single sale deadline remains editable in UTC while unexpired and unsold. Once expired, minting and phase administration cannot reopen. Deadline edits cannot revoke accrued refund rights.
 
-A transaction hash means submission, not success. Wait for **CONFIRMED** in the activity log: Sepolia uses two confirmations. If confirmation is unknown, the hash is preserved in browser storage by chain and contract and other writes remain blocked. Use **Check receipt**. If the wallet replaced/cancelled the transaction, the console follows detected replacements; after reload, paste the confirmed replacement hash into **Track replacement**. It must come from the same wallet and nonce; a different action consuming that nonce is reported as cancellation/replacement, not as success of the original action.
+The paid pool is **5,900 across all phases**, plus **500 free treasury NFTs**. Civilian receives the remainder after Recruit; there is no minimum Civilian allocation. Guaranteed allocation means availability under the current configuration, not a free mint or an irrevocable promise: privileged admins can edit lists, prices, limits and closing time.
 
-Do not clear browser storage or switch browsers to retry a pending operation. Reconcile the recorded hash first. Wallet rejection, RPC failure, permission errors and contract reverts are displayed explicitly. Stale/unavailable chain data disables writes. The activity log itself is session-only; pending transaction records persist.
+## Mint
 
-## Operations
+Open **Overview & mint**. The wallet sees the current phase's price and its remaining allowance, chooses a quantity and reviews the payment. Neither phase nor token IDs can be chosen. IDs start at 0 and are shared in sequence with treasury mints. A phase or price change before mining invalidates the quote; review a fresh transaction.
 
-| Section | Operator steps and contract calls |
-| --- | --- |
-| **Overview & mint** | Set quantity and review `mint(amount)`. Payment is exactly `mintPrice * amount`; currently 0.01 ETH/key plus gas. Supply, phase, whitelist and lifetime allowance must permit the mint. Confirmed token IDs come from receipt events. |
-| **Sale controls → Phase** | Choose public, whitelist or paused and set a positive lifetime per-wallet cap. Uses `setPublicMintActive` / `setWhitelistMintActive`. Activating one phase disables the other. Pausing turns off the currently active phase. |
-| **Sale controls → Deadline** | Enter a UTC date/time, review `setMintEndTime(timestamp)`, sign. Both shortening and extension are supported before expiry/sellout. The new date must be strictly in the future. See the rules below. |
-| **Sale controls → Whitelist** | Paste addresses separated by commas/newlines. Choose add/remove; review `addToWhitelist` / `removeFromWhitelist`. The console validates/deduplicates and limits batches to 100 addresses. |
-| **Treasury → Reserved allocation** | Choose 1–50 keys and a nonzero recipient, then `treasuryMint(amount, to)`. Mint is free except gas and requires the Treasury role. All 500 treasury keys count toward sellout. |
-| **Treasury → Sale proceeds** | After all 6,400 keys mint, use `withdraw()`. All remaining contract ETH goes to the connected Treasury-role wallet. |
-| **Metadata & reveal** | Inspect an existing token. After sellout, enter a final directory URI ending in `/`, acknowledge permanence, then `reveal(baseURI)`. Upload/validate assets separately first. |
-| **Access control** | Enter an address, choose Administrator/Treasury and grant/revoke. Uses `grantRole` / `revokeRole`. Self-revocation is deliberately blocked in this UI to prevent accidental operator lockout. |
-| **Refunds** | After unsuccessful expiry, enter an eligible paid token ID. `refund(id)` pays the connected original minter; an optional recipient uses `refundTo(id, recipient)`. No ETH payment is attached. The key is burned and cannot be refunded twice. |
+The receipt log shows actual minted IDs. Wait for confirmations; do not send a second transaction merely because the first is slow. Pending hashes survive reload. **Check receipt** reconciles confirmation; a replacement/cancellation hash must consume the same wallet nonce before the original is cleared.
 
-Admin and Treasury are separate on-chain roles even though the test wallet holds both. Mint/refund eligibility comes from the connected holder's own on-chain state. Receiving free treasury tokens does not create refund rights.
+## Deadline, treasury and successful sale
 
-## Date rules in v2
+**Change the deadline** interprets dates as UTC and submits Unix seconds. An open sale can be shortened or extended, including after purchases. New time must be strictly in the future. Expired/sold-out sales cannot edit their deadline.
 
-- There is one sale end time, `mintEndTime()`, expressed as Unix seconds. Phase starts are manually controlled; there is no separate scheduled whitelist/public start date.
-- Only an admin can call `setMintEndTime`. It emits `MintEndTimeUpdated(previousEndTime, newEndTime)`.
-- Editing is allowed while chain time is **at or before the current deadline**, the sale is not sold out, and the new time is **strictly in the future**.
-- After `currentDeadline + 1`, the date is permanently locked even before the first refund. Moving it cannot revoke accrued refund eligibility or reopen the sale.
-- Sold-out sales also lock the date. Editing does not reset counters, phases, refunds or metadata.
-- Before expiry, the admin can extend repeatedly. There is no maximum extension or notice period. Communicate this mutable-date policy to minters.
-- The two earlier v1 deployments still have immutable dates. The console detects v1 and blocks date editing there.
+**Treasury** mints up to 50 free NFTs per console transaction to a chosen recipient, within the separate 500-token pool. Complete the treasury allocation before the shared deadline. Success still requires all **6,400** NFTs: selling 5,900 paid NFTs while treasury is incomplete does not unlock transfers, reveal or withdrawal. At failed expiry, paid minters can refund.
 
-The date input always means **UTC**, even when the browser formats its calendar controls according to local language. Eligibility is calculated from the latest block timestamp, not the laptop clock.
+After success, **Withdraw** sends the entire contract balance to the connected treasury-role wallet. Revenue depends on quantities and actual prices paid in each phase; it is not fixed at 59 ETH in v3.
 
-## Metadata and sale outcome
+## Reveal, roles and refunds
 
-Reveal requires all 5,900 paid plus 500 treasury NFTs. If the paid allocation sells out but the treasury allocation is incomplete at expiry, the sale still fails: refunds open, transfers remain locked, reveal/withdraw stay unavailable. Complete treasury allocation in manageable batches before opening a real sale.
+**Metadata & reveal** provides an owner/URI inspector and an irreversible, collection-wide reveal after success. Prepare and pin `0.json` through `6399.json`, verify the final directory URI ends with `/`, acknowledge permanence and review the transaction. No holder reveal transaction exists. Follow [METADATA_AND_REVEAL.md](METADATA_AND_REVEAL.md).
 
-Hidden metadata is configured at construction. The current test URI is inline JSON without artwork. Final reveal assigns `<baseURI><id>.json` once; token IDs range from 0 to 6399. It is deterministic, without random assignment. See [METADATA_AND_REVEAL.md](METADATA_AND_REVEAL.md) for asset preparation and checks.
+**Access control** grants/revokes admin or treasury roles. Admins control phase settings, dates, membership, roles and final metadata. Treasury controls free mints and successful-sale withdrawals. Console self-revocation is blocked to avoid accidental lockout; the contract's standard AccessControl API still permits it. Verify another administrator before any role change.
 
-## Build, hosting and tests
+**Refunds** opens after unsuccessful expiry. Enter a paid token ID and optionally a recipient address. The review shows that NFT's **original payment**, even if the phase price changed later. Only its original paid minter may claim; it burns the NFT and cannot be repeated. Treasury NFTs cannot refund. A rejected ETH receiver can retry using a different recipient. Gas is separate and is not returned.
 
-The UI lives in `console/`, outside the Foundry project. `DESIGN.md` at repository root records the visual system. Prerequisites are Node 20.19+ and the repository's compiled/exported ABI.
+## Local development and verification
 
 ```sh
-cd console
-npm ci --ignore-scripts
+cd ryodan-keys
+forge build
+python3 scripts/export-abi.py --check
+cd ../console
 npm test
-npm run build
-npm run dev
-```
-
-Dependency changes must pass the repository's mcaifee review. `.npmrc` disables lifecycle scripts and optional peer resolution that triggers a known local npm 10 resolver error. Exact direct versions and integrity hashes are pinned in the lockfile.
-
-The persistent `grog serve` entry for `ryodan.grooooog.space` serves only `console/dist/` on the Mac Pro. It does not expose the repository, source tools, hush vault or a development server. Build production before updating served assets. The launchd service restarts the static host across crashes/reboots; availability still depends on the host and relay.
-
-```sh
-# Local Anvil + actual browser transaction workflows; no testnet funds used.
 npm run test:browser
-# Read-only verification of the published production site and Sepolia data.
-node scripts/check-site.mjs https://ryodan.grooooog.space
 ```
 
-The browser runner starts isolated Anvil/Vite processes, uses Chrome when installed (otherwise Playwright Chromium), and shuts its processes down. For Linux CI install the Playwright Chromium browser. Its fake wallet transport is test-only and never bundled. It exercises the actual contract, including a full 6,400-key sale, permanent reveal and 59 ETH withdrawal locally. Nine pure frontend validation tests, 17 browser workflow checks and desktop/mobile site checks passed. The Solidity suite contains 78 tests, nine fuzz properties and four stateful invariants. See [SECURITY_REVIEW.md](SECURITY_REVIEW.md) for evidence and limitations.
+`npm run test:browser` launches isolated Anvil and Vite instances and drives real transactions through a test wallet provider. It exercises four-phase settings/progression/mint, deadline edits, roles, treasury, stale-price recovery, account/network changes, rejection, pending reload, mixed-price refunds, duplicate rejection and full-size sellout/reveal/withdrawal. Screenshots and the check list are under ignored `console/test-results/`.
+
+Production uses Sepolia only. Development-only Anvil settings are `VITE_CHAIN_ID=31337`, `VITE_RPC_URL` and `VITE_CONTRACT_ADDRESS`. Production builds ignore that local mode. This UI has no backend, database or server-side signing key. Real extension and mobile wallet confirmation screens require their own compatibility checks.
+
+The public hostname is served persistently by grog from `console/dist`. Building into that directory updates the live files; use a temporary output directory for review builds. Publish only after browser journeys, visible output, console errors and network failures are checked.

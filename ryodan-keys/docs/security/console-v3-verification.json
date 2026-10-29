@@ -1,0 +1,33 @@
+{
+  "checks": [
+    "Disconnected read-only state reflects actual local contract",
+    "Wallet connection and on-chain operator role detection",
+    "UI exact-value mint, review, real receipt and minted token IDs",
+    "UI deadline update sends exact UTC timestamp",
+    "UI configures exact ETH price and independent per-wallet phase limit",
+    "UI sequential phase closure, guaranteed allowlist, resume and independent allowance",
+    "UI treasury mint and withdrawal blocked before sellout",
+    "UI token metadata inspection and premature reveal guard",
+    "UI grant and revoke administrator role",
+    "UI prevents accidental administrator self-revocation",
+    "Account switching clears old privileges",
+    "Wrong network blocks writes and network switch recovers",
+    "Changed on-chain price invalidates the reviewed quote and recovery uses a fresh quote",
+    "Wallet rejection sends no transaction and resets controls",
+    "Pending transaction survives reload, prevents duplicate sends and reconciles",
+    "All four phases mint in sequence, retain separate counters and release unused guarantees",
+    "Expired-sale UI locks deadline, refunds once and rejects duplicate claim",
+    "Full 6,400-key sale: UI permanent reveal and 58.973 ETH withdrawal at mixed phase prices",
+    "All six views fit a 390px mobile viewport",
+    "No uncaught browser errors"
+  ],
+  "contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "chainId": 31337,
+  "version": 3,
+  "network": "local Anvil",
+  "screenshotsVisuallyReviewed": [
+    "desktop.png",
+    "sale-desktop.png",
+    "mobile.png"
+  ]
+}

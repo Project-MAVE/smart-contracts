@@ -14,7 +14,7 @@ const chainId = local ? 31337 : 11155111;
 const rpc = option('--rpc', local ? 'http://127.0.0.1:8547' : 'https://ethereum-sepolia-rpc.publicnode.com');
 const provider = new JsonRpcProvider(rpc, chainId, { cacheTimeout: -1, pollingInterval: 1500 });
 if (Number(await provider.send('eth_chainId', [])) !== chainId) throw new Error('Wrong chain');
-const manifestPath = resolve(root, option('--manifest', local ? 'console/test-results/local-deployment.json' : `ryodan-keys/deployments/sepolia-v2${qa ? '-refund' : ''}.json`));
+const manifestPath = resolve(root, option('--manifest', local ? 'console/test-results/local-deployment.json' : `ryodan-keys/deployments/sepolia-v3${qa ? '-refund' : ''}.json`));
 await mkdir(dirname(manifestPath), { recursive: true });
 const artifact = JSON.parse(await readFile(resolve(root, 'ryodan-keys/out/RyodanKeys.sol/RyodanKeys.json'), 'utf8'));
 const expectedWallet = '0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc';
@@ -31,8 +31,8 @@ const deployer = local ? (await provider.listAccounts())[0].address : expectedWa
 let manifest;
 try { manifest = JSON.parse(await readFile(manifestPath, 'utf8')); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
-manifest ||= { chainId, deployer, version: 2, purpose: qa ? 'refund' : 'management', transactions: {}, checks: [] };
-if (manifest.chainId !== chainId || manifest.deployer !== deployer || manifest.version !== 2) throw new Error('Manifest context mismatch');
+manifest ||= { chainId, deployer, version: 3, purpose: qa ? 'refund' : 'management', transactions: {}, checks: [] };
+if (manifest.chainId !== chainId || manifest.deployer !== deployer || manifest.version !== 3) throw new Error('Manifest context mismatch');
 async function save() {
   await writeFile(`${manifestPath}.tmp`, JSON.stringify(manifest, null, 2) + '\n');
   await rename(`${manifestPath}.tmp`, manifestPath);
@@ -51,8 +51,8 @@ async function confirm(hash) {
 if (!manifest.address) {
   if (verifyOnly || refund) throw new Error('Deploy first');
   const block = await provider.getBlock('latest');
-  const deadline = block.timestamp + (qa ? 1200 : 30 * 86400);
-  const hidden = 'data:application/json;base64,' + Buffer.from(JSON.stringify({ name: 'Ryodan Key / sealed', description: 'Sepolia v2 test collection. Final metadata is not revealed.', attributes: [{ trait_type: 'State', value: 'Unrevealed' }] })).toString('base64');
+  const deadline = block.timestamp + (qa ? 3600 : 30 * 86400);
+  const hidden = 'data:application/json;base64,' + Buffer.from(JSON.stringify({ name: 'Ryodan Key / sealed', description: 'Sepolia v3 test collection. Final metadata is not revealed.', attributes: [{ trait_type: 'State', value: 'Unrevealed' }] })).toString('base64');
   const factory = new ContractFactory(artifact.abi, artifact.bytecode.object, signer);
   const nonce = await provider.getTransactionCount(deployer, 'pending');
   const transaction = await signer.sendTransaction({ ...await factory.getDeployTransaction(deadline, hidden, deployer, deployer), nonce });
@@ -69,7 +69,7 @@ const keys = new Contract(manifest.address, artifact.abi, signer || provider);
 const runtime = await provider.getCode(manifest.address);
 await check('Exact runtime bytecode matches current compiler artifact', runtime === artifact.deployedBytecode.object);
 manifest.runtimeCodeHash = keccak256(runtime);
-await check('Contract version 2', await keys.CONTRACT_VERSION() === 2n);
+await check('Contract version 3', await keys.CONTRACT_VERSION() === 3n);
 await check('Test wallet is admin', await keys.hasRole(ZeroHash, deployer));
 await check('Test wallet is treasury', await keys.hasRole(await keys.TREASURY_ROLE(), deployer));
 
@@ -97,18 +97,34 @@ if (refund) {
   await check('Refunds available after shortened deadline', await keys.refundsAvailable());
   const block = await provider.getBlock('latest');
   await expectRevert('Expired sale cannot be reopened even before first refund', 'setMintEndTime', [block.timestamp + 86400]);
-  await transact('Refund paid token 0', 'refund', [0]);
+  for (const id of [0, 2, 3, 4]) await transact(`Refund paid token ${id}`, 'refund', [id]);
   await expectRevert('Repeated refund rejected', 'refund', [0]);
   await expectRevert('Expired sale cannot be reopened after refund', 'setMintEndTime', [block.timestamp + 86400]);
-  await check('Refund burned paid key', await keys.totalSupply() === 1n && await keys.totalRefunded() === 1n);
+  await check('Refund burned paid key', await keys.totalSupply() === 1n && await keys.totalRefunded() === 4n);
   await check('Refund returned all paid reserves', await provider.getBalance(manifest.address) === 0n);
 } else if (!verifyOnly) {
   await transact('Extend deadline by one day', 'setMintEndTime', [manifest.initialDeadline + 86400]);
   await transact('Restore original deadline', 'setMintEndTime', [manifest.initialDeadline]);
-  await transact('Enable public mint', 'setPublicMintActive', [true, 3]);
-  await transact('Mint paid test key', 'mint', [1], 10n ** 16n);
+  await transact('Allowlist test wallet for Pioneer', 'setPhaseAllowlist', [1, [deployer], true]);
+  await transact('Start Pioneer', 'advancePhase');
+  await transact('Resume Pioneer', 'setMintPaused', [false]);
+  await transact('Mint Pioneer test key', 'mint', [1, 1, 5n * 10n ** 15n], 5n * 10n ** 15n);
   await transact('Mint treasury test key', 'treasuryMint', [1, deployer]);
-  await check('Paid and treasury mint counters', await keys.mintedByUsers() === 1n && await keys.mintedByTreasury() === 1n);
+  await check('Pioneer token records original payment', await keys.mintPayment(0) === 5n * 10n ** 15n);
+  if (qa) {
+    for (const [phaseId, name, price] of [[2, 'Operative', 2n * 10n ** 15n], [3, 'Recruit', 10n ** 15n], [4, 'Civilian', 10n ** 16n]]) {
+      await transact(`Advance to ${name}`, 'advancePhase');
+      if (phaseId < 4) await transact(`Allowlist test wallet for ${name}`, 'setPhaseAllowlist', [phaseId, [deployer], true]);
+      await transact(`Resume ${name}`, 'setMintPaused', [false]);
+      await transact(`Mint ${name} test key`, 'mint', [1, phaseId, price], price);
+    }
+    await check('Four independent phase counters', (await Promise.all([1, 2, 3, 4].map(id => keys.mintedInPhase(id, deployer)))).every(value => value === 1n));
+    await check('All unused GTD allocations released before Civilian', await keys.totalGtdReserved() === 0n);
+    await check('Mixed-price reserve equals 0.018 ETH', await provider.getBalance(manifest.address) === 18n * 10n ** 15n);
+    await expectRevert('Cannot reopen previous phase', 'configurePhase', [1, 5n * 10n ** 15n, 4]);
+    await expectRevert('Cannot choose another mint phase', 'mint', [1, 1, 5n * 10n ** 15n]);
+  }
+  await check('Paid and treasury mint counters', await keys.mintedByUsers() === (qa ? 4n : 1n) && await keys.mintedByTreasury() === 1n);
   if (qa) {
     if (!manifest.shortenedDeadline) {
       manifest.shortenedDeadline = (await provider.getBlock('latest')).timestamp + 90;
@@ -121,11 +137,12 @@ for (const [label, record] of Object.entries(manifest.transactions)) {
   const receipt = await confirm(record.hash);
   await check(`Receipt: ${label}`, receipt.status === 1);
 }
+manifest.currentPhase = Number(await keys.currentPhase());
 manifest.currentDeadline = Number(await keys.mintEndTime());
 manifest.lastVerifiedBlock = await provider.getBlockNumber();
 await save();
 if (!local && !qa && !verifyOnly) {
-  await writeFile(resolve(root, 'console/src/deployment.json'), JSON.stringify({ chainId, address: manifest.address, label: 'v2 / active management', deploymentBlock: manifest.deploymentBlock, runtimeCodeHash: manifest.runtimeCodeHash }, null, 2) + '\n');
+  await writeFile(resolve(root, 'console/src/deployment.json'), JSON.stringify({ chainId, address: manifest.address, label: 'v3 / four-phase management', deploymentBlock: manifest.deploymentBlock, runtimeCodeHash: manifest.runtimeCodeHash }, null, 2) + '\n');
 }
 console.log(JSON.stringify({ address: manifest.address, chainId, currentDeadline: manifest.currentDeadline, manifest: manifestPath }));
 provider.destroy();

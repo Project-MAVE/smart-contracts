@@ -81,6 +81,10 @@ jobs:
         working-directory: console
         run: npx playwright install --with-deps chromium
 
+      - name: Exercise v3 deployment and refund scripts
+        working-directory: console
+        run: npm run test:deploy
+
       - name: Exercise console against local Anvil
         working-directory: console
         run: npm run test:browser

@@ -1,173 +1,125 @@
-# Ryodan Keys frontend integration
+# Ryodan Keys v3 frontend integration
 
-This is the handoff for the agent implementing the minting frontend. Use v2 `src/RyodanKeys.sol`, the generated `abi/RyodanKeys.json`, and `deployments/sepolia-v2.json`. A working management/mint console is now in `../../console/` and published at [ryodan.grooooog.space](https://ryodan.grooooog.space). See [MANAGEMENT_CONSOLE.md](MANAGEMENT_CONSOLE.md) for operator workflows. The console uses ethers 6.17.0 and Vite 8.3.4; the generic viem example below remains an alternative integration pattern.
+Updated 2026-10-29. This is the handoff for the agent implementing the minting frontend. Use `src/RyodanKeys.sol` and the generated `abi/RyodanKeys.json`. The management reference is `../../console/`; its public URL is [ryodan.grooooog.space](https://ryodan.grooooog.space). Read [MANAGEMENT_CONSOLE.md](MANAGEMENT_CONSOLE.md) for operator workflows.
 
-## Network and deployment
+V3 management contract: [`0x3120e791E078ACF04601d623307B0e6866633E7A`](https://sepolia.etherscan.io/address/0x3120e791E078ACF04601d623307B0e6866633E7A). Initial deadline: **2026-11-28 14:01:12 UTC**; read its current value on chain.
 
-- Ethereum Sepolia, chain ID **11155111** (`0xaa36a7`), currency ETH, 18 decimals.
-- Read the top-level `address` from `deployments/sepolia-v2.json`: **`0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B`**, [Sepolia Etherscan](https://sepolia.etherscan.io/address/0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B). `console/src/deployment.json` is its public frontend subset.
-- `deployments/sepolia.json` preserves the two earlier v1 deployments under `contracts.mint` / `contracts.refund`; their deadlines remain immutable. The console labels them explicitly. A refund QA contract must never be the default active sale.
-- The manifest is evidence of a particular deployment, not live application state. Read current chain state on every visit and after transactions.
-- Configure a public browser-safe RPC URL. The reference endpoint is `https://ethereum-sepolia-rpc.publicnode.com`. Allow an RPC fallback and surface network failures.
-- The deployed contract has no proxy. A new deployment requires an explicit address/ABI update in the frontend.
-- The signer key belongs exclusively in hush on the operator machine. The frontend uses the connected user's wallet. Never embed a private key or a privileged RPC credential in a browser bundle.
+## Deployment and version selection
 
-## Sale rules
+Use Ethereum Sepolia, chain ID **11155111** (`0xaa36a7`). Read the selected address from `console/src/deployment.json` and verify `CONTRACT_VERSION()` against the corresponding deployment manifest. A manifest records historical deployment evidence; always read live state. There is no proxy: v3 needs a new address, and previous NFTs/funds remain in their original contracts.
 
-| Item | Contract rule |
-| --- | --- |
-| Price | `mintPrice()`: 0.01 ETH per paid NFT; send exactly `price * amount` |
-| Paid supply | 5,900, including up to 1,000 whitelist mints |
-| Free treasury supply | 500, a separate bucket |
-| Success | All 6,400 tokens minted, including the treasury bucket |
-| Wallet allowance | `MAX_MINT_AMOUNT() - mintedAmount(wallet)`, shared across whitelist and public phases |
-| Deadline | Admin-editable while the current deadline has not passed and the sale is not sold out; mint allowed at `timestamp <= mintEndTime()`; refunds start strictly after it if unsuccessful |
-| IDs | Start at 0; paid and treasury mints share the same sequence |
-| Transfers | Locked until `soldOut()` is true, independently of reveal |
-| Refund | Original paid minter only, once per token; token is burned |
-| Refund value | 0.01 ETH per paid token, excluding transaction fees |
+`abi/RyodanKeys.json` is **v3**. `abi/RyodanKeys.v2.json` preserves the v2 API and supports the earlier listed v1 deployments (v1 has no version getter and no editable deadline). Never send v3 mint calldata to v1/v2. The console chooses the ABI by the on-chain version and rejects unknown future versions. Its active address is changed only after a verified deployment.
 
-A wallet holding treasury NFTs may still have its full paid-mint allowance. Use `mintedAmount`, not `balanceOf`, to calculate allowance. A previously purchased NFT still counts toward lifetime allowance even after transfer or refund. The admin may change the deadline and wallet limit; clamp remaining allowance to zero if the new limit is below the amount already minted.
+Use a public browser-safe RPC with fallback, such as `https://ethereum-sepolia-rpc.publicnode.com`. A connected wallet signs every write; no server signer or private key belongs in a browser bundle. Keep caches and pending transactions keyed by chain, contract and wallet.
 
-## Read a consistent state snapshot
+## Four sequential phases
 
-Read these getters at one block (multicall or individual calls pinned to the same `blockNumber`). Include that block's timestamp; the browser clock alone is not authoritative.
+| ID | Phase | Initial price | Discount from initial public price | Initial limit per wallet | Access |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Pioneer | 0.005 ETH | 50% | 4 | Allowlist, guaranteed allocation |
+| 2 | Operative | 0.002 ETH | 80% | 6 | Allowlist, guaranteed allocation |
+| 3 | Recruit | 0.001 ETH | 90% | 6 | Allowlist, first come first served |
+| 4 | Civilian | 0.01 ETH | — | 10 | Public, first come first served |
+
+These are constructor defaults, not constants to hardcode in the frontend. The admin can change each phase's exact wei price and wallet limit. Prices are stored independently: changing Civilian's price does **not** automatically reprice earlier phases or preserve discount percentages.
+
+`currentPhase()` starts at 0 (not started). The admin calls `advancePhase()` to move **one step forward**: 0 → 1 → 2 → 3 → 4. Every advance pauses minting; `setMintPaused(false)` opens the new phase. A previous phase cannot reopen. The minter cannot select a phase or token ID. Phases are advanced manually, not automatically by dates; the shared mint deadline remains editable before expiry/sellout.
+
+The limit is the total minted by one wallet **within that phase**, across all its transactions. `mintedInPhase(id, wallet)` is independent of earlier phases. There is no additional lifetime wallet cap. With default settings, an eligible wallet may mint 4 + 6 + 6 + 10, subject to availability. `mintedAmount(wallet)` remains a historical total; do not use it to subtract the current phase allowance. Treasury NFTs do not consume paid allowances. Pausing, removing/readding an address, transferring or refunding never resets mint counters.
+
+### Supply and guarantees
+
+There are **5,900 paid NFTs across all four phases**, plus a separate **500 free treasury NFTs**. The old 1,000-token whitelist cap is removed. Civilian has no fixed supply allocation: it receives `5900 - mintedByUsers` when it opens, after all earlier purchases. Earlier phases may exhaust the paid supply, leaving no Civilian inventory.
+
+Pioneer and Operative guarantee each listed wallet its unminted phase allowance. `setPhaseAllowlist` reserves that amount; changing a guaranteed phase limit resizes the reservation for all listed wallets. Reservations across both guaranteed phases must fit the remaining paid pool or the entire transaction reverts. `totalGtdReserved()` and each phase's `reserved` show the outstanding quantities. Duplicate list entries are idempotent. Removing a wallet releases its remaining allocation; readding it reserves only the amount it has not already minted. Advancing closes the previous phase and releases its unused guarantee. Recruit only checks membership; Civilian is public.
+
+Guarantees reflect the admin's current on-chain configuration. An admin can remove members, change price/limit, advance early or shorten the sale. Do not describe a guarantee as irrevocable or as a free NFT. Guaranteed limits cannot be reduced below the highest historical per-wallet mint count in that phase, even if that wallet has since been removed. FCFS limits can be reduced below a wallet's minted count; its remaining allowance becomes zero.
+
+## Read one consistent snapshot
+
+Pin reads to one block and use that block's timestamp, not the browser clock:
 
 ```text
-CONTRACT_VERSION(), mintPrice(), mintEndTime(), MAX_MINT_AMOUNT()
-MAX_PUBLIC_SUPPLY(), MAX_TREASURY_SUPPLY(), WL_MINT_AMOUNT()
-mintedByUsers(), mintedByTreasury(), mintedByWhitelist()
-totalSupply(), totalRefunded(), soldOut(), revealed()
-isPublicMintActive(), isWhitelistMintActive()
-mintedAmount(wallet), whitelisted(wallet) // only if connected
+CONTRACT_VERSION(), currentPhase(), mintPaused(), mintPrice(), mintEndTime()
+phases(1), phases(2), phases(3), phases(4), totalGtdReserved()
+MAX_PUBLIC_SUPPLY(), MAX_TREASURY_SUPPLY(), mintedByUsers(), mintedByTreasury()
+totalSupply(), totalRefunded(), soldOut(), revealed(), refundsAvailable()
+mintedInPhase(phaseId, wallet), remainingAllowance(phaseId, wallet)
+allowlisted(phaseId, wallet), mintedAmount(wallet)
+hasRole(DEFAULT_ADMIN_ROLE, wallet), hasRole(TREASURY_ROLE, wallet)
 ```
 
-Compute using integers / `bigint`:
+`phases(id)` returns `(price, walletLimit, minted, members, reserved, maxWalletMinted)`. `mintPrice()` returns the active phase's price, or zero before Pioneer starts. `remainingAllowance` includes eligibility and per-phase usage and returns zero for closed/invalid phases. It does not check pause, deadline, or shared supply; combine those checks:
 
 ```text
 paidRemaining = MAX_PUBLIC_SUPPLY - mintedByUsers
-walletRemaining = max(0, MAX_MINT_AMOUNT - mintedAmount(wallet))
-whitelistRemaining = WL_MINT_AMOUNT - mintedByWhitelist
-maxSelectable = min(paidRemaining, walletRemaining,
-                    whitelistRemaining if whitelist phase else paidRemaining)
+availableSupply = paidRemaining - (totalGtdReserved if currentPhase > 2 else 0)
+maxSelectable = min(availableSupply, remainingAllowance(currentPhase, wallet))
+canMint = currentPhase != 0 && !mintPaused && block.timestamp <= mintEndTime
+          && maxSelectable > 0
 ```
 
-Show a mint control only when the sale is open, not expired, the wallet is eligible, and `maxSelectable > 0`. Display a dedicated whitelist gate if `isWhitelistMintActive` and the wallet is not allowlisted. Do not present the whitelist allocation as an additional 1,000 NFTs on top of 5,900. Paused flags can remain set after expiry; deadline and caps always take precedence.
+Use `bigint` throughout; no floating-point ETH calculations. Show active phase, exact price, current phase allowance and supply. The phase strip is informational; do not add a customer phase selector. Distinguish not started, paused, ineligible, exhausted wallet allowance, paid supply exhausted, successful sellout and failed expiry.
 
-Display sold-out success, unsuccessful expiry/refund availability, paused mint, and wallet limit reached as distinct states. If all 5,900 paid tokens have sold but treasury supply is incomplete, paid mint is exhausted and the campaign has not yet succeeded. Do not show withdrawals or transfers as available in that state.
+Success still requires **all 6,400 tokens**, including treasury. Selling all paid NFTs alone does not unlock reveal, transfers or withdrawals. At an unsuccessful expiry, paid NFTs become refundable. Mint is allowed at exactly `mintEndTime`; refunds begin strictly afterward. Deadline extensions are rejected after expiry, even before the first refund.
 
-## New v2 deadline API and management writes
+## Mint transaction and stale quotes
 
-`CONTRACT_VERSION()` returns `2`. Earlier listed deployments do not expose this getter; retain v1 read/mint support but disable deadline edits. Do not infer editability merely from having the new ABI.
-
-```solidity
-function setMintEndTime(uint256 newEndTime) external;
-event MintEndTimeUpdated(uint256 previousEndTime, uint256 newEndTime);
+```js
+// ethers v6; keys is the v3 contract connected to the user's Sepolia signer.
+const amount = 2n;
+const expectedPhase = snapshot.currentPhase;
+const expectedUnitPrice = snapshot.price;
+const args = [amount, expectedPhase, expectedUnitPrice];
+const value = amount * expectedUnitPrice;
+await keys.mint.staticCall(...args, { value });
+const gas = await keys.mint.estimateGas(...args, { value });
+// Show phase, quantity, exact ETH value, chain and contract for review.
+// Refresh and verify the same quote/account/network before requesting a signature.
+const tx = await keys.mint(...args, { value, gasLimit: gas * 120n / 100n });
+const receipt = await tx.wait(2);
+if (receipt.status !== 1) throw new Error('Mint reverted');
 ```
 
-The setter requires `DEFAULT_ADMIN_ROLE`, uses `nonReentrant`, and accepts a Unix timestamp in **seconds**. Both extensions and shortening are supported, including after purchases. Conditions: current chain time must be `<=` the current deadline, the sale must not be sold out, and the new deadline must be strictly in the future. At `currentDeadline + 1`, editing is permanently closed even if nobody has claimed a refund. The setter cannot reopen failed sales or revoke accrued refund eligibility. It does not change phase flags, counters or metadata.
+Signature: `mint(uint256 amount, uint8 expectedPhase, uint256 expectedUnitPrice)`. The phase argument is a stale-quote guard, **not a phase selector**. If either phase or unit price changes before execution, the contract reverts with `Mint quote changed`, even if the new phase happens to cost the same. The UI must request a new review rather than silently accepting a changed price. Limit or membership changes can also invalidate a pending mint; simulate again.
 
-Read the latest deadline on every refresh and transaction; invalidate cached dates on `MintEndTimeUpdated`. Display UTC explicitly. The console's date input interprets the entered calendar values as UTC, independent of the browser timezone. It uses block timestamps for eligibility and estimated countdowns. An admin may extend repeatedly while the sale is open; the deadline is no longer a fixed promise before expiry. There is no scheduled start date: phase activation/pause is manual.
+Connect and switch to Sepolia before simulation. Clear privileges and unsigned reviews on account/network changes. Track ready, simulating, awaiting signature, submitted, confirmed, rejected, reverted and RPC failure states. Disable duplicate submissions, preserve pending hashes across reload, and reconcile timeouts before allowing retries. Track equivalent replacements separately from cancellations or changed transactions. A transaction hash is not confirmation.
 
-| Console action | Write | Required authority |
+IDs start at 0 and are sequential across paid and treasury mints. Parse only this contract's `Transfer(address(0), wallet, tokenId)` receipt logs to discover minted IDs. Never predict IDs from a stale supply snapshot. `PaidMint(minter, phase, firstTokenId, amount, unitPrice)` additionally records the purchase phase and price. The contract is not ERC721Enumerable; index transfers from the deployment block and account for burns and secondary transfers.
+
+## Operator functions
+
+| Action | Function | Authority / conditions |
 | --- | --- | --- |
-| Deadline | `setMintEndTime(timestamp)` | Admin; v2 open, unsold sale |
-| Public phase / wallet cap | `setPublicMintActive(active, cap)` | Admin |
-| Whitelist phase / wallet cap | `setWhitelistMintActive(active, cap)` | Admin |
-| Allowlist | `addToWhitelist(addresses)` / `removeFromWhitelist(addresses)` | Admin |
-| Treasury allocation | `treasuryMint(amount, to)` | Treasury; before expiry |
-| Reveal | `reveal(baseURI)` | Admin; sold out; not yet revealed |
-| Withdraw | `withdraw()` | Treasury; sold out; nonzero balance |
-| Roles | `grantRole(role, account)` / `revokeRole(role, account)` | Admin |
-| Paid mint | `mint(amount)` | Eligible connected wallet; exact ETH value |
-| Refund | `refund(id)` / `refundTo(id, recipient)` | Original paid minter; failed expiry |
+| Set phase price and limit | `configurePhase(id, priceWei, walletLimit)` | Admin; current/future phase; open, unsold sale; positive price and limit 1–5,900 |
+| Edit phase membership | `setPhaseAllowlist(id, addresses, allowed)` | Admin; current/future phases 1–3; GTD must fit supply |
+| Start/advance | `advancePhase()` | Admin; open, unsold sale; one step; next phase starts paused |
+| Pause/resume | `setMintPaused(bool)` | Admin; phase started; not expired; no counter reset |
+| Change shared deadline | `setMintEndTime(timestampSeconds)` | Admin; current deadline not passed, not sold out; new time strictly future |
+| Treasury mint | `treasuryMint(amount, recipient)` | Treasury; before expiry; remaining free allocation |
+| Reveal | `reveal(baseURI)` | Admin; all 6,400 minted; one-shot |
+| Withdraw | `withdraw()` | Treasury; sold out; sends entire balance to caller |
+| Roles | `grantRole` / `revokeRole` | Admin; `DEFAULT_ADMIN_ROLE` is zero, read `TREASURY_ROLE()` |
+| Refund | `refund(id)` / `refundTo(id, recipient)` | Original paid minter; unsuccessful expiry |
 
-Only `mint` attaches an ETH payment. Get `TREASURY_ROLE()` on chain; admin is `bytes32(0)`. Read `hasRole` for the connected account at the snapshot block. On account/chain changes, clear permissions and any unsigned review immediately. The console limits treasury transactions to 50 keys and whitelist batches to 100 addresses as UI limits; the contract's supply limits still govern independently.
+Only paid mint attaches ETH. The console batches allowlists at 100 addresses and treasury mints at 50 tokens; estimate gas and split large operations. Listen for `PhaseConfigured`, `PhaseAdvanced`, `MintPausedUpdated`, `AllowlistUpdated`, `PaidMint` and `MintEndTimeUpdated`, or poll at a reasonable interval. Re-read after every receipt.
 
-## Mint transaction
+## Refunds at the original payment
 
-Use the frontend project's existing wallet library. For viem, the essential flow is:
+`mintPayment(tokenId)` permanently records the unit price paid for that NFT. A later price change never changes its refund. Read `refundsAvailable`, `originalMinter`, `refunded` and `mintPayment` to display eligibility and the exact amount. Treasury tokens have zero original minter/payment and cannot claim.
 
-```ts
-import type { Abi } from 'viem'
-import ryodanKeysAbi from './RyodanKeys.json'
+`refund(id)` burns the NFT and returns its recorded payment to the original minter. `refundTo(id, recipient)` allows that same minter to choose a nonzero recipient, useful for wallets rejecting ETH. Both attach zero ETH. Gas is not refunded. Approvals and NFT ownership do not transfer refund rights. Multiple different paid tokens may each be refunded once; the same token cannot be claimed again. Failed ETH delivery rolls back the burn and refund state.
 
-const abi = ryodanKeysAbi as Abi
-// publicClient and walletClient must both use Ethereum Sepolia.
-const { request } = await publicClient.simulateContract({
-  address: contractAddress,
-  abi,
-  functionName: 'mint',
-  args: [amount],           // bigint, positive, validated against snapshot
-  account: connectedAccount,
-  value: mintPrice * amount // bigint in wei, no floating-point arithmetic
-})
-const hash = await walletClient.writeContract(request)
-const receipt = await publicClient.waitForTransactionReceipt({
-  hash,
-  confirmations: 2
-})
-if (receipt.status !== 'success') throw new Error('Mint reverted')
-```
+There is no separate `redeem`, signed voucher, Merkle proof, ERC-20 approval or NFT approval required by this mint/refund API. An external feature called redeem needs its own integration review.
 
-Request wallet connection and switch chain to 11155111 before simulation. Do not send transactions on an unexpected chain. Re-read state on account or chain changes and cancel stale simulations. Estimate gas through simulation/RPC; do not hardcode a gas limit. Keep enough ETH for both value and gas.
+## Metadata
 
-Track disconnected, wrong chain, ready, simulating, awaiting signature, submitted, confirmed, rejected, reverted, and RPC error states. Disable repeat submission while awaiting signature or confirmation. A transaction hash alone is not confirmation. Handle replaced/cancelled transactions using the wallet library's replacement callback and follow the replacement hash. A receipt timeout is an unknown/pending result: keep the hash and reconcile it before offering another mint.
+Before reveal, existing tokens return the constructor's hidden JSON URI. After the admin's permanent collection-wide reveal, token `i` returns `<baseURI><i>.json`; no holder transaction or random assignment is involved. Refresh on `Revealed` / ERC-4906 `BatchMetadataUpdate`. See [METADATA_AND_REVEAL.md](METADATA_AND_REVEAL.md).
 
-Parse only receipt logs whose emitting address equals `contractAddress`. From `Transfer(address(0), wallet, tokenId)` logs, collect minted IDs. Do not predict IDs from total supply or assume consecutive IDs across different transactions. Refresh supply, allowance, ownership and metadata after confirmation. Use block subscriptions or periodic polling with cleanup and backoff to track other users' activity.
+Support `ipfs://`, HTTPS and JSON `data:` URIs; use IPFS gateway fallback and graceful missing-artwork handling. Treat fetched content as untrusted, validate media URLs and render text as text. Never inject fetched HTML/SVG/scripts. Refunded/burned IDs revert on `ownerOf`, `tokenURI` and `getApproved`.
 
-## Refund transactions
+## Acceptance checks
 
-Read `refundsAvailable()`, `originalMinter(id)`, and `refunded(id)`. Claimable means refunds are available, `originalMinter(id)` equals the connected wallet, and `refunded(id)` is false. Treasury IDs have `originalMinter == address(0)` and are never claimable. Approval or current ownership does not give someone else the right to claim.
+Test every phase, each membership list, separate wallet counters, repeat transactions within one phase, configurable caps/prices, GTD overbooking rejection, released guarantees and final public remainder. Verify phase/price races reject stale quotes and that minters cannot choose another phase. Include disconnected/wrong-chain flows, callbacks, pause/expiry, exact payment, wallet rejection, insufficient funds, pending/replaced transactions, full sellout and exact mixed-price refunds.
 
-- `refund(id)` sends 0.01 ETH to the connected minter and burns the NFT.
-- `refundTo(id, recipient)` lets that same minter choose a nonzero recipient, useful for smart wallets that reject ETH.
-- Both calls have **zero transaction value**. Simulate, submit, confirm, and refresh as for mint.
-- Never automatically retry a refund after a receipt timeout. Reconcile the submitted transaction and `refunded(id)` first.
-- Multiple different paid tokens each have one legitimate refund. The same token can never be refunded twice.
-
-There is no `redeem` function, off-chain voucher, signature mint, Merkle proof, ERC-20 approval, or NFT approval required for mint/refund in this contract. If another service calls its feature "redeem", its integration needs separate review.
-
-## Ownership and token discovery
-
-The contract is not ERC721Enumerable and has no `tokensOfOwner` getter. Build owned/paid token lists from indexed `Transfer` events and `originalMinter`; seed the query with the deployment receipt block and paginate log ranges according to RPC limits. Include burns (`to == address(0)`) and secondary transfers. Revalidate candidate tokens with `ownerOf` and `refunded`. A refunded token's `ownerOf`, `getApproved`, and `tokenURI` revert because it has been burned.
-
-For refund history, index `Refunded(tokenId, minter, recipient, amount)` and retain the original mint transaction. Keep state keyed by chain, contract address and wallet; cached lists from another deployment must not leak into this one.
-
-## Metadata and reveal
-
-Before reveal, every existing token returns one hidden JSON URI. After the admin's one-shot reveal, token `i` returns `<baseURI><i>.json`. See [METADATA_AND_REVEAL.md](METADATA_AND_REVEAL.md).
-
-Support `ipfs://`, `https://`, and JSON `data:` URIs. The Sepolia hidden URI contains inline base64 JSON and deliberately has no artwork; show a graceful image fallback. Resolve IPFS through a configured gateway with a fallback, keep the original canonical URI, and handle timeouts and invalid JSON. Treat metadata as untrusted: render text as text, validate media URLs, and do not execute fetched HTML/SVG/scripts or inject metadata through `innerHTML`.
-
-Refresh metadata on `Revealed` / `BatchMetadataUpdate`, and on initial load. Reveal is collection-wide and requires no holder transaction. `revealed` and `soldOut` are independent flags: tokens can be transferable while metadata remains hidden. There is no random assignment or verifiable randomness in this implementation.
-
-## Error handling
-
-| Revert | Frontend response |
-| --- | --- |
-| `Mint not active` | Refresh phase; sale is paused |
-| `Mint ended` | Refresh deadline; show unsuccessful expiry/refund state if eligible |
-| `Max supply reached` | Refresh supply; reduce quantity or disable mint |
-| `Incorrect payment` | Refresh price and rebuild exact wei value |
-| `Max mint amount reached for address` | Refresh lifetime wallet allowance |
-| `Not whitelisted` | Show whitelist eligibility gate |
-| `Max whitelist mint amount reached` | Disable whitelist mint; await public phase |
-| `Not original minter` / `Token not eligible for refund` | Refresh claim eligibility; never retry automatically |
-| `Already refunded` | Refresh token/refund history |
-| `Failed to send Ether` | For refund, offer a recipient address through `refundTo` |
-| `ERC721InvalidReceiver` | Connected smart wallet must implement ERC721Receiver |
-| Wallet rejected signature | Return to ready state without claiming success |
-| RPC timeout | Preserve hash and pending state; reconcile before retry |
-
-## Acceptance checks for the frontend agent
-
-Test disconnected and wrong-chain flows, whitelist eligible/ineligible states, paused sale, zero/excess quantity, shared allowance across phases, exact payment, wallet rejection, insufficient gas funds, replaced transactions, stale state, concurrent mint/supply races, and receipt timeouts. Confirm no duplicate submissions occur.
-
-On the active Sepolia contract, exercise mint and metadata reads using a funded user wallet. On the separate expired refund contract, validate the displayed QA history; newly connected wallets have no claimable tokens there. Create a fresh short-deadline sale to test another wallet's own refund. Sold-out reveal, secondary transfers and treasury withdrawal are covered in the full-size local suite; they have not been exercised as successful Sepolia transactions with the available funding.
-
-## Implemented console verification
-
-The browser suite in `console/scripts/browser-test.mjs` drives the actual UI through an injected EIP-1193 test wallet against an isolated Anvil chain. It covers connection, roles, exact-value mint, deadline edits, whitelist phases, treasury mint, role grant/revoke, self-revocation prevention, account/network changes, rejected signatures, pending recovery after reload, refunds, duplicate claims, full-size sellout, permanent reveal and withdrawal. Desktop/mobile views and the public Sepolia read-only deployment are verified separately. Real wallet-extension confirmation screens and mobile wallet apps require their own compatibility checks.
-
-References: [ethers BrowserProvider](https://docs.ethers.org/v6/api/providers/#BrowserProvider), [EIP-1193 wallet provider interface](https://eips.ethereum.org/EIPS/eip-1193).
+The reference browser suite uses a test EIP-1193 wallet and real Anvil transactions; it exercises all four phases, independent allowances, operator updates, stale-price recovery, refund protection, complete 6,400-token sellout, reveal and withdrawal. Actual wallet-extension dialogs and mobile wallet applications require separate compatibility testing. Successful full sellout/reveal/withdrawal is local evidence, not Sepolia evidence.

@@ -1,7 +1,7 @@
 import './styles.css';
-import { BrowserProvider, Contract, formatEther, getAddress, ZeroHash } from 'ethers';
-import { abi, reader, snapshot } from './chain.js';
-import { address, addresses, deadlineUTC, friendlyError, gate, metadataBase, phase, remaining, unsigned } from './model.js';
+import { BrowserProvider, Contract, formatEther, parseEther, getAddress, ZeroHash } from 'ethers';
+import { abiForVersion, reader, snapshot } from './chain.js';
+import { address, addresses, deadlineUTC, friendlyError, gate, metadataBase, phase, phaseNames, remaining, unsigned } from './model.js';
 import deployment from './deployment.json';
 
 const $ = selector => document.querySelector(selector);
@@ -12,10 +12,12 @@ const chainId = local ? 31337 : 11155111;
 const chainHex = `0x${chainId.toString(16)}`;
 const networkName = local ? 'LOCAL ANVIL' : 'ETH SEPOLIA';
 const rpcUrls = local ? [import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:8547'] : [
-  'https://ethereum-sepolia-rpc.publicnode.com', 'https://sepolia.drpc.org',
+  'https://ethereum-sepolia-rpc.publicnode.com', 'https://rpc.sepolia.ethpandaops.io',
 ];
 const deployments = local ? [{ address: getAddress(import.meta.env.VITE_CONTRACT_ADDRESS), label: 'Local / integration test' }] : [
   ...(deployment.address ? [deployment] : []),
+  { address: '0x30f41eA9af605cB63C9Fb86af945e9D137B3d804', label: 'v3 / lifecycle refund QA' },
+  ...(deployment.address?.toLowerCase() !== '0x4b8d8fd22fb818aa7b312cb72f7048e4d738109b' ? [{ address: '0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B', label: 'v2 / earlier management' }] : []),
   { address: '0xBc5338c4a71961d999Ec9551a2636850ec1561e0', label: 'v2 / expired refund QA' },
   { address: '0x85b1024194cFd547Eb81877f8efF77587e7604f9', label: 'v1 / original mint test' },
   { address: '0x0Ea00FA17cA2f4D44C3BB697d1C98C42567086F7', label: 'v1 / expired refund QA' },
@@ -118,10 +120,11 @@ function render() {
   text('#metric-minted', (s.paid + s.treasuryMinted).toLocaleString('en-US'));
   text('#metric-balance', formatEther(s.balance));
   text('#metric-phase', phase(s));
-  text('#phase-detail', s.soldOut ? 'TRANSFERS UNLOCKED' : s.refundsAvailable ? 'REFUNDS AVAILABLE' : `MAX ${s.limit} PAID / WALLET`);
+  text('#phase-detail', s.soldOut ? 'TRANSFERS UNLOCKED' : s.refundsAvailable ? 'REFUNDS AVAILABLE' : s.version >= 3n ? `${phaseNames[Number(s.currentPhase)]} · ${s.limit} / WALLET / PHASE` : `MAX ${s.limit} PAID / WALLET`);
   text('#metric-metadata', s.revealed ? 'REVEALED' : 'SEALED');
   text('#metadata-detail', s.revealed ? 'FINAL URI COMMITTED' : 'AWAITING REVEAL');
-  text('#mint-price', formatEther(s.price));
+  text('#mint-price', s.price ? formatEther(s.price) : '—');
+  renderPhases(s);
   text('#paid-count', `${s.paid.toLocaleString('en-US')} / ${s.maxPaid.toLocaleString('en-US')}`);
   text('#treasury-count', `${s.treasuryMinted} / ${s.maxTreasury}`);
   $('#paid-progress').value = Number(s.paid);
@@ -144,6 +147,52 @@ function render() {
   renderControls();
 }
 
+function fillPhaseConfiguration() {
+  const config = state?.phases?.[Number($('#phase').value) - 1];
+  if (!config) return;
+  $('#phase-price').value = formatEther(config.price);
+  $('#wallet-limit').value = String(config.limit);
+  $('#phase-form').dataset.loaded = selected.address;
+  $('#phase-form').dataset.dirty = 'false';
+}
+
+function renderPhases(s) {
+  const modern = s.version >= 3n;
+  all('[data-v3]').forEach(node => { node.hidden = !modern; });
+  all('[data-legacy]').forEach(node => { node.hidden = modern; });
+  $('#whitelist-form button').dataset.action = modern ? 'allowlist' : 'admin';
+  if (!modern) return;
+  const current = Number(s.currentPhase);
+  for (const track of all('.phase-track')) {
+    track.replaceChildren();
+    for (const config of s.phases) {
+      const closed = config.id < current;
+      const active = config.id === current;
+      const step = document.createElement('div');
+      step.className = `phase-step ${closed ? 'closed' : active ? 'current' : ''}`;
+      for (const [tag, value, className] of [
+        ['span', `0${config.id} / ${closed ? 'CLOSED' : active ? s.soldOut ? 'SOLD OUT' : s.timestamp > s.deadline ? 'EXPIRED' : s.paused ? 'PAUSED' : 'ACTIVE' : 'UPCOMING'}`, 'phase-state'],
+        ['strong', phaseNames[config.id], ''],
+        ['span', `${formatEther(config.price)} ETH · ${config.limit} / wallet`, ''],
+        ['span', `${config.id <= 2 ? 'Guaranteed' : config.id === 3 ? 'Allowlist · FCFS' : 'Public · FCFS'} · ${config.minted} minted`, ''],
+      ]) {
+        const node = document.createElement(tag); node.textContent = value; node.className = className; step.append(node);
+      }
+      track.append(step);
+    }
+  }
+  text('#phase-command-title', `${phaseNames[current]}${current ? ` / ${s.soldOut ? 'sold out' : s.timestamp > s.deadline ? 'expired' : s.paid === s.maxPaid ? 'allocation exhausted' : s.paused ? 'paused' : 'minting'}` : ''}`);
+  text('#gtd-reserve', `${s.reserved} keys reserved for guarantees · ${s.maxPaid - s.paid} paid keys unminted. Civilian receives the remainder after Recruit.`);
+  text('#advance-label', current < 4 ? `Review ${current ? 'advance to' : 'start'} ${phaseNames[current + 1]} ↗` : 'Final phase reached');
+  text('#pause-label', `Review ${s.paused ? 'resume' : 'pause'} ↗`);
+  for (const select of [$('#phase'), $('#allowlist-phase')]) {
+    [...select.options].forEach(option => { option.disabled = Number(option.value) < current; });
+  }
+  if (Number($('#phase').value) < current) { $('#phase').value = String(current); fillPhaseConfiguration(); }
+  if (current < 4 && Number($('#allowlist-phase').value) < current) $('#allowlist-phase').value = String(current);
+  if ($('#phase-form').dataset.loaded !== selected.address || $('#phase-form').dataset.dirty !== 'true') fillPhaseConfiguration();
+}
+
 async function refresh({ force = false, quiet = false } = {}) {
   if (refreshing && !force) return false;
   const current = ++generation;
@@ -158,7 +207,9 @@ async function refresh({ force = false, quiet = false } = {}) {
     catch (first) {
       if (rpcUrls.length < 2) throw first;
       rpcIndex = (rpcIndex + 1) % rpcUrls.length;
+      const previousProvider = provider;
       provider = reader(rpcUrls[rpcIndex], chainId);
+      previousProvider.destroy();
       next = await snapshot(provider, target, identity, chainId);
     }
     if (current !== generation || target !== selected.address || identity !== account) return false;
@@ -181,7 +232,7 @@ async function refresh({ force = false, quiet = false } = {}) {
 }
 
 function updateTotal() {
-  try { text('#mint-total', `${formatEther((state?.price || 10n ** 16n) * unsigned($('#mint-amount').value, 5900n, 1n))} ETH + gas`); }
+  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, 5900n, 1n))} ETH + gas` : 'Awaiting active phase'); }
   catch { text('#mint-total', 'Enter a valid quantity'); }
 }
 
@@ -235,6 +286,8 @@ async function signerForCurrentWallet() {
 function validate(action) {
   const reason = gate(action.kind, state, { ...context(), busy: false });
   if (reason) throw new Error(reason);
+  if (action.method === 'mint' && state.version >= 3n && (action.args[1] !== state.currentPhase || action.args[2] !== state.price)) throw new Error('Mint phase or price changed. Review a new quote.');
+  if (action.expectedPhase !== undefined && action.expectedPhase !== state.currentPhase) throw new Error('Active phase changed. Review the command again.');
   if (action.method === 'mint' && action.args[0] > remaining(state)) throw new Error('Quantity exceeds your remaining mint allowance.');
   if (action.method === 'treasuryMint' && action.args[0] > state.maxTreasury - state.treasuryMinted) throw new Error('Quantity exceeds the remaining treasury allocation.');
   if (action.method === 'setMintEndTime' && action.args[0] <= state.timestamp) throw new Error('The new deadline must be after the latest block time.');
@@ -251,7 +304,11 @@ async function review(action) {
     const reviewAccount = account;
     const reviewAddress = selected.address;
     const signer = await signerForCurrentWallet();
-    const keys = new Contract(selected.address, abi, signer);
+    const keys = new Contract(selected.address, abiForVersion(state?.version || 3n), signer);
+    if (action.kind === 'refund') {
+      const paid = state.version >= 3n ? await keys.mintPayment(action.args[0], { blockTag: state.block }) : state.price;
+      action.warning = `This burns the key and returns its original payment of ${formatEther(paid)} ETH. Network fees are separate.`;
+    }
     await keys[action.method].staticCall(...action.args, { value: action.value });
     const gas = await keys[action.method].estimateGas(...action.args, { value: action.value });
     if (reviewAccount !== account || reviewAddress !== selected.address || walletChain !== chainId) throw new Error('Wallet context changed during simulation. Review the action again.');
@@ -285,7 +342,7 @@ async function submit() {
     validate(action);
     if (action.pause && ((state.publicActive && action.method !== 'setPublicMintActive') || (state.whitelistActive && action.method !== 'setWhitelistMintActive'))) throw new Error('The active phase changed. Review the pause command again.');
     const signer = await signerForCurrentWallet();
-    const keys = new Contract(selected.address, abi, signer);
+    const keys = new Contract(selected.address, abiForVersion(state?.version || 3n), signer);
     await keys[action.method].staticCall(...action.args, { value: action.value });
     const gas = await keys[action.method].estimateGas(...action.args, { value: action.value });
     notice('Awaiting your wallet signature…');
@@ -311,6 +368,7 @@ async function submit() {
       } else throw cause;
     }
     finishReceipt(receipt);
+    if (receipt?.status === 1 && action.method === 'configurePhase') $('#phase-form').dataset.dirty = 'false';
     await refresh({ force: true, quiet: true });
   } catch (cause) {
     if (submitted && pending) {
@@ -324,7 +382,7 @@ function finishReceipt(receipt) {
   if (!receipt || !pending) return;
   const label = pending.label;
   if (receipt.status === 1) {
-    const iface = new Contract(selected.address, abi).interface;
+    const iface = new Contract(selected.address, abiForVersion(state?.version || 3n)).interface;
     const minted = receipt.logs.filter(item => item.address.toLowerCase() === selected.address.toLowerCase()).flatMap(item => {
       try { const event = iface.parseLog(item); return event?.name === 'Transfer' && event.args[0] === '0x0000000000000000000000000000000000000000' ? [event.args[2].toString()] : []; } catch { return []; }
     });
@@ -353,14 +411,28 @@ function onForm(id, callback) {
   });
 }
 
-onForm('#mint-form', data => review({ kind: 'mint', label: 'Mint Ryodan Keys', method: 'mint', args: [unsigned(data.get('amount'), 5900n, 1n)] }));
+onForm('#mint-form', data => review({ kind: 'mint', label: 'Mint Ryodan Keys', method: 'mint', args: [unsigned(data.get('amount'), 5900n, 1n), ...(state?.version >= 3n ? [state.currentPhase, state.price] : [])] }));
+onForm('#advance-form', () => review({ kind: 'advance', label: `Advance to ${phaseNames[Number(state.currentPhase) + 1]}`, method: 'advancePhase', args: [], expectedPhase: state.currentPhase, warning: 'Irreversible phase closure: unused guarantees are released, earlier phases cannot reopen. The next phase starts paused.' }));
+onForm('#pause-form', () => review({ kind: 'pause', label: state.paused ? 'Resume active phase' : 'Pause active phase', method: 'setMintPaused', args: [!state.paused], expectedPhase: state.currentPhase }));
 onForm('#phase-form', data => {
+  if (!/^\d+(\.\d{1,18})?$/.test(data.get('price').trim())) throw new Error('Enter an ETH price with up to 18 decimal places.');
+  const price = parseEther(data.get('price').trim());
+  if (price <= 0n) throw new Error('The price must be greater than zero.');
+  const id = unsigned(data.get('phase'), 4n, 1n);
+  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), 5900n, 1n)], warning: 'Price and per-wallet allowance apply to this phase. Existing mints still count; refunds preserve each token’s original payment. Guaranteed allocations must fit the remaining paid supply.' });
+});
+onForm('#legacy-phase-form', data => {
   const chosen = data.get('phase');
   const method = chosen === 'whitelist' || (chosen === 'paused' && state?.whitelistActive) ? 'setWhitelistMintActive' : 'setPublicMintActive';
   return review({ kind: 'admin', label: `Set mint phase: ${chosen}`, method, args: [chosen !== 'paused', unsigned(data.get('limit'), 5900n, 1n)], pause: chosen === 'paused' });
 });
 onForm('#deadline-form', data => review({ kind: 'deadline', label: 'Change mint deadline', method: 'setMintEndTime', args: [deadlineUTC(data.get('deadline'))], warning: `New deadline: ${utc(deadlineUTC(data.get('deadline')))}. Changing this date changes when refunds for an unsuccessful sale can begin. Expired sales cannot reopen.` }));
-onForm('#whitelist-form', data => review({ kind: 'admin', label: `${data.get('operation') === 'add' ? 'Add to' : 'Remove from'} whitelist`, method: data.get('operation') === 'add' ? 'addToWhitelist' : 'removeFromWhitelist', args: [addresses(data.get('addresses'))] }));
+onForm('#whitelist-form', data => {
+  const allowed = data.get('operation') === 'add';
+  const accounts = addresses(data.get('addresses'));
+  const modern = state?.version >= 3n;
+  return review({ kind: modern ? 'allowlist' : 'admin', label: `${allowed ? 'Add to' : 'Remove from'} allowlist`, method: modern ? 'setPhaseAllowlist' : allowed ? 'addToWhitelist' : 'removeFromWhitelist', args: modern ? [unsigned(data.get('phase'), 3n, 1n), accounts, allowed] : [accounts], warning: modern ? 'Each phase has its own list. Adding Pioneer or Operative wallets reserves their unminted allowance. Removing a wallet cancels that remaining guarantee.' : '' });
+});
 onForm('#treasury-form', data => review({ kind: 'treasuryMint', label: 'Mint treasury allocation', method: 'treasuryMint', args: [unsigned(data.get('amount'), 50n, 1n), address(data.get('recipient'))] }));
 onForm('#withdraw-form', () => review({ kind: 'withdraw', label: 'Withdraw sale proceeds', method: 'withdraw', args: [], warning: 'The full contract balance is sent to your connected treasury wallet.' }));
 onForm('#reveal-form', data => {
@@ -376,11 +448,11 @@ onForm('#role-form', data => {
 onForm('#refund-form', data => {
   const id = unsigned(data.get('id'), 6399n);
   const recipient = data.get('recipient').trim();
-  return review({ kind: 'refund', label: `Refund token #${id}`, method: recipient ? 'refundTo' : 'refund', args: recipient ? [id, address(recipient)] : [id], warning: 'This burns the key and returns 0.01 ETH. Network fees are paid separately.' });
+  return review({ kind: 'refund', label: `Refund token #${id}`, method: recipient ? 'refundTo' : 'refund', args: recipient ? [id, address(recipient)] : [id] });
 });
 onForm('#inspect-form', async data => {
   const id = unsigned(data.get('id'), 6399n);
-  const keys = new Contract(selected.address, abi, provider);
+  const keys = new Contract(selected.address, abiForVersion(state?.version || 3n), provider);
   const block = await provider.getBlockNumber();
   const target = selected.address;
   const [owner, uri, minter] = await Promise.all([keys.ownerOf(id, { blockTag: block }), keys.tokenURI(id, { blockTag: block }), keys.originalMinter(id, { blockTag: block })]);
@@ -412,6 +484,8 @@ $('#reconcile').addEventListener('click', () => reconcile().catch(error));
 $('#confirm-transaction').addEventListener('click', () => void submit());
 $('#review-dialog').addEventListener('close', () => { if (!busy) { draft = null; renderControls(); } });
 $('#mint-amount').addEventListener('input', updateTotal);
+$('#phase').addEventListener('change', fillPhaseConfiguration);
+for (const id of ['#phase-price', '#wallet-limit']) $(id).addEventListener('input', () => { $('#phase-form').dataset.dirty = 'true'; });
 for (const [selector, change] of [['#decrement', -1], ['#increment', 1]]) $(selector).addEventListener('click', () => {
   $('#mint-amount').value = Math.max(1, Math.min(5900, (Number($('#mint-amount').value) || 1) + change)); updateTotal();
 });

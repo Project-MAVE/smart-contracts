@@ -1,4 +1,33 @@
-# Ryodan Keys security review
+# Ryodan Keys v3 security review
+
+Updated 2026-10-29 for four sequential sale phases. This is source review, runtime testing and static analysis, not an independent third-party audit or formal proof. Historical v1/v2 evidence is retained below.
+
+## v3 changes and reviewed risks
+
+- **Refund solvency with discounts:** each paid NFT records its exact unit price in `mintPayment`. Refunds return that amount rather than the old fixed 0.01 ETH. Later price changes cannot inflate a claim. Tests cover mixed prices within and across phases, arbitrary refund order, repeated claims, invalid/free IDs and rejected transfers.
+- **Independent per-phase wallet caps:** `mintedInPhase` accumulates all transactions within a phase; the lifetime `mintedAmount` is informational. Pausing and allowlist removal/readdition cannot reset usage. Existing purchases in earlier phases do not consume a later allowance. Fuzzing covers independent limits and exact refunds across all four phases.
+- **Sequential access:** `currentPhase` only advances one step, with no backward setter. A transition permanently closes the previous phase, releases unclaimed guarantees and pauses the next phase. The mint API checks both expected phase and price; stale transactions cannot accidentally buy a later phase even when prices match.
+- **Actual guarantees:** Pioneer/Operative membership reserves each wallet's unminted allowance. Aggregate reservations cannot exceed remaining paid supply. Duplicate members are idempotent; removal, readdition, quota resizing and closure preserve accounting. Invariants recompute reservations from independently tracked wallet membership and counters. Safe-mint receiver rejection rolls back payments, quota use and reservations.
+- **Admin callbacks:** phase configuration, allowlist edits, phase advancement and pause/resume share the mint/refund reentrancy guard. Even an admin contract receiving an NFT cannot change those settings inside a mint callback. The unit price is captured before callbacks.
+- **Finite allocation and expiry:** all paid phases share 5,900 NFTs; treasury remains a separate 500. Civilian receives the remainder, with no promised minimum. Expiry cannot be reopened. All 6,400 mints still define success; reveal, transfers and withdrawal retain that prerequisite.
+
+Guarantees are subject to privileged administration: admins can alter prices, quota, list membership and closing time before the phase closes. No per-wallet custom quota override, automatic phase schedule, random assignment, overall wallet cap or minimum public allocation is added. Prices are independent exact wei values; changing Civilian does not recompute other discounts. Guaranteed caps cannot fall below the highest historical per-wallet mint count in that phase. Lost admin access, mutable pre-expiry deadline and administrator-selected final metadata retain their earlier trust implications.
+
+## v3 verification evidence
+
+- **96 Foundry test functions/properties:** 69 deterministic revised-contract tests, 11 fuzz tests, 5 stateful invariants, 4 deployment-script tests and 7 legacy exploit regressions. CI uses 1,000 fuzz runs and 256 × 128 actions per invariant, with unexpected handler reverts failing the run.
+- **Contract coverage:** 172/172 lines, 195/195 statements and 22/22 functions; 106/107 branches (99.07%). The uncovered defensive FCFS-reservation rejection is unreachable through normal sequential transitions because both GTD phases have already closed. No storage mutation was used to manufacture coverage. See `security/coverage-v3.lcov`.
+- **Slither 0.11.6:** 23 contracts, 102 detectors; **9 low timestamp findings and 2 informational checked low-level ETH calls**, no unsuppressed medium/high findings. The previously reviewed, narrowly annotated treasury-withdrawal false positive remains excluded. An initial costly-loop finding was removed by aggregating list reservation/member updates before writing phase/global totals. See `security/slither-v3.json`.
+- **Frontend:** 11 model tests and 20 local browser workflow checks. Browser transactions cover all four phases, exact-price configuration, independent quotas, stale-quote recovery, role/network/account boundaries, pending reload, original-payment refunds and a complete 6,400-token sale with 58.973 ETH in mixed-price proceeds. Desktop and mobile screenshots were visually inspected; no unexpected browser, console or network errors remained.
+- Deployment script checks exercise both management and four-phase refund QA deployments against isolated Anvil, including interrupted-run resumption and exact runtime matching. Live Sepolia evidence is recorded separately in the v3 deployment manifests; local success is not evidence of a successful Sepolia sellout.
+- **Live Sepolia:** the management deployment opens Pioneer with one paid key and one treasury key. The separate QA deployment minted once in each phase and refunded all four original payments, totaling 0.018 ETH. Its remaining supply is one treasury key and its balance is zero. Duplicate claims and expiry reopening were rejected. Both runtime bytecodes match the compiled artifact; receipts were also checked through a second RPC. See `deployments/sepolia-v3*.json`.
+- **Published console:** [ryodan.grooooog.space](https://ryodan.grooooog.space) selects v3 by default, links its Sepolia Etherscan address and preserves v1/v2 compatibility. The public browser check covered all six mobile views, disconnected access, primary-RPC failure and successful fallback/recovery. Bounded request timeouts and retries prevent a failed RPC from trapping initial network detection; every snapshot explicitly checks the actual chain ID. Evidence: `security/site-v3-verification.json`.
+
+The optimized v3 runtime is 14,573 bytes, below the EIP-170 size limit. Dependencies remain pinned to Solidity 0.8.37, OpenZeppelin 5.7.0 and forge-std 1.16.2. No npm dependency was added or upgraded for v3. The ABI is deliberately breaking; the console retains a separate v2 ABI and selects the correct reader/writer by on-chain version. Unsupported future versions disable writes. New deployments do not migrate existing NFTs or funds.
+
+## Historical v1/v2 review
+
+### Original v1/v2 scope
 
 Review date: 2026-10-19, updated for v2 and the management console. Scope: the contract, deployment script, Foundry dependencies, tests, CI placement, frontend ABI, metadata/reveal behavior and new Sepolia QA deployments. This is a source review with runtime tests and static analysis; it is not a formal proof or an independent third-party audit. No old deployed address or exploit transaction was provided, so findings about the previous version are reproduced against the supplied source.
 

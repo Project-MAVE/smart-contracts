@@ -27,6 +27,19 @@
   },
   {
     "type": "function",
+    "name": "CIVILIAN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "CONTRACT_VERSION",
     "inputs": [],
     "outputs": [
@@ -47,19 +60,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_MINT_AMOUNT",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -105,6 +105,45 @@
   },
   {
     "type": "function",
+    "name": "OPERATIVE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PIONEER",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "RECRUIT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "TREASURY_ROLE",
     "inputs": [],
     "outputs": [
@@ -118,29 +157,34 @@
   },
   {
     "type": "function",
-    "name": "WL_MINT_AMOUNT",
+    "name": "advancePhase",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "addToWhitelist",
+    "name": "allowlisted",
     "inputs": [
       {
-        "name": "addresses",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -175,6 +219,42 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "configurePhase",
+    "inputs": [
+      {
+        "name": "phaseId",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "walletLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "currentPhase",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
     "stateMutability": "view"
@@ -298,36 +378,20 @@
   },
   {
     "type": "function",
-    "name": "isPublicMintActive",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isWhitelistMintActive",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "mint",
     "inputs": [
       {
         "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expectedPhase",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "expectedUnitPrice",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -339,6 +403,38 @@
     "type": "function",
     "name": "mintEndTime",
     "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mintPaused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mintPayment",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -408,8 +504,19 @@
   },
   {
     "type": "function",
-    "name": "mintedByWhitelist",
-    "inputs": [],
+    "name": "mintedInPhase",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -466,6 +573,50 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "phases",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "walletLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minted",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "members",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reserved",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxWalletMinted",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -535,16 +686,27 @@
   },
   {
     "type": "function",
-    "name": "removeFromWhitelist",
+    "name": "remainingAllowance",
     "inputs": [
       {
-        "name": "addresses",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "phaseId",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -705,17 +867,12 @@
   },
   {
     "type": "function",
-    "name": "setPublicMintActive",
+    "name": "setMintPaused",
     "inputs": [
       {
-        "name": "active",
+        "name": "paused",
         "type": "bool",
         "internalType": "bool"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -723,17 +880,22 @@
   },
   {
     "type": "function",
-    "name": "setWhitelistMintActive",
+    "name": "setPhaseAllowlist",
     "inputs": [
       {
-        "name": "active",
-        "type": "bool",
-        "internalType": "bool"
+        "name": "phaseId",
+        "type": "uint8",
+        "internalType": "uint8"
       },
       {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "allowed",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -799,6 +961,19 @@
         "name": "",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalGtdReserved",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -872,29 +1047,35 @@
   },
   {
     "type": "function",
-    "name": "whitelisted",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "withdraw",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AllowlistUpdated",
+    "inputs": [
+      {
+        "name": "phase",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "allowed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -999,22 +1180,97 @@
   },
   {
     "type": "event",
-    "name": "MintPhaseUpdated",
+    "name": "MintPausedUpdated",
     "inputs": [
       {
-        "name": "publicActive",
+        "name": "paused",
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PaidMint",
+    "inputs": [
+      {
+        "name": "minter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        "name": "whitelistActive",
-        "type": "bool",
+        "name": "phase",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "firstTokenId",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "bool"
+        "internalType": "uint256"
       },
       {
-        "name": "maxPerWallet",
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "unitPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PhaseAdvanced",
+    "inputs": [
+      {
+        "name": "previousPhase",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "newPhase",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "releasedReservation",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PhaseConfigured",
+    "inputs": [
+      {
+        "name": "phase",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "walletLimit",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1162,25 +1418,6 @@
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "WhitelistUpdated",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "allowed",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
       }
     ],
     "anonymous": false

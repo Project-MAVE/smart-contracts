@@ -1,4 +1,36 @@
-# Ethereum Sepolia operations
+# Ryodan Keys v3 deployment runbook
+
+Updated 2026-10-29. The current contract source and `console/scripts/deploy.mjs` deploy **v3**, with four sequential phases and original-payment refunds. Earlier deployment records below are historical and retain their original API.
+
+V3 management contract: [`0x3120e791E078ACF04601d623307B0e6866633E7A`](https://sepolia.etherscan.io/address/0x3120e791E078ACF04601d623307B0e6866633E7A). Initial deadline: **2026-11-28 14:01:12 UTC**; read its current value on chain. Separate v3 refund QA: [`0x30f41eA9af605cB63C9Fb86af945e9D137B3d804`](https://sepolia.etherscan.io/address/0x30f41eA9af605cB63C9Fb86af945e9D137B3d804).
+
+Verified on 2026-10-29: the management sale is in Pioneer with one paid key, one treasury key and 0.005 ETH reserved. The QA sale completed all four phases, expired, and refunded its four paid keys for **0.018 ETH total**; only its free treasury key remains, with zero contract balance. Repeated refunds and reopening the expired sale were rejected. The public management panel is updated at [ryodan.grooooog.space](https://ryodan.grooooog.space), with all six historical/current deployments selectable. Transaction receipts are in [`sepolia-v3.json`](../deployments/sepolia-v3.json) and [`sepolia-v3-refund.json`](../deployments/sepolia-v3-refund.json); independently verified refund amounts and final state are in [`sepolia-v3-verification.json`](../deployments/sepolia-v3-verification.json).
+
+## v3 deployment procedure
+
+Use the dedicated test wallet `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`; its hush name is `YOMI_RYODAN_SEPOLIA_DEPLOYER`. No key belongs in files, logs, frontend code or command arguments. Compile the optimized pinned artifact, export/check its ABI and run Foundry, Slither and browser tests before deploying.
+
+From the repository root:
+
+```sh
+hush run --name YOMI_RYODAN_SEPOLIA_DEPLOYER --env PRIVATE_KEY --redact -- node console/scripts/deploy.mjs
+hush run --name YOMI_RYODAN_SEPOLIA_DEPLOYER --env PRIVATE_KEY --redact -- node console/scripts/deploy.mjs --qa
+# After the QA deadline has passed:
+hush run --name YOMI_RYODAN_SEPOLIA_DEPLOYER --env PRIVATE_KEY --redact -- node console/scripts/deploy.mjs --refund
+node console/scripts/deploy.mjs --verify
+```
+
+The default manifest is `deployments/sepolia-v3.json`. It records each transaction before waiting for two confirmations, allowing interrupted runs to resume. The management deployment opens Pioneer with only the test wallet listed, mints one Pioneer key at 0.005 ETH and one free treasury key, and verifies extend/restore deadline operations. The other phases keep their default settings for further UI testing. Actual customer lists are not loaded.
+
+`--qa` uses the separate `deployments/sepolia-v3-refund.json`: one paid NFT in each phase (0.005, 0.002, 0.001 and 0.01 ETH), plus one free treasury NFT. It verifies independent counters, releases unused guarantees, reaches Civilian sequentially and shortens the deadline. `--refund` then returns all four original payments (0.018 ETH total), checks duplicate rejection and rejects attempts to reopen expiry. Both scripts verify exact deployed runtime bytecode against the optimized artifact and role assignments. `--verify --rpc <second-public-rpc>` provides independent verification; add `--qa` to select the refund contract. The QA receipts were independently verified using `https://rpc.sepolia.ethpandaops.io`. Do not point these v3 scripts at v1/v2 manifests.
+
+Use `--local --rpc <anvil-url> --manifest <temporary-path>` to exercise deployment without a secret. The active frontend subset is written only by a successful non-QA Sepolia deployment. Preserve all previous deployment records. Select the v3 address/ABI in integrations; there is no upgrade or holder/fund migration.
+
+For a real campaign, provision final hidden metadata, choose admin/treasury role holders, mint the 500 treasury NFTs before expiry, configure phase prices/limits and guaranteed membership within remaining supply, then start/resume Pioneer. See [MANAGEMENT_CONSOLE.md](MANAGEMENT_CONSOLE.md). Revenue varies by phase prices; full-size sellout, successful reveal and withdrawal remain local test coverage rather than successful Sepolia transactions.
+
+## Historical v1/v2 deployment evidence
+
+### Original v1/v2 operations
 
 Updated for v2 on 2026-10-19. Chain: **Ethereum Sepolia 11155111**. Management UI: [ryodan.grooooog.space](https://ryodan.grooooog.space). See [MANAGEMENT_CONSOLE.md](MANAGEMENT_CONSOLE.md) for wallet setup and all UI operations.
 
