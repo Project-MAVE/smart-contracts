@@ -35,6 +35,10 @@ contract CallbackWallet is IERC721Receiver {
         keys.mint{value: msg.value}(amount, keys.currentPhase(), keys.mintPrice());
     }
 
+    function buyWithProof(uint256 amount, uint8 tier, bytes32[] calldata proof) external payable {
+        keys.mintWithProof{value: msg.value}(amount, keys.currentPhase(), keys.mintPrice(), tier, proof);
+    }
+
     function claim(uint256 id) external {
         keys.refund(id);
     }
@@ -95,6 +99,7 @@ abstract contract RyodanKeysFixture is Test {
     }
 
     function _open(uint256 limit) internal {
+        if (!keys.allowlistConfigured()) keys.configureAllowlist(bytes32(0), keccak256("empty-test-lists"), 0, 0, 0);
         keys.configurePhase(4, 0.01 ether, limit);
         while (keys.currentPhase() < 4) keys.advancePhase();
         keys.setMintPaused(false);
@@ -109,15 +114,9 @@ abstract contract RyodanKeysFixture is Test {
         keys.mint{value: value}(amount, phaseId, price);
     }
 
-    function _whitelist(address account) internal {
-        address[] memory accounts = new address[](1);
-        accounts[0] = account;
-        keys.setPhaseAllowlist(1, accounts, true);
-    }
-
     function _sellOut() internal {
-        _open(5900);
-        _buy(bob, 5900);
+        _open(6166);
+        _buy(bob, 6166);
         vm.prank(treasury);
         keys.treasuryMint(500, treasury);
     }
@@ -224,7 +223,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_MintCannotOverflowAmount() public {
-        _open(5900);
+        _open(6166);
         vm.expectRevert("Max supply reached");
         keys.mint(type(uint256).max, 4, 0.01 ether);
     }
@@ -244,7 +243,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.expectRevert("Invalid wallet limit");
         keys.configurePhase(4, 0.01 ether, 0);
         vm.expectRevert("Invalid wallet limit");
-        keys.configurePhase(4, 0.01 ether, 5901);
+        keys.configurePhase(4, 0.01 ether, 6167);
     }
 
     function test_TreasuryCapAndDeadline() public {
@@ -288,11 +287,10 @@ contract RyodanKeysTest is RyodanKeysFixture {
         keys.advancePhase();
         vm.expectRevert(denied);
         keys.configurePhase(1, 0.005 ether, 3);
-        address[] memory accounts = new address[](0);
         vm.expectRevert(denied);
-        keys.setPhaseAllowlist(1, accounts, true);
+        keys.configureAllowlist(bytes32(0), keccak256("empty"), 0, 0, 0);
         vm.expectRevert(denied);
-        keys.setPhaseAllowlist(1, accounts, false);
+        keys.configureAllowlist(bytes32(0), keccak256("empty"), 0, 0, 0);
         vm.expectRevert(denied);
         keys.reveal("ipfs://test/");
         vm.expectRevert(denied);
@@ -339,8 +337,8 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_PaidSelloutWithoutTreasuryIsNotSuccessful() public {
-        _open(5900);
-        _buy(bob, 5900);
+        _open(6166);
+        _buy(bob, 6166);
         assertFalse(keys.soldOut());
         vm.prank(treasury);
         vm.expectRevert("Not all tokens minted");
@@ -356,11 +354,11 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_SoldOutWithdrawsExactlyOnceAndEnablesTransfers() public {
         _sellOut();
         assertTrue(keys.soldOut());
-        assertEq(keys.totalSupply(), 6400);
+        assertEq(keys.totalSupply(), 6666);
         uint256 beforeBalance = treasury.balance;
         vm.prank(treasury);
         keys.withdraw();
-        assertEq(treasury.balance - beforeBalance, 59 ether);
+        assertEq(treasury.balance - beforeBalance, 61.66 ether);
         assertEq(address(keys).balance, 0);
         vm.prank(treasury);
         vm.expectRevert("No balance to withdraw");
@@ -377,8 +375,8 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_PublicSupplyCapCannotBeExceeded() public {
-        _open(5900);
-        _buy(bob, 5900);
+        _open(6166);
+        _buy(bob, 6166);
         vm.deal(alice, 1 ether);
         vm.prank(alice);
         vm.expectRevert("Max supply reached");
@@ -401,15 +399,15 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function test_RevealIsOneShotAndEmitsMetadataUpdate() public {
         _sellOut();
-        assertEq(keys.tokenURI(6399), HIDDEN);
+        assertEq(keys.tokenURI(6665), HIDDEN);
         vm.expectEmit(false, false, false, true);
         emit RyodanKeys.Revealed("ipfs://final/");
         vm.expectEmit(false, false, false, true);
-        emit BatchMetadataUpdate(0, 6399);
+        emit BatchMetadataUpdate(0, 6665);
         keys.reveal("ipfs://final/");
         assertTrue(keys.revealed());
         assertEq(keys.tokenURI(0), "ipfs://final/0.json");
-        assertEq(keys.tokenURI(6399), "ipfs://final/6399.json");
+        assertEq(keys.tokenURI(6665), "ipfs://final/6665.json");
         vm.expectRevert("Already revealed");
         keys.reveal("ipfs://replacement/");
     }
@@ -482,17 +480,19 @@ contract RyodanKeysTest is RyodanKeysFixture {
         assertEq(address(keys).balance, 0.01 ether);
     }
 
-    function test_ThirdPartyCannotTriggerOrRedirectRefund() public {
+    function test_ThirdPartyCanTriggerButCannotRedirectRefund() public {
         _open(1);
         _buy(bob, 1);
         vm.warp(end + 1);
         vm.startPrank(alice);
         vm.expectRevert("Not original minter");
-        keys.refund(0);
-        vm.expectRevert("Not original minter");
         keys.refundTo(0, payable(alice));
+        uint256 beforeBalance = bob.balance;
+        keys.refund(0);
         vm.stopPrank();
-        assertEq(address(keys).balance, 0.01 ether);
+        assertEq(bob.balance - beforeBalance, 0.01 ether);
+        assertEq(alice.balance, 0);
+        assertEq(address(keys).balance, 0);
     }
 
     function test_RefundToRecipientAndZeroRecipientRejection() public {
@@ -605,7 +605,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         wallet.configure("", true, false);
         vm.expectRevert("Failed to send Ether");
         wallet.takeProceeds();
-        assertEq(address(keys).balance, 59 ether);
+        assertEq(address(keys).balance, 61.66 ether);
         vm.prank(treasury);
         keys.withdraw();
         assertEq(address(keys).balance, 0);
@@ -619,7 +619,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         wallet.takeProceeds();
         assertFalse(wallet.reentered());
         assertEq(wallet.result(), abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
-        assertEq(address(wallet).balance, 59 ether);
+        assertEq(address(wallet).balance, 61.66 ether);
     }
 
     function testFuzz_MintAccountingAndWalletLimit(uint256 rawAmount) public {
@@ -709,7 +709,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function testFuzz_UnauthorizedSaleAdministration(address account, bool active, uint256 limitSeed) public {
         vm.assume(account != address(this));
-        uint256 limit = bound(limitSeed, 1, 5900);
+        uint256 limit = bound(limitSeed, 1, 6166);
         vm.prank(account);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, bytes32(0))

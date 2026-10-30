@@ -1,76 +1,63 @@
-# Ryodan management console
+# Ryodan Control — v4 operator guide
 
-Updated 2026-10-29 for v3. Public console: **[ryodan.grooooog.space](https://ryodan.grooooog.space)**.
+Open [ryodan.grooooog.space](https://ryodan.grooooog.space). The console uses Ethereum Sepolia, shows the selected contract's full address and links directly to Sepolia Etherscan. V4 is selected by default; older v1/v2/v3 deployments retain their original controls and ABI. This is testnet, not a mainnet launch.
 
-V3 management contract: [`0x3120e791E078ACF04601d623307B0e6866633E7A`](https://sepolia.etherscan.io/address/0x3120e791E078ACF04601d623307B0e6866633E7A). Initial deadline: **2026-11-28 14:01:12 UTC**; read its current value on chain. Separate v3 refund QA: [`0x30f41eA9af605cB63C9Fb86af945e9D137B3d804`](https://sepolia.etherscan.io/address/0x30f41eA9af605cB63C9Fb86af945e9D137B3d804).
+Read-only operation requires no wallet. To sign, import/use the dedicated test wallet in an Ethereum wallet and connect it on Sepolia. Its public address is `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`; it holds admin and treasury roles in these test deployments. The private key is stored in hush under `YOMI_RYODAN_SEPOLIA_DEPLOYER`; never enter it in this webpage. The frontend has no signing server and stores no key.
 
-A static Ethereum Sepolia console for four-phase minting, per-phase prices and wallet limits, guarantees/allowlists, editable deadline, treasury, reveal, roles and refunds. It is readable without a wallet; every write is simulated, reviewed and signed in the connected wallet.
+## Prepare the lists
 
-## Contract and wallet
+In **Sale controls → Prepare the three lists**, download the complete template ZIP or the individual Pioneer, Operative and Recruit CSVs. Each is empty except for the `address` header. Add one wallet per line and assign it only to its highest tier. Pioneer inherits Operative/Recruit and Operative inherits Recruit. See [CSV requirements and the full loading procedure](ALLOWLISTS_AND_CLIENT_ALIGNMENT.md).
 
-The selected address and Sepolia Etherscan link are always visible under **Target contract**. `console/src/deployment.json` defines the default deployment; `deployments/sepolia-v3.json` records the v3 management deployment and `deployments/sepolia-v3-refund.json` its separate expired QA sale. Earlier v2/v1 deployments retain their own rules, balances and NFTs; they are not upgraded or migrated. The console reads the on-chain version and uses the matching ABI.
+Select all three completed files and a UTC freeze timestamp. Generate, inspect counts/hashes/capacity, and download `allowlist.json` plus `check-data.js`. A previous JSON snapshot can also be imported. Both outputs must be published by the frontend team from the same build. Downloads and browser processing do not change the chain. Imported/generated data is session-only; download before reloading.
 
-Network: **Ethereum Sepolia / 11155111**. Test admin and treasury wallet: **`0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`**. Its secret is stored as `YOMI_RYODAN_SEPOLIA_DEPLOYER` in hush and was shared separately through an expiring Send. No key or Send URL is stored in this guide or the browser application. Import that key in your wallet application and verify the resulting address, then connect to the console. Use your wallet's in-app browser on mobile.
+Before starting Pioneer, sign **Review snapshot on chain**. Root/counts can be corrected while phase is 0. Once Pioneer starts, membership is permanently frozen; prices and per-wallet limits remain editable under their respective guards. Existing v4 smoke deployments already started with the test-wallet-only snapshot and cannot accept a different real list. The final campaign needs its own fresh deployment and completed lists.
 
-Production customers must use their own wallets. The dedicated test wallet and Sepolia addresses are not production configuration.
-
-## Phase setup and progression
-
-| Phase | Default price | Default total per wallet in that phase | Access |
-| --- | --- | --- | --- |
-| Pioneer | 0.005 ETH | 4 | Guaranteed, allowlist |
-| Operative | 0.002 ETH | 6 | Guaranteed, allowlist |
-| Recruit | 0.001 ETH | 6 | First come, allowlist |
-| Civilian | 0.01 ETH | 10 | First come, open to everyone |
-
-The 50%, 80%, 90% discounts are applied to the initial public price. Each price is independently configurable; changing the public price does not recalculate other prices. Wallet limits are independent across phases, while multiple mint transactions in the same phase consume the same allowance. No additional lifetime cap exists.
-
-1. Open **Sale controls**. The four-step strip shows configured prices, limits, mint counts, current phase and closed phases.
-2. Under **Phase price & wallet limit**, choose a current/future phase, enter its exact ETH price and total allowance per wallet, then review and sign. Choosing here only edits settings; it does not activate that phase.
-3. Under **Allowlist management**, select Pioneer, Operative or Recruit and add addresses, up to 100 per transaction. Each phase has a separate list. Civilian has no list.
-4. For Pioneer/Operative, the contract reserves each listed wallet's remaining phase allowance. The combined guarantees must fit the 5,900-token paid supply. Adding too many wallets or raising limits beyond available inventory reverts atomically. Removing a member releases its remaining allocation. Guaranteed limits cannot be lowered below the highest historical mint count of one wallet in that phase.
-5. **Start Pioneer** moves from not started to Pioneer, paused. Check settings and membership, then **Resume**. Pausing and resuming never resets counters or stops the deadline.
-6. **Advance to Operative**, then Recruit, then Civilian, in order. Every advance permanently closes the old phase and releases its unused guarantees. The new phase starts paused and needs an explicit resume. You cannot go backward or skip a step.
-
-The admin determines when to advance. There are no automatic per-phase start/end timestamps. The single sale deadline remains editable in UTC while unexpired and unsold. Once expired, minting and phase administration cannot reopen. Deadline edits cannot revoke accrued refund rights.
-
-The paid pool is **5,900 across all phases**, plus **500 free treasury NFTs**. Civilian receives the remainder after Recruit; there is no minimum Civilian allocation. Guaranteed allocation means availability under the current configuration, not a free mint or an irrevocable promise: privileged admins can edit lists, prices, limits and closing time.
+At default caps the guaranteed budget is `14 × Pioneer count + 10 × Operative count`, at most 6,166 paid keys. The panel shows full-list budget at current caps separately from actual remaining on-chain guarantees. Recruit adds no guaranteed reserve. Never invent counts to make an oversized list fit; adjust caps or list membership before committing.
 
 ## Mint
 
-Open **Overview & mint**. The wallet sees the current phase's price and its remaining allowance, chooses a quantity and reviews the payment. Neither phase nor token IDs can be chosen. IDs start at 0 and are shared in sequence with treasury mints. A phase or price change before mining invalidates the quote; review a fresh transaction.
+The mint page has no phase picker. It reads the active phase, price and remaining wallet allowance. Initial settings:
 
-The receipt log shows actual minted IDs. Wait for confirmations; do not send a second transaction merely because the first is slow. Pending hashes survive reload. **Check receipt** reconciles confirmation; a replacement/cancellation hash must consume the same wallet nonce before the original is cleared.
+| Phase | Price/key | Cap per wallet |
+| --- | ---: | ---: |
+| Pioneer | 0.025 ETH | 4, in pairs |
+| Operative | 0.040 ETH | 10 |
+| Recruit | 0.045 ETH | 10 |
+| Civilian | 0.050 ETH | 10 |
 
-## Deadline, treasury and successful sale
+Pioneer buys 2 or 4 keys under the initial cap, at 0.050 ETH per pair. The other phases buy individual keys. Wallet caps are independent between phases; repeat transactions in the same phase consume the same allowance. Existing test purchases count toward their caps.
 
-**Change the deadline** interprets dates as UTC and submits Unix seconds. An open sale can be shortened or extended, including after purchases. New time must be strictly in the future. Expired/sold-out sales cannot edit their deadline.
+Review shows chain, contract, signer, function, arguments, exact payment and gas estimate. Sign in the wallet. Confirmation shows actual minted token IDs and transaction links. If the quoted price or phase changes, review a new transaction. A missing proof snapshot cannot grant first-time list access; import the file matching the on-chain root or use the deployed frontend's matching data.
 
-**Treasury** mints up to 50 free NFTs per console transaction to a chosen recipient, within the separate 500-token pool. Complete the treasury allocation before the shared deadline. Success still requires all **6,400** NFTs: selling 5,900 paid NFTs while treasury is incomplete does not unlock transfers, reveal or withdrawal. At failed expiry, paid minters can refund.
+## Sale controls
 
-After success, **Withdraw** sends the entire contract balance to the connected treasury-role wallet. Revenue depends on quantities and actual prices paid in each phase; it is not fixed at 59 ETH in v3.
+- **Phase price & wallet limit:** change the current or a future phase. Price is ETH per key, including Pioneer. Pioneer cap must be even. GTD caps cannot go below the maximum already minted by one wallet in that phase, and increases must fit remaining paid supply. FCFS cap reductions do not erase earlier mints.
+- **Advance:** permanently closes the current phase, releases its unused guarantees and opens the next phase paused. Progress is Pioneer → Operative → Recruit → Civilian. Review the next phase's settings, then resume. Closed phases cannot reopen.
+- **Pause/resume:** stops/starts the active phase without moving its deadline.
+- **Deadline:** displayed and entered in UTC. It can be shortened or extended while the existing deadline has not passed and the sale has not sold out. The new value must be in the future. An expired sale cannot reopen, including before its first refund.
 
-## Reveal, roles and refunds
+There is one shared mint deadline and manual phase advancement, not four automatic schedules. Pausing does not extend guarantees beyond phase closure or expiry. Civilian gets the remaining paid keys after Recruit, without a fixed separate quota.
 
-**Metadata & reveal** provides an owner/URI inspector and an irreversible, collection-wide reveal after success. Prepare and pin `0.json` through `6399.json`, verify the final directory URI ends with `/`, acknowledge permanence and review the transaction. No holder reveal transaction exists. Follow [METADATA_AND_REVEAL.md](METADATA_AND_REVEAL.md).
+## Treasury, metadata and access
 
-**Access control** grants/revokes admin or treasury roles. Admins control phase settings, dates, membership, roles and final metadata. Treasury controls free mints and successful-sale withdrawals. Console self-revocation is blocked to avoid accidental lockout; the contract's standard AccessControl API still permits it. Verify another administrator before any role change.
+**Treasury:** mint reserved keys to a validated recipient, up to 50 per UI transaction, for gas only. Finish all 500 treasury mints before expiry. All 6,166 paid **and** 500 treasury keys are required for success. If treasury is incomplete, even paid sellout cannot unlock transfers, reveal or withdrawal. After complete sellout the connected treasury-role wallet can withdraw the full ETH balance.
 
-**Refunds** opens after unsuccessful expiry. Enter a paid token ID and optionally a recipient address. The review shows that NFT's **original payment**, even if the phase price changed later. Only its original paid minter may claim; it burns the NFT and cannot be repeated. Treasury NFTs cannot refund. A rejected ETH receiver can retry using a different recipient. Gas is separate and is not returned.
+**Metadata & reveal:** inspect existing tokens and their canonical URI. Prepare and pin `0.json` through `6665.json`, then enter a final directory URI ending in `/`. Review and acknowledge the permanent reveal after full sellout. Reveal can happen once and has no on-chain undo. See [metadata preparation](METADATA_AND_REVEAL.md).
 
-## Local development and verification
+**Access control:** administrators grant/revoke admin and treasury roles. Verify addresses and keep an administrator able to act. Self-revocation is blocked in the panel; the underlying AccessControl contract still supports role renunciation/revocation. Role holders, not the webpage, enforce control.
 
-```sh
-cd ryodan-keys
-forge build
-python3 scripts/export-abi.py --check
-cd ../console
-npm test
-npm run test:browser
-```
+## Refunds
 
-`npm run test:browser` launches isolated Anvil and Vite instances and drives real transactions through a test wallet provider. It exercises four-phase settings/progression/mint, deadline edits, roles, treasury, stale-price recovery, account/network changes, rejection, pending reload, mixed-price refunds, duplicate rejection and full-size sellout/reveal/withdrawal. Screenshots and the check list are under ignored `console/test-results/`.
+After unsuccessful expiry, **Refunds** supports:
 
-Production uses Sepolia only. Development-only Anvil settings are `VITE_CHAIN_ID=31337`, `VITE_RPC_URL` and `VITE_CONTRACT_ADDRESS`. Production builds ignore that local mode. This UI has no backend, database or server-side signing key. Real extension and mobile wallet confirmation screens require their own compatibility checks.
+1. Single ID: default payment to its original minter. In v4 anyone may trigger it.
+2. Optional recipient: only the original minter can use this to redirect their own refund, including recovery for a wallet that rejects incoming ETH.
+3. Batch: enter 1–50 unique paid IDs separated by commas/newlines. One signature, potentially multiple minters; each receives their original token payment. The caller does not collect other people's funds.
 
-The public hostname is served persistently by grog from `console/dist`. Building into that directory updates the live files; use a temporary output directory for review builds. Publish only after browser journeys, visible output, console errors and network failures are checked.
+Refunds burn tokens. Duplicate, missing, treasury or already refunded IDs revert the entire batch; an ETH-rejecting recipient also rolls all of it back. Exclude that ID and have its minter use the optional-recipient flow separately. Current phase prices do not change historical refunds. Gas is separate.
+
+## Transaction recovery
+
+Wrong chain, missing roles, stale RPC data and pending transactions disable writes with an explanation. Pending hashes persist by chain/contract. Use **Check receipt** after reload; do not submit the operation again because confirmation is slow. For wallet replacements/cancellations, supply the confirmed replacement hash; the panel checks the same sender/nonce and refreshes state. Rejected signatures leave state unchanged.
+
+Public reads use PublicNode with ethPandaOps fallback and bounded requests. Contract permissions and checks apply even if UI controls are bypassed. Read-only public site checks are distinct from local signing tests.

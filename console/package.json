@@ -1,6 +1,6 @@
 {
   "name": "ryodan-control",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "test": "node --test test/*.test.js",
     "test:browser": "node scripts/browser-test.mjs",
     "deploy:sepolia": "node scripts/deploy.mjs",
-    "test:deploy": "node scripts/deploy-test.mjs"
+    "test:deploy": "node scripts/deploy-test.mjs",
+    "allowlist": "node scripts/allowlist.mjs"
   },
   "dependencies": {
     "ethers": "6.17.0"

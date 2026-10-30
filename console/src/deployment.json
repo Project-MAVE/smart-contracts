@@ -1,7 +1,7 @@
 {
   "chainId": 11155111,
-  "address": "0x3120e791E078ACF04601d623307B0e6866633E7A",
-  "label": "v3 / four-phase management",
-  "deploymentBlock": 12019972,
-  "runtimeCodeHash": "0x50a6ef567f2cc4691eba36a21cfbcca6d2f9c5854e5f6d0dc98445af47cfbe62"
+  "address": "0xCCe14de13cd2f917a2B85b17D5E325Bd5e48BBa8",
+  "label": "v4 / client-aligned management",
+  "deploymentBlock": 12028328,
+  "runtimeCodeHash": "0x7aec34f191af781cfafecc264dd07a8cec998bc6544b3c31e0369e4d9e6d4a67"
 }

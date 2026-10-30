@@ -1,136 +1,74 @@
-# Ryodan Keys v3 security review
+# Ryodan Keys v4 — security review and evidence
 
-Updated 2026-10-29 for four sequential sale phases. This is source review, runtime testing and static analysis, not an independent third-party audit or formal proof. Historical v1/v2 evidence is retained below.
+Updated 2026-10-30. Scope: current Solidity source, allowlist compiler/loader, public ABI, management UI and deployment tooling. This is an implementation review with automated regression/static testing, not an independent audit or proof that no vulnerability exists.
 
-## v3 changes and reviewed risks
+## Changes from v3
 
-- **Refund solvency with discounts:** each paid NFT records its exact unit price in `mintPayment`. Refunds return that amount rather than the old fixed 0.01 ETH. Later price changes cannot inflate a claim. Tests cover mixed prices within and across phases, arbitrary refund order, repeated claims, invalid/free IDs and rejected transfers.
-- **Independent per-phase wallet caps:** `mintedInPhase` accumulates all transactions within a phase; the lifetime `mintedAmount` is informational. Pausing and allowlist removal/readdition cannot reset usage. Existing purchases in earlier phases do not consume a later allowance. Fuzzing covers independent limits and exact refunds across all four phases.
-- **Sequential access:** `currentPhase` only advances one step, with no backward setter. A transition permanently closes the previous phase, releases unclaimed guarantees and pauses the next phase. The mint API checks both expected phase and price; stale transactions cannot accidentally buy a later phase even when prices match.
-- **Actual guarantees:** Pioneer/Operative membership reserves each wallet's unminted allowance. Aggregate reservations cannot exceed remaining paid supply. Duplicate members are idempotent; removal, readdition, quota resizing and closure preserve accounting. Invariants recompute reservations from independently tracked wallet membership and counters. Safe-mint receiver rejection rolls back payments, quota use and reservations.
-- **Admin callbacks:** phase configuration, allowlist edits, phase advancement and pause/resume share the mint/refund reentrancy guard. Even an admin contract receiving an NFT cannot change those settings inside a mint callback. The unit price is captured before callbacks.
-- **Finite allocation and expiry:** all paid phases share 5,900 NFTs; treasury remains a separate 500. Civilian receives the remainder, with no promised minimum. Expiry cannot be reopened. All 6,400 mints still define success; reveal, transfers and withdrawal retain that prerequisite.
+V4 applies the supplied client specification: 6,666 total keys, prices 0.025/0.040/0.045/0.050 ETH, independent caps 4/10/10/10, Pioneer pairs, hierarchical single-tier Merkle eligibility and permissionless original-minter batch refunds. It keeps editable live/future prices/caps, a shared editable deadline, sequential irreversible phases, treasury-gated complete sellout, locked transfers and one-shot reveal.
 
-Guarantees are subject to privileged administration: admins can alter prices, quota, list membership and closing time before the phase closes. No per-wallet custom quota override, automatic phase schedule, random assignment, overall wallet cap or minimum public allocation is added. Prices are independent exact wei values; changing Civilian does not recompute other discounts. Guaranteed caps cannot fall below the highest historical per-wallet mint count in that phase. Lost admin access, mutable pre-expiry deadline and administrator-selected final metadata retain their earlier trust implications.
+The old reported “multiple redeem” issue was reproduced in the historical fixture as refunding **nonexistent/free treasury IDs**, which could destroy paid refund reserves. Refunding distinct paid tokens is legitimate; the same ID was already protected by the old flag. Current code requires a recorded original minter/payment, burns refunded tokens and prevents reuse. The seven legacy regressions remain test-only evidence; they do not identify an exploited mainnet address.
 
-## v3 verification evidence
+## Automated validation
 
-- **96 Foundry test functions/properties:** 69 deterministic revised-contract tests, 11 fuzz tests, 5 stateful invariants, 4 deployment-script tests and 7 legacy exploit regressions. CI uses 1,000 fuzz runs and 256 × 128 actions per invariant, with unexpected handler reverts failing the run.
-- **Contract coverage:** 172/172 lines, 195/195 statements and 22/22 functions; 106/107 branches (99.07%). The uncovered defensive FCFS-reservation rejection is unreachable through normal sequential transitions because both GTD phases have already closed. No storage mutation was used to manufacture coverage. See `security/coverage-v3.lcov`.
-- **Slither 0.11.6:** 23 contracts, 102 detectors; **9 low timestamp findings and 2 informational checked low-level ETH calls**, no unsuppressed medium/high findings. The previously reviewed, narrowly annotated treasury-withdrawal false positive remains excluded. An initial costly-loop finding was removed by aggregating list reservation/member updates before writing phase/global totals. See `security/slither-v3.json`.
-- **Frontend:** 11 model tests and 20 local browser workflow checks. Browser transactions cover all four phases, exact-price configuration, independent quotas, stale-quote recovery, role/network/account boundaries, pending reload, original-payment refunds and a complete 6,400-token sale with 58.973 ETH in mixed-price proceeds. Desktop and mobile screenshots were visually inspected; no unexpected browser, console or network errors remained.
-- Deployment script checks exercise both management and four-phase refund QA deployments against isolated Anvil, including interrupted-run resumption and exact runtime matching. Live Sepolia evidence is recorded separately in the v3 deployment manifests; local success is not evidence of a successful Sepolia sellout.
-- **Live Sepolia:** the management deployment opens Pioneer with one paid key and one treasury key. The separate QA deployment minted once in each phase and refunded all four original payments, totaling 0.018 ETH. Its remaining supply is one treasury key and its balance is zero. Duplicate claims and expiry reopening were rejected. Both runtime bytecodes match the compiled artifact; receipts were also checked through a second RPC. See `deployments/sepolia-v3*.json`.
-- **Published console:** [ryodan.grooooog.space](https://ryodan.grooooog.space) selects v3 by default, links its Sepolia Etherscan address and preserves v1/v2 compatibility. The public browser check covered all six mobile views, disconnected access, primary-RPC failure and successful fallback/recovery. Bounded request timeouts and retries prevent a failed RPC from trapping initial network detection; every snapshot explicitly checks the actual chain ID. Evidence: `security/site-v3-verification.json`.
+The CI profile passes **108 tests/properties**, including **12 fuzz tests** (1,000 runs each), **5 stateful invariants** (256 runs, depth 128), seven legacy regressions and four deployment-script tests. Evidence: [forge-v4.txt](security/forge-v4.txt).
 
-The optimized v3 runtime is 14,573 bytes, below the EIP-170 size limit. Dependencies remain pinned to Solidity 0.8.37, OpenZeppelin 5.7.0 and forge-std 1.16.2. No npm dependency was added or upgraded for v3. The ABI is deliberately breaking; the console retains a separate v2 ABI and selects the correct reader/writer by on-chain version. Unsupported future versions disable writes. New deployments do not migrate existing NFTs or funds.
+Coverage excluding imported libraries and generated getters reaches **100% lines (209/209), statements (253/253) and functions (28/28)**, plus **99.22% branches (128/129)**. The remaining branch is the defensive FCFS reservation refusal: sequential phase advancement releases all GTD reservations before FCFS is reachable. Coverage runs exclude invariant handlers; the full CI-profile suite runs those separately. The deployment script reaches 100% line/statement/branch/function coverage. [LCOV evidence](security/coverage-v4.lcov).
 
-## Historical v1/v2 review
+Stateful invariants cover supply/accounting, Ether conservation/refund solvency, sequential phases, exact GTD reserves and live-token ownership. The handler exercises mutable prices/caps/deadlines, phase advancement, frozen-list replacement attempts, minting, treasury allocation, transfers and all refund paths. Full sellout/reveal/withdrawal also has deterministic and browser coverage.
 
-### Original v1/v2 scope
+Meaningful v4 cases include inherited 34-key purchases; proof replay against a different address/tier; malformed proofs and registration rollback; even Pioneer amounts/caps; exact-fit and oversized GTD allocations; independent phase limits; quote changes; remaining public supply; admin callback reentry; mixed-price/mixed-minter refunds; arbitrary batch callers; zero/oversized/duplicate/nonexistent/treasury IDs; rejecting recipients; complete rollback; callback reentry; exact expiry; expired-sale reopening; forced ETH and lost-role effects.
 
-Review date: 2026-10-19, updated for v2 and the management console. Scope: the contract, deployment script, Foundry dependencies, tests, CI placement, frontend ABI, metadata/reveal behavior and new Sepolia QA deployments. This is a source review with runtime tests and static analysis; it is not a formal proof or an independent third-party audit. No old deployed address or exploit transaction was provided, so findings about the previous version are reproduced against the supplied source.
-
-## Confirmed findings and changes
-
-| ID | Severity | Finding | Resolution and evidence |
-| --- | --- | --- | --- |
-| RK-01 | High | Anyone could call `refund` with nonexistent or free treasury IDs. Their `originalMinter` was zero, so each new ID sent 0.01 ETH to address zero and consumed legitimate refund reserves. | Only original paid minters can claim their own tokens. Nonexistent and treasury IDs are rejected. Legacy regression tests reproduce reserve destruction and a subsequent legitimate refund failure; revised tests preserve reserves. |
-| RK-02 | High, availability | Mint ended at fixed timestamp 1767139200, **2025-12-31 00:00 UTC**. Redeploying that source still creates an expired sale. | Constructor requires a future deadline. In v2 the admin can shorten/extend the deadline while the sale is unexpired and unsold; the new time must be in the future. Once the old deadline passes, edits are permanently rejected even before the first refund. Tests cover exact boundaries, expired-sale reopening and callback reentry. Earlier v1 deployments retain immutable dates. |
-| RK-03 | Medium | Metadata used placeholder `ipfs://QmZ/` paths, ignored token IDs, exposed metadata for nonexistent IDs, and provided no explicit reveal. | Valid-token check, constructor hidden URI, one-shot admin reveal after sellout, distinct `<id>.json` paths, ERC-4906 events. Tests cover bounds, errors and irreversible reveal. |
-| RK-04 | Medium | Zero-quantity mint and arbitrary overpayment were accepted. Extra value was not refunded and could be locked. | Positive amount and exact payment are required; fuzz tests cover incorrect payments and state rollback. |
-| RK-05 | Medium, integration | `_mint` did not verify contract recipients could receive ERC-721 NFTs. | `_safeMint`, accounting before callbacks, shared reentrancy guard on every mint/payment entry point, receiver rejection rollback and adversarial callback tests. |
-| RK-06 | Medium, configuration | Deployment script granted roles again to its caller, separately from the actual broadcasting deployer. This could give unintended/default script callers privileged roles. | Constructor takes explicit admin/treasury addresses. Script does not grant extra roles and rejects networks other than Sepolia/local Anvil. Constructor and on-chain role assertions verify recipients. |
-| RK-07 | Low | Both mint flags could be enabled simultaneously; whitelist silently took precedence and restricted purported public minting. | Enabling one phase disables the other. Pausing and phase transitions are tested; stateful invariant forbids overlap. |
-| RK-08 | Low, integration | Refunded NFTs remained present, which could mislead systems treating NFT ownership as an active entitlement. | Refund burns the NFT, clears token approval via ERC-721 burn, decrements circulating `totalSupply`, and preserves historical counters and refund flags. Burn/metadata/approval tests cover this. |
-| RK-09 | Validation gap | Nine baseline tests passed despite RK-01. The workflow lived under `ryodan-keys/.github/workflows`, which GitHub does not discover as repository workflows. Documentation was ignored by `.gitignore`. | Expanded suite, fuzzing, invariants, exported ABI consistency check, workflow at repository-root `.github/workflows`, documentation included. The workflow runs the same Foundry, ABI, Slither and browser checks used for local verification. |
-
-## What “multiple redeem” means here
-
-There is no function named `redeem` in the supplied contract. `refund` is the nearest relevant operation.
-
-The original code already set `refunded[id]` before its ETH transfer. Repeating the **same** valid ID failed with `Already refunded`, including recursive attempts. Refunding several **different paid tokens** is legitimate, one repayment per token. The confirmed bug was unbounded consumption of distinct **invalid or free** IDs, destroying ETH at the zero address. The attacker did not receive the destroyed ETH.
-
-The legacy regression fixture preserves the old behavior for reproduction only. It must never be deployed. It differs from the original source in contract name and formatting, not contract logic. It is compiled with the updated dependencies; the vulnerable refund logic is independent of the dependency update.
-
-## Test evidence
-
-The original suite had 9 tests. The revised suite has **78 test functions/properties**:
-
-- 7 legacy regression tests documenting the original behavior and exploit.
-- 54 deterministic revised-contract tests, including seven deadline administration regressions.
-- 9 parameterized fuzz tests, including unauthorized deadline editing and mint/refund behavior after changed dates: amount/counters and wallet cap, arbitrary refund IDs, refund order, exact payment, unauthorized refund redirection, deadline boundaries, unauthorized sale administration.
-- 4 deployment-script tests: explicit role assignment, local/Sepolia support, mainnet rejection and expired configuration rejection.
-- 4 stateful invariants: supply/cap accounting, ETH conservation/refund solvency, mutually exclusive phases, and aggregate ownership.
-
-CI profile: **1,000 runs per fuzz test**; **256 runs × 128 actions per invariant**, 32,768 handler calls for each property, with `fail_on_revert = true`. Expected invalid operations are caught and asserted by the handler; unexpected handler reverts fail the run. Stateful actions include paid and treasury mint, allowlist/phase changes, time advancement, deadline changes and attempted reopening, refund, invalid refund, attempted transfer and conditional withdrawal. Bounded stateful exploration generally does not reach all 6,400 mints; deterministic full-size tests cover successful sale, withdrawal, transfer and reveal.
-
-The v2 coverage run reached **100% of revised-contract lines (111/111), branches (70/70), and functions (18/18)**, excluding generated getters/imported libraries. The deployment script also reaches 100%: 14/14 lines, 2/2 branches and 1/1 function. The current artifact is `docs/security/coverage-v2.lcov`; `coverage.lcov` preserves the earlier v1 evidence. These metrics do not prove absence of vulnerabilities.
-
-The manual second pass additionally checked refund rollback after rejected ETH, refund recipient redirection, approval invalidation on burn, arbitrary callers, forced ETH, role revocation, malformed reveal URI, maximum integer amounts and phase/limit changes after expiry. Callback wallet tests attempt reentry during paid mint, treasury mint, refund and withdrawal.
-
-A successful full-size test mints 5,900 paid plus 500 free NFTs, verifies a 59 ETH treasury withdrawal, unlocks transfers, and tests final URI paths and metadata events. It runs in the local EVM; transaction batches of this size are not suitable for a real network gas limit.
+The JavaScript suite tests CSV parsing/validation, empty downloadable templates, highest-tier deduplication, odd/even Merkle trees, deterministic proofs, checker-schema compatibility, tampered snapshots/counts/hashes, GTD capacity, phase/deadline/role/network gates, metadata URI validation and batch-ID validation. Local deployment tests verify resumable manifests, all four phases and complete mixed-price refunds. Browser tests execute real transactions against Anvil through a test EIP-1193 wallet, including CSV download/build/on-chain loading, first proof mint, inherited phases, updated caps, stale-quote refusal/recovery, pending reload, third-party batch refund, full 6,666-key sellout, reveal and withdrawal. Desktop/mobile evidence is inspected visually; browser/network errors must be explained or fixed before publication.
 
 ## Slither 0.11.6
 
-Slither analyzed v2 with 23 contracts and 102 detectors, filtering dependency/test/script reports. The current result is **7 low + 3 informational**, with no unsuppressed medium/high findings. The earlier v1 unfiltered baseline had 1 high, 6 low and 3 informational findings; its one role-protected withdrawal false positive remains explicitly annotated in v2.
+V4 analysis covers 25 contracts and 102 detectors, with dependency/test/script reports filtered. The configured medium/high gate passes. The retained output is **10 low timestamp findings and 4 informational findings** (two costly-loop, two low-level-calls), with no unsuppressed medium/high findings. [Normalized results](security/slither-v4.json).
 
-| Detector | Assessment |
+Three findings receive narrowly scoped source annotations, not a global detector disable:
+
+| Finding | Assessment and enforcement |
 | --- | --- |
-| `arbitrary-send-eth` (high) in `withdraw` | Reviewed false positive: destination is the caller, and `onlyRole(TREASURY_ROLE)` authorizes that caller. `soldOut` protects refunds, and `nonReentrant` protects callbacks. Unauthorized and successful withdrawal tests exercise these checks. A narrowly scoped `slither-disable-next-line arbitrary-send-eth` applies only to this function, with an explanation in source. It does not disable this detector elsewhere. |
-| `events-maths` (low) | Mint counters are reflected by per-token ERC-721 `Transfer` events from `_safeMint`; consumers can index them. A separate counter event is not required by the ERC-721 specification. Accepted. |
-| `timestamp` (six low findings) | Constructor, deadline setter, mint and refund use the same current deadline boundary. Timestamp is used for a sale deadline, not randomness. Boundary tests cover the ordering; UI must use chain time. Accepted design dependency. |
-| `low-level-calls` (two informational findings) | ETH uses checked `call` to support contract wallets. Payment failures revert all effects; reentrant calls are guarded. Refund minters can choose another recipient with `refundTo`. Accepted. |
-| `naming-convention` (informational) | `MAX_MINT_AMOUNT` is mutable despite uppercase spelling. Kept for compatibility with the existing getter. |
+| `arbitrary-send-eth` in `withdraw` | Only a treasury-role caller receives funds; complete sellout and the reentrancy guard apply. Tests reject unauthorized calls and protect failed-sale reserves. |
+| `arbitrary-send-eth` in `_refund` | `refund` and `refundBatch` derive recipients from `originalMinter`. `refundTo` verifies that the caller is that minter before permitting another recipient. Amount is the stored original payment, effects/burn precede the checked call, and all entry points are nonReentrant. |
+| `calls-loop` through `refundBatch` | Intentional payout to individual original minters, capped at 50 IDs. Failure reverts the entire batch, never a partial payout. A rejecting wallet can be excluded and recover via its own `refundTo`. Mixed-recipient/rejection/reentry tests cover the behavior. |
 
-After the scoped annotation, v2 Slither reports **7 low + 3 informational**, with no unsuppressed medium/high findings. Configuration gates medium-or-higher findings and retains low/informational output. To include the reviewed high finding again, use `--show-ignored-findings`; review its source annotation and authorization tests rather than treating a clean exit as a security guarantee.
+Timestamp is a sale boundary, not randomness. Checked low-level `call` supports contract-wallet refunds. Counter writes inside the bounded refund loop preserve per-token accounting; gas estimation and smaller batches remain necessary. Annotations document an assessed trust boundary; they are not evidence that a detector was unnecessary. Use `--show-ignored-findings` for full review. Run Slither separately from tooling consuming build artifacts because its compiler integration may clean them.
 
-The current detector output is `docs/security/slither-v2.json`. Earlier normalized outputs in `docs/security/` preserve the initial high finding and v1 low/informational results. A separate standalone Slither run on the legacy fixture analyzed 20 contracts and reported **2 high, 3 low and 10 informational** findings, including arbitrary ETH sends in both `refund` and `withdraw`. The old `refund` finding is consistent with the reproduced invalid/free-ID reserve destruction. Its costly-loop findings were addressed by reserving aggregate counters once per batch. The compiler-constraint warning is addressed by the pinned 0.8.37 build. The role-protected withdrawal send remains the reviewed false positive described above. Results are in `docs/security/slither-legacy.json`.
+## Merkle and guaranteed-allocation review
 
-## Dependency and compiler update
+Leaves double-hash `abi.encode(address,uint8 tier)` and nodes sort/hash two bytes32 siblings using OpenZeppelin verification. This avoids leaf/internal-node ambiguity and binds a proof to both address and tier. The compiler uses one canonical highest tier and deterministic leaf ordering; tests compare JavaScript proofs with the actual Solidity verifier.
 
-| Component | Previous | Revised |
-| --- | --- | --- |
-| Project Solidity declaration | `^0.8.13`, compiler unpinned | exact `0.8.37`, compiler pinned |
-| OpenZeppelin Contracts | 5.2.0, `acd4ff74de833399287ed6b31b4debf6b2b35527` | 5.7.0, `cab19933c33c2ad1d4c7a84864a3601dddfd16f3` |
-| forge-std | 1.9.5, `b93cf4bc34ff214c099dc970b153f85ade8c9f66` | 1.16.2, `bf647bd6046f2f7da30d0c2bf435e5c76a780c1b` |
-| EVM target | compiler default | Cancun, explicit |
-| Optimizer | compiler default | enabled, 200 runs |
+Membership is set before any paid phase and freezes when Pioneer starts. A successful first proof mint registers that wallet once; a later different-tier proof cannot change its cached tier. All mint/registration changes revert together if payment, limits or ERC-721 receipt fails. Phase allowances remain independent and refunds never restore them.
 
-Reviewed the upstream Solidity 0.8.37 release fixes and OpenZeppelin release/security notices. No advisory affecting the imported ERC721/AccessControl/ReentrancyGuard/Strings functionality was identified from those notices. This does not certify every unused module of OpenZeppelin or every build tool as vulnerability-free. The compiler/backend uses stable code generation; experimental SSA features are not enabled. Storage-based ReentrancyGuard is deprecated upstream for eventual v6 removal but remains supported in pinned 5.7.0; no transient-storage-only guard is required by this contract.
+For `P` exclusive Pioneer and `O` exclusive Operative wallets, reserve is `P×cap1+(P+O)×cap2`. Both guaranteed phases fit within paid supply before launch. Mints decrement the corresponding reserve; phase closure releases its unused portion; cap edits recompute it and cannot undercut the maximum historical GTD purchase. Recruit/Civilian cannot consume a live GTD reserve.
 
-The optional management console adds pinned ethers 6.17.0, Vite 8.3.4 and Playwright 1.64.0. Dependency installation passed the mcaifee gate with only low/informational findings, npm audit found zero advisories, and npm registry signature verification reported no invalid/missing signatures. Lifecycle scripts were disabled. The Solidity runtime is 12,265 bytes, below EIP-170. v2 runtime bytes are compared exactly with compiler output; its deadline is storage, not an immutable bytecode substitution.
+**Admin trust remains:** a Merkle root alone cannot prove leaf count or address uniqueness. The CSV builder deduplicates and validates addresses, the snapshot validator reconstructs the tree and checks proofs/counts/digest, and the contract bounds registered members by declared tier count. A dishonest or mistaken root/count commitment can deny access or invalidate guarantees. Archive and review the exact CSVs and use their generated counts. Snapshot hashes attest identity of input bytes; they do not establish client approval. Hash-only lists are not an anonymity guarantee against known-address lookups.
 
-## Retained design and operational risks
+## Refund and lifecycle review
 
-- **Treasury allocation is part of success.** Mint all 500 treasury NFTs, in gas-appropriate batches, before opening the public sale. If all 5,900 paid NFTs sell but any treasury allocation is missing at expiry, the campaign still fails, refunds remain available, transfers stay locked, and treasury cannot withdraw. This preserves the original economic rule; changing it would require an explicit product decision.
-- **Admin and treasury are privileged.** Admin can change the open-sale deadline, phases/allowlist/wallet caps, grant or revoke roles and choose the final metadata URI. Treasury role holders can withdraw all proceeds after success. Use deliberate role holders, preferably multisigs for production; losing all administrator access can prevent reveal or role recovery. No anti-Sybil identity guarantee is provided by a per-address cap.
-- **Reveal is admin-selected and deterministic.** It has no precommitted metadata hash, random shuffle, or VRF. The final on-chain URI is one-shot; invalid remote content cannot be repaired on chain afterward. Mutable HTTPS hosting remains mutable even with a fixed URI. See the reveal guide.
-- **Failed sales do not recover unsolicited funds.** Ordinary direct ETH sends revert, but forced ETH can remain after all legitimate refunds. No sweep function is added that could put refund reserves at risk. Paid refunds are fixed at the exact mint price; gas is not refunded.
-- **Large batches can run out of gas.** There are hard supply caps, not a small per-transaction batch cap. Operators and clients must estimate gas and split treasury/allowlist actions. A revert rolls back the entire batch.
-- **ERC-721 ownership does not imply refund rights.** Only the original paid minter is eligible, approvals do not authorize claiming, and refunded tokens are burned. Indexers must process burns and deployment-specific histories.
-- **Existing contracts are not upgraded.** The old contract has no proxy/upgrade path. New deployments do not migrate holders or funds from an old address. No assertion is made about balances, users, or exploited funds at an unprovided old deployment.
+A paid token is eligible only after unsuccessful expiry. Stored `mintPayment` preserves the exact purchase price across edits/phases. Treasury and nonexistent IDs have no original paid minter. Effects and burn happen before ETH delivery; `nonReentrant` covers single, batch and redirected refunds. Any failed ETH transfer restores ownership, flags, balances and counts. A third-party caller cannot redirect another minter's refund.
 
-## v2 deadline and console review
+Batch refunds are atomic and bounded to 50. They can still exceed gas limits for expensive recipient contracts; estimate and split them. Recipient rejection denies that particular batch, not all other users' refunds. Since transfer is impossible before success and refunds are impossible after success, original minter/ownership assumptions do not diverge during an eligible refund.
 
-Live shortened-deadline refund QA also passed on [`0xBc5338c4a71961d999Ec9551a2636850ec1561e0`](https://sepolia.etherscan.io/address/0xBc5338c4a71961d999Ec9551a2636850ec1561e0): shortening enabled refunds at the new boundary; reopening failed before and after its first refund; the paid token was burned and a repeat claim rejected. Evidence is in `deployments/sepolia-v2-refund.json`.
+Expiry is final: no deadline extension, mint or phase reopening after it, even before the first refund. Therefore burned sequential IDs cannot be reused by reopening a failed sale. Sold-out state depends on lifetime paid+treasury counts and remains true after transfers. Forced ETH changes neither outcome nor refund entitlement.
 
-The user explicitly requested variable dates. `setMintEndTime` emits `MintEndTimeUpdated(previousEndTime, newEndTime)` and is protected by the admin role and the same reentrancy guard as mint/refund. Expiry remains final even before the first refund, so an admin cannot reopen a failed sale and mint over burned IDs or interfere with refund reserve accounting. A sold-out collection cannot change its date either.
+## Retained product and operational risks
 
-**Changed trust assumption:** before expiry, an administrator can extend the sale repeatedly or shorten it to any future timestamp. There is no maximum extension or notice period. Users must be shown the current chain deadline and understand that an open-sale deadline is mutable. The application does not claim a guaranteed pre-expiry refund date.
+- Complete success includes all 500 treasury keys. Mint them before expiry; paid sellout alone is insufficient. Free treasury tokens never receive refunds.
+- Administrators can change open/future prices/caps and the deadline before expiry, shorten it to any future timestamp, advance phases and choose the final metadata URI. There is no timelock, notice period or maximum extension. Display live settings accurately.
+- Phase advancement abandons unused guarantees and cannot be reversed. Review loaded CSV commitments before starting; final production lists have not been supplied.
+- Reveal has no randomness/provenance commitment. A wrong final URI is permanent; mutable hosting may still change its contents. Metadata must be independently validated and pinned.
+- Losing all administrator access can prevent reveal or role recovery. A treasury-role holder can withdraw the entire successful-sale balance. Use intentionally assigned production role holders; the shared test wallet is for Sepolia.
+- Forced/unsolicited ETH can remain after legitimate failed-sale refunds. No sweep function is introduced that could endanger refund reserves.
+- Merkle snapshots are not chain/contract-specific signatures; the same deliberately configured root grants the same tier on another deployment. Mint counters, funds and refund rights remain deployment-specific.
+- No upgrade or automatic holder/fund migration exists. Old deployments retain their original behavior.
 
-The static console at [ryodan.grooooog.space](https://ryodan.grooooog.space) contains no signing key, privileged backend, or server-side automatic signer. Wallet role checks are read at the same block as sale state. The contract enforces permissions even if UI controls are bypassed. The UI simulates/estimates each call, displays network/contract/arguments/value for review, and rechecks wallet/network/state before requesting a signature. Pending hashes persist by chain and contract; reload does not permit a duplicate submission. Confirmed equivalent replacements and confirmed cancellations are reconciled separately. Metadata and transaction details are rendered as text.
+## Frontend and deployment boundary
 
-Nine frontend validation tests and 17 browser workflow checks passed. Browser workflows use a test EIP-1193 provider with actual local RPC transactions: they do not test a particular wallet extension's own screens. They cover account/network changes, rejection, pending recovery, access controls, UTC edits, mint, treasury, refunds, duplicate refund rejection, full-size successful reveal and withdrawal, and mobile overflow. Static-site browser checks additionally read real Sepolia state and verify Etherscan links. Browser evidence is summarized in `docs/security/console-verification.json`.
+The panel has no privileged backend or embedded key. Writes require wallet signatures, live chain/role checks, transaction simulation/estimation and fresh state. It rechecks expected phase/price and saves pending hashes by chain/contract. Imported metadata/snapshot details render as text. CSV processing stays in the browser and only hashes/counts are sent on chain.
 
-## Verification boundaries
+The loader accepts only Sepolia/local Anvil, defaults to dry run, checks complete snapshot proofs and live capacity, and recognizes an already matching root/hash/count set. Its raw-count trust assumption is identical to the contract's; a valid JSON structure does not establish business approval.
 
-The active v2 contract is [`0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B`](https://sepolia.etherscan.io/address/0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B), recorded in `deployments/sepolia-v2.json`. Its deadline changes and paid/treasury mints were confirmed, and a second RPC independently checked runtime bytecode, roles and receipts. Earlier v1 mint/refund transactions remain in `deployments/sepolia.json`; `deployments/sepolia-verification.json` independently confirms both 0.01 ETH repayments from recipient balance changes and actual gas, with an operational summary in `SEPOLIA_RUNBOOK.md`. Failed operations are checked through on-chain `eth_call` simulations, not broadcast as deliberately reverting transactions. Full sellout, successful withdrawal and successful reveal are tested locally, not on Sepolia: paid sellout requires 59 ETH plus gas. No mainnet deployment, explorer source publication or artwork/IPFS publication was performed.
+Pinned toolchain remains Solidity 0.8.37, Cancun, optimizer 200; OpenZeppelin 5.7.0; forge-std 1.16.2; ethers 6.17.0; Vite 8.3.4; Playwright 1.64.0. No new npm dependency was added for CSV/Merkle generation. The compiled runtime is 17,367 bytes, below EIP-170's limit.
 
-## Upstream references
-
-- [Solidity 0.8.37 release and compiler security fixes](https://www.soliditylang.org/blog/2026/09/10/solidity-0.8.37-release-announcement/)
-- [OpenZeppelin Contracts 5.7.0 release](https://github.com/OpenZeppelin/openzeppelin-contracts/releases/tag/v5.7.0)
-- [OpenZeppelin security advisories](https://github.com/OpenZeppelin/openzeppelin-contracts/security/advisories)
-- [forge-std releases](https://github.com/foundry-rs/forge-std/releases)
-- [Slither detector reference](https://github.com/crytic/slither/wiki/Detector-Documentation)
+See [the Sepolia runbook](SEPOLIA_RUNBOOK.md) for actual deployment/receipt/source-verification evidence. Full-size sellout, reveal and withdrawal are local tests, not a funded Sepolia sale. No mainnet deployment or final artwork publication is claimed.

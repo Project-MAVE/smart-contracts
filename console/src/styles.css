@@ -10,3 +10,13 @@
 .phase-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);margin:0 0 20px;background:var(--side)}
 .phase-step{padding:18px 16px;border-right:1px solid var(--border);min-width:0;display:grid;gap:9px}.phase-step:last-child{border-right:0}.phase-step.current{background:#311616;box-shadow:inset 0 3px var(--accent)}.phase-step.closed{opacity:.65}.phase-step strong{font-size:14px;letter-spacing:.3px}.phase-step span{font-size:9px;line-height:1.7;color:var(--muted)}.phase-step .phase-state{color:var(--accent-text);font-size:8px;letter-spacing:1px}.phase-command{display:grid;grid-template-columns:1.3fr 1fr;gap:32px}.phase-command h3{font:32px Impact,Haettenschweiler,sans-serif;text-transform:uppercase;margin:0}.phase-command .panel-kicker{margin-bottom:12px}.phase-command .form-note{margin-bottom:0}
 @media(max-width:800px){.phase-track{grid-template-columns:1fr 1fr}.phase-step:nth-child(2){border-right:0}.phase-step:nth-child(-n+2){border-bottom:1px solid var(--border)}.phase-command{grid-template-columns:1fr;gap:12px}}
+
+.template-downloads { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0; }
+.template-downloads a.button { text-decoration: none; }
+#snapshot-panel .inline-fields > div { flex: 1; min-width: 0; }
+#snapshot-details dd { overflow-wrap: anywhere; }
+input[type="file"] { max-width: 100%; font-size: 12px; }
+input[type="file"]::file-selector-button { background: var(--raised, #231919); color: var(--text, #f2e8e5); border: 1px solid var(--border, #3a2929); padding: 8px; margin-right: 8px; cursor: pointer; }
+@media (max-width: 700px) {
+  #csv-form .inline-fields { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+}

@@ -81,7 +81,7 @@ jobs:
         working-directory: console
         run: npx playwright install --with-deps chromium
 
-      - name: Exercise v3 deployment and refund scripts
+      - name: Exercise v4 deployment and refund scripts
         working-directory: console
         run: npm run test:deploy
 

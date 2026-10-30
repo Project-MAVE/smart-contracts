@@ -1,0 +1,97 @@
+{
+  "chainId": 11155111,
+  "deployer": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+  "version": 4,
+  "purpose": "management",
+  "transactions": {
+    "Extend deadline by one day": {
+      "hash": "0x50d35b87c201164e7b9286783fbdc166cd03492d23ec64376b4ca60eb6c876cf",
+      "blockNumber": 12028330,
+      "status": 1,
+      "gasUsed": "38776"
+    },
+    "Restore original deadline": {
+      "hash": "0x96ff0f8f8ac06a957962b9489837ae513eacdb81810daf725adfa451de0097c7",
+      "blockNumber": 12028332,
+      "status": 1,
+      "gasUsed": "38776"
+    },
+    "Load test-wallet Merkle snapshot": {
+      "hash": "0x9e4dcaa77923e8bfdd726da55f779f15bca20e3551a6beb4041494083ea0c6ce",
+      "blockNumber": 12028335,
+      "status": 1,
+      "gasUsed": "1140145"
+    },
+    "Start Pioneer": {
+      "hash": "0x7746e631a9422c38e0347f2a51068ed0fa72d65ea50bc84603fdc664dcfd8dff",
+      "blockNumber": 12028337,
+      "status": 1,
+      "gasUsed": "46325"
+    },
+    "Resume Pioneer": {
+      "hash": "0x0e395676df691189b3ac20d93f8212374c1b9eb11883b9863b9a293745c5b1f4",
+      "blockNumber": 12028339,
+      "status": 1,
+      "gasUsed": "36767"
+    },
+    "Mint Pioneer test pair": {
+      "hash": "0x2969bb5acefb844aeb200bc6abf817dc8bd84b4860bc01f9d4dcabfe0e16a795",
+      "blockNumber": 12028341,
+      "status": 1,
+      "gasUsed": "1731459"
+    },
+    "Mint treasury test key": {
+      "hash": "0x8fa8a96dbdefb0b2281cfa36ffab6e707318d1152a81b2553b0264f22bcc8696",
+      "blockNumber": 12028343,
+      "status": 1,
+      "gasUsed": "273695"
+    }
+  },
+  "checks": [
+    "Exact runtime bytecode matches current compiler artifact",
+    "Contract version 4",
+    "Test wallet is admin",
+    "Test wallet is treasury",
+    "Pioneer token records original payment",
+    "Paid and treasury mint counters",
+    "Receipt: Extend deadline by one day",
+    "Receipt: Restore original deadline",
+    "Receipt: Load test-wallet Merkle snapshot",
+    "Receipt: Start Pioneer",
+    "Receipt: Resume Pioneer",
+    "Receipt: Mint Pioneer test pair",
+    "Receipt: Mint treasury test key"
+  ],
+  "address": "0xCCe14de13cd2f917a2B85b17D5E325Bd5e48BBa8",
+  "deploymentTransaction": "0x74451aadac00d54deb7d811a5892f085eddf6e2b83a296f4eb2065f96f1b8ee4",
+  "initialDeadline": 1795975248,
+  "hiddenMetadataURI": "data:application/json;base64,eyJuYW1lIjoiUnlvZGFuIEtleSAvIHNlYWxlZCIsImRlc2NyaXB0aW9uIjoiU2Vwb2xpYSB2NCB0ZXN0IGNvbGxlY3Rpb24uIEZpbmFsIG1ldGFkYXRhIGlzIG5vdCByZXZlYWxlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU3RhdGUiLCJ2YWx1ZSI6IlVucmV2ZWFsZWQifV19",
+  "deploymentBlock": 12028328,
+  "runtimeCodeHash": "0x7aec34f191af781cfafecc264dd07a8cec998bc6544b3c31e0369e4d9e6d4a67",
+  "allowlist": {
+    "schemaVersion": 1,
+    "frozenAt": "2026-10-30T12:00:00.000Z",
+    "sourceHashes": {
+      "pioneer.csv": "0x130561130cbd092f62923fe2851aef22e43eaff6a5330d79d473e07c8bcaaf76",
+      "operative.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57",
+      "recruit.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57"
+    },
+    "root": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+    "counts": {
+      "pioneer": 1,
+      "operative": 0,
+      "recruit": 0
+    },
+    "proofs": {
+      "0x27f09842a2b44ca7fcbf34c5c80b2267a1a26015f2f3d1de4e3a838bcdc0d2ca": {
+        "tier": 1,
+        "leaf": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+        "proof": []
+      }
+    },
+    "snapshotHash": "0xfac34ed3ada6950bab9bf455e6199e8db26e58b0b759f84e9a3c24c6e73eb0e3"
+  },
+  "currentPhase": 1,
+  "currentDeadline": 1795975248,
+  "lastVerifiedBlock": 12028369
+}

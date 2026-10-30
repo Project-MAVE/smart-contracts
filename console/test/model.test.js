@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addresses, deadlineUTC, gate, metadataBase, phase, remaining, unsigned } from '../src/model.js';
+import { addresses, deadlineUTC, gate, metadataBase, phase, remaining, refundIds, unsigned } from '../src/model.js';
 
 const account = '0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc';
 const context = { account, correctChain: true, busy: false, pending: null, stale: false };
@@ -76,4 +76,17 @@ test('v3 phase controls require admin, open sale and a sequential transition', (
   }
   assert.notEqual(gate('advance', { ...modern, currentPhase: 4n }, context), '');
   assert.notEqual(gate('pause', { ...modern, currentPhase: 0n }, context), '');
+});
+
+const v4 = { ...modern, version: 4n, maxPaid: 6166n, currentPhase: 0n, allowlistConfigured: false };
+test('v4 requires a snapshot before starting and freezes membership at first phase', () => {
+  assert.match(gate('advance', v4, context), /snapshot/);
+  assert.equal(gate('allowlist', v4, context), '');
+  assert.match(gate('allowlist', { ...v4, currentPhase: 1n }, context), /frozen/);
+  assert.equal(gate('advance', { ...v4, allowlistConfigured: true }, context), '');
+  assert.match(gate('reveal', v4, context), /6,666/);
+});
+test('batch refund input rejects duplicates, excessive batches and malformed token IDs', () => {
+  assert.deepEqual(refundIds('0, 1\n6665'), [0n, 1n, 6665n]);
+  for (const value of ['', '0,0', '1e2', '-1', '6666', Array.from({ length: 51 }, (_, i) => i).join(',')]) assert.throws(() => refundIds(value));
 });

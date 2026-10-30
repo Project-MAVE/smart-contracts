@@ -23,6 +23,7 @@ A quiet, precise command deck: charcoal surfaces, vermilion red signals, warm am
 - Primary button: deep red fill with white text; secondary button: border and transparent fill. Disabled controls remain legible and include a visible reason.
 - Inputs have explicit labels, dark inset surfaces, clear validation, and fit within their grid cells. Addresses and URIs wrap; never inject untrusted metadata HTML.
 - The four-phase strip is informational: equal columns on desktop, two columns on phones, a vermilion top rule on the current phase and muted closed phases. Mint has no phase picker. Operator configuration and irreversible advancement are separate controls.
+- Allowlist preparation groups template downloads, three-file CSV input and UTC freeze time above a separate snapshot review/load form. Downloads wrap on narrow screens; CSV/date fields stack below 700 px. Hashes wrap as plain text. Generation/download remains distinct from a wallet-signed on-chain load.
 - Transaction review uses a native accessible dialog with exact chain, contract, action, arguments and ETH value. Show pending hash and confirmed/reverted status in a persistent session activity log.
 - Use chain-derived states. Loading, stale RPC, missing wallet, wrong network, permission denial and irreversible actions have distinct messages. Never present sample balances as live data.
 - Transactions require wallet signing. Never put a private key or server-side automatic signer in the frontend.

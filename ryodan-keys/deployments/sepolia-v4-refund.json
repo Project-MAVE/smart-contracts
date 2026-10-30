@@ -1,0 +1,186 @@
+{
+  "chainId": 11155111,
+  "deployer": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+  "version": 4,
+  "purpose": "refund",
+  "transactions": {
+    "Extend deadline by one day": {
+      "hash": "0x9ed426012f9e0961d0a35da485b93d0d98b52d8daa20f0544f156180a7be7ff5",
+      "blockNumber": 12028357,
+      "status": 1,
+      "gasUsed": "38776"
+    },
+    "Restore original deadline": {
+      "hash": "0xd89882d4c09c70823581d79bb09337d23de517e14f2a867c2e44ee8f6e4d86e8",
+      "blockNumber": 12028359,
+      "status": 1,
+      "gasUsed": "38776"
+    },
+    "Load test-wallet Merkle snapshot": {
+      "hash": "0x07bf859b8eea9e8dc648392dfdffa6e8852151ad755afba841d2c9e1a81b2621",
+      "blockNumber": 12028361,
+      "status": 1,
+      "gasUsed": "1140145"
+    },
+    "Start Pioneer": {
+      "hash": "0x782a69bed2acb6a48051fdd5d985124c92dd97f82beed2246da5cb18b17b7b74",
+      "blockNumber": 12028363,
+      "status": 1,
+      "gasUsed": "46325"
+    },
+    "Resume Pioneer": {
+      "hash": "0x50a378a0ebd7fcd06a80a225155b4f3a48c16ab68a2b264ebd4771181dc60793",
+      "blockNumber": 12028365,
+      "status": 1,
+      "gasUsed": "36767"
+    },
+    "Mint Pioneer test pair": {
+      "hash": "0xfcf8c458672c061d3ceb05ecb00f70008d51c6e7a1a24c83fea9753eaca80a30",
+      "blockNumber": 12028367,
+      "status": 1,
+      "gasUsed": "1731459"
+    },
+    "Mint treasury test key": {
+      "hash": "0xe9422ed033108a2bfff56ca026834b856c456ddcb1bb54b71a16daf1f8906283",
+      "blockNumber": 12028369,
+      "status": 1,
+      "gasUsed": "273695"
+    },
+    "Advance to Operative": {
+      "hash": "0xaf6636b87517d8b366379ccfbfc03c1749c9e49fc44fc037e3c5cdea0cd73b69",
+      "blockNumber": 12028371,
+      "status": 1,
+      "gasUsed": "63376"
+    },
+    "Resume Operative": {
+      "hash": "0x7b7fb867e061ce2eda398e838fdb932347c076a6fb61e89beeda3382d399ea22",
+      "blockNumber": 12028373,
+      "status": 1,
+      "gasUsed": "36767"
+    },
+    "Mint Operative test key": {
+      "hash": "0x792fa4f19554a388d1db22b25b125802b96e89f512befcc64ab987e7b6d98b1d",
+      "blockNumber": 12028375,
+      "status": 1,
+      "gasUsed": "779363"
+    },
+    "Advance to Recruit": {
+      "hash": "0xed5a3fcf5c5f7e479124f596effaa4b58991a04860ec70d2637785746905cc66",
+      "blockNumber": 12028377,
+      "status": 1,
+      "gasUsed": "63376"
+    },
+    "Resume Recruit": {
+      "hash": "0x423667bf0c9523bd8658617e9e2a366fa9c1f0fe5802227f2e5668f07ede3ff9",
+      "blockNumber": 12028379,
+      "status": 1,
+      "gasUsed": "36767"
+    },
+    "Mint Recruit test key": {
+      "hash": "0xb9e7a10d1aed709cdc24f2dd63f57da3a301fc9daf0835da9eec33b9ab6f4ce2",
+      "blockNumber": 12028381,
+      "status": 1,
+      "gasUsed": "757131"
+    },
+    "Advance to Civilian": {
+      "hash": "0xfa4d43611892bdb990c211c0347cfcc0510e6a835296fe424db70c7bd28e8d16",
+      "blockNumber": 12028383,
+      "status": 1,
+      "gasUsed": "46325"
+    },
+    "Resume Civilian": {
+      "hash": "0x5a484f3b24081485eae7ebe8d31acb97617825e03de01581c4d1918772c9d1fe",
+      "blockNumber": 12028385,
+      "status": 1,
+      "gasUsed": "36767"
+    },
+    "Mint Civilian test key": {
+      "hash": "0xec8d699e5dcf31756863054fd65168660703366c76dc083a5225b21b9222356d",
+      "blockNumber": 12028387,
+      "status": 1,
+      "gasUsed": "754731"
+    },
+    "Shorten deadline for refund QA": {
+      "hash": "0x4098f371b597f8d45c7b5d07cacfe988bc1fa4ff674e77f30955fe8f4e860435",
+      "blockNumber": 12028389,
+      "status": 1,
+      "gasUsed": "38776"
+    },
+    "Refund all paid keys in one batch": {
+      "hash": "0x51f9beefefc4cec5c309b7c6f635c4996dd672c40fdd1d2153a933afc027871e",
+      "blockNumber": 12028400,
+      "status": 1,
+      "gasUsed": "828145"
+    }
+  },
+  "checks": [
+    "Exact runtime bytecode matches current compiler artifact",
+    "Contract version 4",
+    "Test wallet is admin",
+    "Test wallet is treasury",
+    "Pioneer token records original payment",
+    "Four independent phase counters",
+    "All unused GTD allocations released before Civilian",
+    "Mixed-price reserve equals 0.185 ETH",
+    "Cannot reopen previous phase",
+    "Cannot choose another mint phase",
+    "Paid and treasury mint counters",
+    "Receipt: Extend deadline by one day",
+    "Receipt: Restore original deadline",
+    "Receipt: Load test-wallet Merkle snapshot",
+    "Receipt: Start Pioneer",
+    "Receipt: Resume Pioneer",
+    "Receipt: Mint Pioneer test pair",
+    "Receipt: Mint treasury test key",
+    "Receipt: Advance to Operative",
+    "Receipt: Resume Operative",
+    "Receipt: Mint Operative test key",
+    "Receipt: Advance to Recruit",
+    "Receipt: Resume Recruit",
+    "Receipt: Mint Recruit test key",
+    "Receipt: Advance to Civilian",
+    "Receipt: Resume Civilian",
+    "Receipt: Mint Civilian test key",
+    "Receipt: Shorten deadline for refund QA",
+    "Refunds available after shortened deadline",
+    "Expired sale cannot be reopened even before first refund",
+    "Repeated refund rejected",
+    "Expired sale cannot be reopened after refund",
+    "Refund burned paid key",
+    "Refund returned all paid reserves",
+    "Receipt: Refund all paid keys in one batch"
+  ],
+  "address": "0x084E7a42D8CBdBd95F65FEc853f5Bc16E6656B5a",
+  "deploymentTransaction": "0x3dda8ef0495b868c1a6c675b19b4de3dde1c06a7f830f68f52c4ef9f27fc591f",
+  "initialDeadline": 1793387172,
+  "hiddenMetadataURI": "data:application/json;base64,eyJuYW1lIjoiUnlvZGFuIEtleSAvIHNlYWxlZCIsImRlc2NyaXB0aW9uIjoiU2Vwb2xpYSB2NCB0ZXN0IGNvbGxlY3Rpb24uIEZpbmFsIG1ldGFkYXRhIGlzIG5vdCByZXZlYWxlZC4iLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiU3RhdGUiLCJ2YWx1ZSI6IlVucmV2ZWFsZWQifV19",
+  "deploymentBlock": 12028355,
+  "runtimeCodeHash": "0x7aec34f191af781cfafecc264dd07a8cec998bc6544b3c31e0369e4d9e6d4a67",
+  "allowlist": {
+    "schemaVersion": 1,
+    "frozenAt": "2026-10-30T12:00:00.000Z",
+    "sourceHashes": {
+      "pioneer.csv": "0x130561130cbd092f62923fe2851aef22e43eaff6a5330d79d473e07c8bcaaf76",
+      "operative.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57",
+      "recruit.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57"
+    },
+    "root": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+    "counts": {
+      "pioneer": 1,
+      "operative": 0,
+      "recruit": 0
+    },
+    "proofs": {
+      "0x27f09842a2b44ca7fcbf34c5c80b2267a1a26015f2f3d1de4e3a838bcdc0d2ca": {
+        "tier": 1,
+        "leaf": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+        "proof": []
+      }
+    },
+    "snapshotHash": "0xfac34ed3ada6950bab9bf455e6199e8db26e58b0b759f84e9a3c24c6e73eb0e3"
+  },
+  "shortenedDeadline": 1793384070,
+  "currentPhase": 4,
+  "currentDeadline": 1793384070,
+  "lastVerifiedBlock": 12028401
+}

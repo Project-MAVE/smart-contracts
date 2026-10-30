@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-10-30T18:17:56.463Z",
+  "chainId": 11155111,
+  "rpc": "https://rpc.sepolia.ethpandaops.io",
+  "records": [
+    {
+      "purpose": "management",
+      "address": "0xCCe14de13cd2f917a2B85b17D5E325Bd5e48BBa8",
+      "block": 12028412,
+      "timestamp": 1793384268,
+      "runtimeCodeHash": "0x7aec34f191af781cfafecc264dd07a8cec998bc6544b3c31e0369e4d9e6d4a67",
+      "paid": 2,
+      "treasury": 1,
+      "live": 3,
+      "refunded": 0,
+      "phase": 1,
+      "balanceETH": "0.05",
+      "deadline": 1795975248,
+      "gtdReserved": 12
+    },
+    {
+      "purpose": "refund",
+      "address": "0x084E7a42D8CBdBd95F65FEc853f5Bc16E6656B5a",
+      "block": 12028412,
+      "timestamp": 1793384268,
+      "runtimeCodeHash": "0x7aec34f191af781cfafecc264dd07a8cec998bc6544b3c31e0369e4d9e6d4a67",
+      "paid": 5,
+      "treasury": 1,
+      "live": 1,
+      "refunded": 5,
+      "phase": 4,
+      "balanceETH": "0.0",
+      "deadline": 1793384070,
+      "gtdReserved": 0,
+      "refundTransaction": "0x51f9beefefc4cec5c309b7c6f635c4996dd672c40fdd1d2153a933afc027871e",
+      "refundIds": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
+      "refundETH": "0.185",
+      "recipientBalancePlusGasMatches": true,
+      "duplicateRejected": true,
+      "expiredReopenRejected": true
+    }
+  ]
+}

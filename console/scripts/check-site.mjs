@@ -25,11 +25,29 @@ try {
   await page.waitForFunction(() => document.querySelector('#sync-status')?.textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
   assert.equal(await page.locator('#contract-link').textContent(), deployment.address);
   assert.equal(await page.locator('#contract-link').getAttribute('href'), `https://sepolia.etherscan.io/address/${deployment.address}`);
-  assert.equal(await page.locator('#deployment option').count(), 6);
+  assert.equal(await page.locator('#deployment option').count(), 8);
   assert.equal(await page.locator('[data-action="mint"]').isDisabled(), true);
   const metrics = await page.locator('.metrics').innerText();
   assert.match(metrics, /PIONEER/);
   await page.screenshot({ path: fileURLToPath(new URL('sepolia-desktop.png', destination)), fullPage: true, animations: 'disabled' });
+  await page.locator('a[data-page="sale"]').click();
+  assert.equal(await page.locator('#snapshot-panel').isVisible(), true);
+  assert.match(await page.locator('#snapshot-summary').textContent(), /Matches the on-chain snapshot/);
+  for (const tier of ['pioneer', 'operative', 'recruit']) {
+    const response = await page.request.get(`${url}/templates/${tier}.csv`);
+    assert.equal(response.status(), 200); assert.equal(await response.text(), 'address\n');
+  }
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('a[href="/templates/ryodan-allowlist-templates.zip"]').click();
+  const download = await downloadEvent;
+  assert.equal(download.suggestedFilename(), 'ryodan-allowlist-templates.zip');
+  assert((await readFile(await download.path())).length > 500);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: fileURLToPath(new URL('sepolia-sale.png', destination)), fullPage: true, animations: 'disabled' });
+  await page.locator('#deployment').selectOption('0x3120e791E078ACF04601d623307B0e6866633E7A');
+  await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
+  assert.equal(await page.locator('#legacy-allowlist').isVisible(), true);
+  assert.equal(await page.locator('#snapshot-panel').isVisible(), false);
   await page.locator('#deployment').selectOption('0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B');
   await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
   await page.locator('a[data-page="sale"]').click();
@@ -60,9 +78,10 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, view);
   }
   await page.locator('a[data-page="mint"]').click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: fileURLToPath(new URL('sepolia-mobile.png', destination)), fullPage: true, animations: 'disabled' });
   assert.deepEqual(errors, []);
-  const result = { url, checkedAt: new Date().toISOString(), address: deployment.address, metrics, checks: ['HTTP 200', 'Live Sepolia state', 'v3 selected by default', 'Etherscan address links', 'v2 legacy controls and v1 read compatibility', 'Read-only without wallet', 'Six mobile views without overflow', 'Primary RPC failure recovers through live ethPandaOps fallback', 'No unexpected browser or network errors'] };
+  const result = { url, checkedAt: new Date().toISOString(), address: deployment.address, metrics, checks: ['HTTP 200', 'Live Sepolia state', 'v4 selected by default', 'Etherscan address links', 'v3, v2 and v1 controls/read compatibility', 'Matching live snapshot and downloadable CSV/ZIP templates', 'Read-only without wallet', 'Six mobile views without overflow', 'Primary RPC failure recovers through live ethPandaOps fallback', 'No unexpected browser or network errors'] };
   await writeFile(new URL('site-verification.json', destination), JSON.stringify(result, null, 2) + '\n');
   console.log(JSON.stringify(result, null, 2));
 } catch (error) {

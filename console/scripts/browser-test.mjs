@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import assert from 'node:assert/strict';
+import { validateSnapshot, proofFor } from '../src/allowlist.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const rpc = 'http://127.0.0.1:18547';
@@ -30,9 +31,6 @@ try {
   const keys = await factory.deploy(initialDeadline, 'ipfs://hidden/hidden.json', accounts[0], accounts[0]);
   await keys.waitForDeployment();
   const target = await keys.getAddress();
-  await (await keys.setPhaseAllowlist(1, [accounts[0]], true)).wait();
-  await (await keys.advancePhase()).wait();
-  await (await keys.setMintPaused(false)).wait();
   server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '14173', '--strictPort'], { cwd: root, env: { ...process.env, VITE_CHAIN_ID: '31337', VITE_RPC_URL: rpc, VITE_CONTRACT_ADDRESS: target }, stdio: ['ignore', 'ignore', 'pipe'] });
   for (let attempt = 0; attempt < 60; attempt++) { try { const response = await fetch(url); if (response.ok) break; } catch {} await delay(100); }
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -67,11 +65,11 @@ try {
   page.on('requestfailed', request => errors.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText}`));
   page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
   await page.goto(url);
-  await page.waitForFunction(() => document.querySelector('#metric-phase').textContent === 'PIONEER');
+  await page.waitForFunction(() => document.querySelector('#metric-phase').textContent === 'NOT STARTED');
   assert.equal(await page.locator('[data-action="mint"]').isDisabled(), true);
   report('Disconnected read-only state reflects actual local contract');
   await page.locator('#connect').click();
-  await page.waitForFunction(() => !document.querySelector('[data-action="mint"]').disabled);
+  await page.waitForFunction(() => document.querySelector('#identity-roles').textContent.includes('Administrator'));
   assert.match(await page.locator('#identity-roles').textContent(), /Administrator/);
   report('Wallet connection and on-chain operator role detection');
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -87,6 +85,31 @@ try {
     await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED') && ![...document.querySelectorAll('[data-hint]')].some(node => node.textContent.includes('Another transaction')));
     if (predicate) assert.equal(await predicate(), true);
   }
+  await page.locator('a[data-page="sale"]').click();
+  const templateDownload = page.waitForEvent('download');
+  await page.locator('a[href="/templates/pioneer.csv"]').click();
+  const downloaded = await templateDownload;
+  assert.equal(await readFile(await downloaded.path(), 'utf8'), 'address\n');
+  const zip = await fetch(`${url}/templates/ryodan-allowlist-templates.zip`);
+  assert.equal(zip.status, 200); assert((await zip.arrayBuffer()).byteLength > 500);
+  report('Admin page downloads empty CSV templates and the complete template ZIP');
+  await page.locator('#csv-files').setInputFiles(['pioneer', 'operative', 'recruit'].map((tier, i) => ({ name: `${tier}.csv`, mimeType: 'text/csv', buffer: Buffer.from(`address\n${accounts[i]}\n`) })));
+  await page.locator('#csv-form button').click();
+  await page.waitForFunction(() => document.querySelector('#snapshot-summary').textContent.includes('24 guaranteed keys'));
+  const snapshotDownload = page.waitForEvent('download');
+  await page.locator('#download-snapshot').click();
+  const snapshotFile = await snapshotDownload;
+  const built = validateSnapshot(JSON.parse(await readFile(await snapshotFile.path(), 'utf8')));
+  await transact('#snapshot-form', async () => await keys.allowlistRoot() === built.root);
+  for (let i = 0; i < 3; i++) { const entry = proofFor(built, accounts[i]); assert(await keys.verifyEligibility(accounts[i], entry.tier, entry.proof)); }
+  assert.equal(await keys.totalGtdReserved(), 24n);
+  report('UI builds CSV snapshot, downloads valid proofs and loads matching root and GTD counts on chain');
+  await transact('#advance-form', async () => await keys.currentPhase() === 1n);
+  assert.equal(await page.locator('#snapshot-form button').isDisabled(), true);
+  await transact('#pause-form', async () => !await keys.mintPaused());
+  await page.locator('a[data-page="mint"]').click();
+  assert.equal(await page.locator('#mint-amount').getAttribute('step'), '2');
+  assert.match(await page.locator('#mint-unit-note').textContent(), /0.05 ETH per pair/);
   await page.locator('#mint-amount').fill('2');
   await transact('#mint-form', async () => await keys.mintedByUsers() === 2n);
   assert.match(await page.locator('#notice').textContent(), /Token IDs: 0, 1/);
@@ -98,18 +121,16 @@ try {
   await transact('#deadline-form', async () => await keys.mintEndTime() === BigInt(nextDeadline));
   report('UI deadline update sends exact UTC timestamp');
   await page.locator('#phase').selectOption('1');
-  await page.locator('#phase-price').fill('0.0045');
-  await page.locator('#wallet-limit').fill('5');
-  await transact('#phase-form', async () => (await keys.phases(1)).walletLimit === 5n && (await keys.phases(1)).price === 4500000000000000n);
-  assert.equal(await keys.totalGtdReserved(), 3n);
+  await page.locator('#phase-price').fill('0.030');
+  await page.locator('#wallet-limit').fill('6');
+  await transact('#phase-form', async () => (await keys.phases(1)).walletLimit === 6n && (await keys.phases(1)).price === 30000000000000000n);
+  assert.equal(await keys.totalGtdReserved(), 24n);
   report('UI configures exact ETH price and independent per-wallet phase limit');
   await transact('#advance-form', async () => await keys.currentPhase() === 2n && await keys.mintPaused());
-  await page.locator('#allowlist-phase').selectOption('2');
-  await page.locator('#whitelist-addresses').fill(accounts[0]);
-  await transact('#whitelist-form', () => keys.allowlisted(2, accounts[0]));
+  assert(await keys.allowlisted(2, accounts[0]));
   await transact('#pause-form', async () => !await keys.mintPaused());
-  assert.equal(await keys.remainingAllowance(2, accounts[0]), 6n);
-  assert.equal(await keys.totalGtdReserved(), 6n);
+  assert.equal(await keys.remainingAllowance(2, accounts[0]), 10n);
+  assert.equal(await keys.totalGtdReserved(), 20n);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: fileURLToPath(new URL('sale-desktop.png', output)), fullPage: true, animations: 'disabled' });
   report('UI sequential phase closure, guaranteed allowlist, resume and independent allowance');
@@ -151,13 +172,13 @@ try {
   await page.locator('#mint-amount').fill('1');
   await page.locator('#mint-form button[type="submit"]').click();
   await page.locator('#review-dialog').waitFor({ state: 'visible' });
-  await (await keys.configurePhase(2, 3000000000000000n, 6)).wait();
+  await (await keys.configurePhase(2, 41000000000000000n, 10)).wait();
   await page.locator('#confirm-transaction').click();
   await page.waitForFunction(() => document.querySelector('#notice').textContent.includes('Mint phase or price changed'));
   assert.equal(await keys.mintedByUsers(), 2n);
-  await (await keys.configurePhase(2, 2000000000000000n, 6)).wait();
+  await (await keys.configurePhase(2, 40000000000000000n, 10)).wait();
   await page.locator('#refresh').click();
-  await page.waitForFunction(() => document.querySelector('#mint-price').textContent === '0.002');
+  await page.waitForFunction(() => document.querySelector('#mint-price').textContent === '0.04');
   report('Changed on-chain price invalidates the reviewed quote and recovery uses a fresh quote');
   await page.evaluate(() => window.testWallet.rejectNext());
   await page.locator('#mint-form button[type="submit"]').click();
@@ -187,17 +208,12 @@ try {
   for (const [phaseId, expectedPaid] of [[3, 4n], [4, 5n]]) {
     await page.locator('a[data-page="sale"]').click();
     await transact('#advance-form', async () => await keys.currentPhase() === BigInt(phaseId));
-    if (phaseId === 3) {
-      await page.locator('#allowlist-phase').selectOption('3');
-      await page.locator('#whitelist-addresses').fill(accounts[0]);
-      await transact('#whitelist-form', () => keys.allowlisted(3, accounts[0]));
-    }
     await transact('#pause-form', async () => !await keys.mintPaused());
     await page.locator('a[data-page="mint"]').click();
     await page.locator('#mint-amount').fill('1');
     await transact('#mint-form', async () => await keys.mintedByUsers() === expectedPaid);
   }
-  assert.equal(await keys.mintPayment(0), 5000000000000000n);
+  assert.equal(await keys.mintPayment(0), 25000000000000000n);
   assert.equal(await keys.mintedInPhase(1, accounts[0]), 2n);
   assert.equal(await keys.mintedInPhase(2, accounts[0]), 1n);
   assert.equal(await keys.mintedInPhase(3, accounts[0]), 1n);
@@ -214,16 +230,21 @@ try {
   await page.locator('a[data-page="sale"]').click();
   assert.equal(await page.locator('[data-action="deadline"]').isDisabled(), true);
   await page.locator('a[data-page="refund"]').click();
-  await page.locator('#refund-id').fill('0');
   const reserveBeforeRefund = await provider.getBalance(target);
-  await transact('#refund-form', () => keys.refunded(0));
-  assert.equal(reserveBeforeRefund - await provider.getBalance(target), 5000000000000000n);
-  await page.locator('#refund-form button').click();
+  await page.evaluate(account => window.testWallet.changeAccount(account), accounts[3]);
+  await page.waitForFunction(() => !document.querySelector('#identity-roles').textContent.includes('Administrator'));
+  await page.locator('#refund-ids').fill('0, 1, 3, 4, 5');
+  await transact('#batch-refund-form', async () => await keys.totalRefunded() === 5n);
+  assert.equal(reserveBeforeRefund, 185000000000000000n); assert.equal(await provider.getBalance(target), 0n);
+  await page.locator('#batch-refund-form button').click();
   await page.waitForFunction(() => document.querySelector('#notice').textContent.includes('Already refunded'));
-  report('Expired-sale UI locks deadline, refunds once and rejects duplicate claim');
+  assert.equal(await keys.totalRefunded(), 5n);
+  report('Third-party UI batch refunds all five mixed-price keys to original minter, rejects repeats without state changes');
+  await page.evaluate(account => window.testWallet.changeAccount(account), accounts[0]);
+  await page.waitForFunction(() => document.querySelector('#identity-roles').textContent.includes('Administrator'));
   await provider.send('evm_revert', [snapshotId]);
-  await (await keys.configurePhase(4, 10n ** 16n, 5900)).wait();
-  for (let left = 5895; left > 0; left -= 100) await (await keys.mint(Math.min(left, 100), 4, 10n ** 16n, { value: BigInt(Math.min(left, 100)) * 10n ** 16n })).wait();
+  await (await keys.configurePhase(4, 5n * 10n ** 16n, 6166)).wait();
+  for (let left = 6161; left > 0; left -= 100) await (await keys.mint(Math.min(left, 100), 4, 5n * 10n ** 16n, { value: BigInt(Math.min(left, 100)) * 5n * 10n ** 16n })).wait();
   for (let left = 499; left > 0; left -= 50) await (await keys.treasuryMint(Math.min(left, 50), accounts[0])).wait();
   await page.locator('#refresh').click();
   await page.waitForFunction(() => document.querySelector('#metric-phase').textContent === 'SOLD OUT');
@@ -234,9 +255,9 @@ try {
   assert.equal(await keys.tokenURI(0), 'ipfs://bafy-local-test/0.json');
   assert.equal(await page.locator('[data-action="reveal"]').isDisabled(), true);
   await page.locator('a[data-page="treasury"]').click();
-  assert.equal(await provider.getBalance(target), 58973000000000000000n);
+  assert.equal(await provider.getBalance(target), 308235000000000000000n);
   await transact('#withdraw-form', async () => await provider.getBalance(target) === 0n);
-  report('Full 6,400-key sale: UI permanent reveal and 58.973 ETH withdrawal at mixed phase prices');
+  report('Full 6,666-key sale: UI permanent reveal and 308.235 ETH withdrawal at mixed phase prices');
   await page.setViewportSize({ width: 390, height: 844 });
   for (const name of ['mint', 'sale', 'treasury', 'reveal', 'access', 'refund']) {
     await page.locator(`a[data-page="${name}"]`).click();

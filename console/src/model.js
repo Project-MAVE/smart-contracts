@@ -1,6 +1,6 @@
 import { getAddress, ZeroAddress } from 'ethers';
 
-export function unsigned(value, maximum = 6400n, minimum = 0n) {
+export function unsigned(value, maximum = 6666n, minimum = 0n) {
   const text = String(value).trim();
   if (!/^\d+$/.test(text)) throw new Error('Enter a whole, non-negative number.');
   const amount = BigInt(text);
@@ -70,6 +70,8 @@ export function gate(kind, s, context) {
   if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {
     if (s.version < 3n) return 'Four-phase controls require a v3 deployment.';
     if (s.timestamp > s.deadline || s.soldOut) return 'Sale configuration is closed after expiry or sellout.';
+    if (kind === 'allowlist' && s.version >= 4n && s.currentPhase !== 0n) return 'The snapshot is frozen: Pioneer has already started.';
+    if (kind === 'advance' && s.version >= 4n && !s.allowlistConfigured) return 'Load the allowlist snapshot before starting Pioneer.';
     if (kind === 'allowlist' && s.currentPhase === 4n) return 'All allowlist phases are closed. Civilian is public.';
     if (kind === 'advance' && s.currentPhase === 4n) return 'Civilian is the final phase.';
     if (kind === 'pause' && s.currentPhase === 0n) return 'Start Pioneer before resuming minting.';
@@ -83,7 +85,7 @@ export function gate(kind, s, context) {
     if (remaining(s) <= 0n) return 'The remaining supply or your wallet allowance is exhausted.';
   }
   if (kind === 'treasuryMint' && s.treasuryMinted === s.maxTreasury) return 'All treasury keys have been minted.';
-  if (['withdraw', 'reveal'].includes(kind) && !s.soldOut) return 'All 6,400 keys must mint before this operation unlocks.';
+  if (['withdraw', 'reveal'].includes(kind) && !s.soldOut) return `All ${(s.maxPaid + s.maxTreasury).toLocaleString('en-US')} keys must mint before this operation unlocks.`;
   if (kind === 'withdraw' && s.balance === 0n) return 'There is no balance to withdraw.';
   if (kind === 'reveal' && s.revealed) return 'The collection has already been permanently revealed.';
   if (kind === 'refund' && !s.refundsAvailable) return 'Refunds open only after unsuccessful expiry.';
@@ -94,4 +96,10 @@ export function friendlyError(error) {
   if (error?.code === 'ACTION_REJECTED' || error?.code === 4001) return 'Signature rejected. No transaction was submitted.';
   if (error?.code === 'INSUFFICIENT_FUNDS') return 'Insufficient ETH for the payment and network fees.';
   return error?.revert?.args?.[0] || error?.reason || error?.shortMessage || error?.message || 'The request failed. Refresh and try again.';
+}
+
+export function refundIds(value, maximum = 6665n) {
+  const ids = String(value).trim().split(/[\s,;]+/).map(value => unsigned(value, maximum));
+  if (!ids.length || ids.length > 50 || new Set(ids.map(String)).size !== ids.length) throw new Error('Enter 1–50 unique token IDs.');
+  return ids;
 }

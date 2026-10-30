@@ -7,14 +7,16 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
-    uint256 public constant MAX_PUBLIC_SUPPLY = 5900;
+    uint256 public constant MAX_PUBLIC_SUPPLY = 6166;
     uint256 public constant MAX_TREASURY_SUPPLY = 500;
     uint256 public constant MAX_SUPPLY = MAX_PUBLIC_SUPPLY + MAX_TREASURY_SUPPLY;
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
 
-    uint256 public constant CONTRACT_VERSION = 3;
+    uint256 public constant CONTRACT_VERSION = 4;
+    uint256 public constant MAX_REFUND_BATCH = 50;
     uint8 public constant PIONEER = 1;
     uint8 public constant OPERATIVE = 2;
     uint8 public constant RECRUIT = 3;
@@ -30,7 +32,12 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
     }
 
     mapping(uint8 => PhaseConfig) public phases;
-    mapping(uint8 => mapping(address => bool)) public allowlisted;
+    bytes32 public allowlistRoot;
+    bytes32 public allowlistSnapshotHash;
+    bool public allowlistConfigured;
+    mapping(uint8 => uint256) public tierMembers;
+    mapping(uint8 => uint256) public registeredMembers;
+    mapping(address => uint8) public walletTier;
     mapping(uint8 => mapping(address => uint256)) public mintedInPhase;
     uint8 public currentPhase;
     bool public mintPaused = true;
@@ -52,7 +59,10 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
     event PhaseConfigured(uint8 indexed phase, uint256 price, uint256 walletLimit);
     event PhaseAdvanced(uint8 indexed previousPhase, uint8 indexed newPhase, uint256 releasedReservation);
     event MintPausedUpdated(bool paused);
-    event AllowlistUpdated(uint8 indexed phase, address indexed account, bool allowed);
+    event AllowlistConfigured(
+        bytes32 indexed root, bytes32 indexed snapshotHash, uint256 pioneer, uint256 operative, uint256 recruit
+    );
+    event EligibilityRegistered(address indexed account, uint8 tier);
     event PaidMint(
         address indexed minter, uint8 indexed phase, uint256 firstTokenId, uint256 amount, uint256 unitPrice
     );
@@ -65,10 +75,10 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         require(endTime > block.timestamp, "Deadline must be in the future");
         require(bytes(hiddenURI).length > 0, "Empty metadata URI");
         require(admin != address(0) && treasury != address(0), "Zero role address");
-        phases[PIONEER] = PhaseConfig(0.005 ether, 4, 0, 0, 0, 0);
-        phases[OPERATIVE] = PhaseConfig(0.002 ether, 6, 0, 0, 0, 0);
-        phases[RECRUIT] = PhaseConfig(0.001 ether, 6, 0, 0, 0, 0);
-        phases[CIVILIAN] = PhaseConfig(0.01 ether, 10, 0, 0, 0, 0);
+        phases[PIONEER] = PhaseConfig(0.025 ether, 4, 0, 0, 0, 0);
+        phases[OPERATIVE] = PhaseConfig(0.04 ether, 10, 0, 0, 0, 0);
+        phases[RECRUIT] = PhaseConfig(0.045 ether, 10, 0, 0, 0, 0);
+        phases[CIVILIAN] = PhaseConfig(0.05 ether, 10, 0, 0, 0, 0);
         mintEndTime = endTime;
         hiddenMetadataURI = hiddenURI;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -102,13 +112,63 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
 
     function remainingAllowance(uint8 phaseId, address account) public view returns (uint256) {
         if (phaseId < PIONEER || phaseId > CIVILIAN || phaseId < currentPhase) return 0;
-        if (phaseId != CIVILIAN && !allowlisted[phaseId][account]) return 0;
+        if (phaseId != CIVILIAN && !allowlisted(phaseId, account)) return 0;
         uint256 limit = phases[phaseId].walletLimit;
         uint256 used = mintedInPhase[phaseId][account];
         return used < limit ? limit - used : 0;
     }
 
     function mint(uint256 amount, uint8 expectedPhase, uint256 expectedUnitPrice) external payable nonReentrant {
+        _mintPaid(amount, expectedPhase, expectedUnitPrice);
+    }
+
+    function mintWithProof(
+        uint256 amount,
+        uint8 expectedPhase,
+        uint256 expectedUnitPrice,
+        uint8 tier,
+        bytes32[] calldata proof
+    ) external payable nonReentrant {
+        require(currentPhase != 0, "Mint not active");
+        require(verifyEligibility(msg.sender, tier, proof), "Invalid allowlist proof");
+        if (walletTier[msg.sender] == 0) {
+            require(registeredMembers[tier] < tierMembers[tier], "Tier member count exceeded");
+            registeredMembers[tier]++;
+            walletTier[msg.sender] = tier;
+            emit EligibilityRegistered(msg.sender, tier);
+        } else {
+            require(walletTier[msg.sender] == tier, "Tier already registered");
+        }
+        _mintPaid(amount, expectedPhase, expectedUnitPrice);
+    }
+
+    function allowlisted(uint8 phaseId, address account) public view returns (bool) {
+        uint8 tier = walletTier[account];
+        return phaseId >= PIONEER && phaseId <= RECRUIT && tier != 0 && tier <= phaseId;
+    }
+
+    function verifyEligibility(address account, uint8 tier, bytes32[] calldata proof) public view returns (bool) {
+        if (account == address(0) || tier < PIONEER || tier > RECRUIT || tierMembers[tier] == 0) return false;
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(account, tier))));
+        return MerkleProof.verifyCalldata(proof, allowlistRoot, leaf);
+    }
+
+    function remainingAllowanceWithProof(uint8 phaseId, address account, uint8 tier, bytes32[] calldata proof)
+        external
+        view
+        returns (uint256)
+    {
+        if (phaseId == CIVILIAN) return remainingAllowance(phaseId, account);
+        if (
+            phaseId < currentPhase || phaseId < PIONEER || phaseId > RECRUIT || tier > phaseId
+                || !verifyEligibility(account, tier, proof)
+        ) return 0;
+        uint256 used = mintedInPhase[phaseId][account];
+        uint256 limit = phases[phaseId].walletLimit;
+        return used < limit ? limit - used : 0;
+    }
+
+    function _mintPaid(uint256 amount, uint8 expectedPhase, uint256 expectedUnitPrice) private {
         require(block.timestamp <= mintEndTime, "Mint ended");
         require(currentPhase != 0 && !mintPaused, "Mint not active");
         uint8 phaseId = currentPhase;
@@ -116,9 +176,10 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         uint256 price = config.price;
         require(expectedPhase == phaseId && expectedUnitPrice == price, "Mint quote changed");
         require(amount > 0, "Zero mint amount");
+        require(phaseId != PIONEER || amount % 2 == 0, "Pioneer requires pairs");
         require(amount <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Max supply reached");
         require(msg.value == price * amount, "Incorrect payment");
-        require(phaseId == CIVILIAN || allowlisted[phaseId][msg.sender], "Not allowlisted");
+        require(phaseId == CIVILIAN || allowlisted(phaseId, msg.sender), "Not allowlisted");
         uint256 walletMinted = mintedInPhase[phaseId][msg.sender] + amount;
         require(walletMinted <= config.walletLimit, "Max mint amount reached for address");
         if (phaseId <= OPERATIVE) {
@@ -179,6 +240,7 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         _requireEditablePhase(phaseId);
         require(price > 0 && price <= type(uint256).max / MAX_PUBLIC_SUPPLY, "Invalid price");
         require(walletLimit > 0 && walletLimit <= MAX_PUBLIC_SUPPLY, "Invalid wallet limit");
+        require(phaseId != PIONEER || walletLimit % 2 == 0, "Pioneer limit must be even");
         PhaseConfig storage config = phases[phaseId];
         if (phaseId <= OPERATIVE) {
             require(walletLimit >= config.maxWalletMinted, "Limit below minted allocation");
@@ -190,37 +252,39 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         emit PhaseConfigured(phaseId, price, walletLimit);
     }
 
-    function setPhaseAllowlist(uint8 phaseId, address[] calldata accounts, bool allowed)
+    function configureAllowlist(bytes32 root, bytes32 snapshotHash, uint256 pioneer, uint256 operative, uint256 recruit)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
         nonReentrant
     {
-        _requireEditablePhase(phaseId);
-        require(phaseId != CIVILIAN, "Civilian is public");
-        PhaseConfig storage config = phases[phaseId];
-        uint256 reserved = config.reserved;
-        uint256 members = config.members;
-        for (uint256 i; i < accounts.length; i++) {
-            address account = accounts[i];
-            require(account != address(0), "Zero allowlist address");
-            if (allowlisted[phaseId][account] == allowed) continue;
-            if (phaseId <= OPERATIVE) {
-                uint256 allocation = config.walletLimit - mintedInPhase[phaseId][account];
-                reserved = allowed ? reserved + allocation : reserved - allocation;
-            }
-            if (allowed) members++;
-            else members--;
-            allowlisted[phaseId][account] = allowed;
-            emit AllowlistUpdated(phaseId, account, allowed);
-        }
-        config.members = members;
-        if (phaseId <= OPERATIVE) _setReservation(config, reserved);
+        require(block.timestamp <= mintEndTime, "Mint ended");
+        require(currentPhase == 0, "Allowlist frozen");
+        uint256 members = pioneer + operative + recruit;
+        require((root == bytes32(0)) == (members == 0), "Root and counts mismatch");
+        require(snapshotHash != bytes32(0), "Empty snapshot hash");
+        uint256 pioneerReserved = pioneer * phases[PIONEER].walletLimit;
+        uint256 operativeReserved = (pioneer + operative) * phases[OPERATIVE].walletLimit;
+        require(pioneerReserved + operativeReserved <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
+        tierMembers[PIONEER] = pioneer;
+        tierMembers[OPERATIVE] = operative;
+        tierMembers[RECRUIT] = recruit;
+        phases[PIONEER].members = pioneer;
+        phases[OPERATIVE].members = pioneer + operative;
+        phases[RECRUIT].members = members;
+        phases[PIONEER].reserved = pioneerReserved;
+        phases[OPERATIVE].reserved = operativeReserved;
+        totalGtdReserved = pioneerReserved + operativeReserved;
+        allowlistRoot = root;
+        allowlistSnapshotHash = snapshotHash;
+        allowlistConfigured = true;
+        emit AllowlistConfigured(root, snapshotHash, pioneer, operative, recruit);
     }
 
     function advancePhase() external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         require(block.timestamp <= mintEndTime, "Mint ended");
         require(!soldOut(), "All tokens minted");
         uint8 previous = currentPhase;
+        require(allowlistConfigured, "Configure allowlist first");
         require(previous < CIVILIAN, "Final phase reached");
         uint256 released = phases[previous].reserved;
         if (released > 0) _setReservation(phases[previous], 0);
@@ -264,20 +328,30 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
     }
 
     function refund(uint256 tokenId) external nonReentrant {
-        _refund(tokenId, payable(msg.sender));
+        _refund(tokenId, payable(originalMinter[tokenId]));
+    }
+
+    function refundBatch(uint256[] calldata tokenIds) external nonReentrant {
+        require(tokenIds.length > 0 && tokenIds.length <= MAX_REFUND_BATCH, "Invalid refund batch size");
+        for (uint256 i; i < tokenIds.length; i++) {
+            _refund(tokenIds[i], payable(originalMinter[tokenIds[i]]));
+        }
     }
 
     function refundTo(uint256 tokenId, address payable recipient) external nonReentrant {
+        require(msg.sender == originalMinter[tokenId], "Not original minter");
         _refund(tokenId, recipient);
     }
 
+    // Default destinations are original minters; only that minter can use refundTo.
+    // Batches are capped at 50 and atomic; a rejecting wallet can retry via refundTo.
+    // slither-disable-next-line arbitrary-send-eth,calls-loop
     function _refund(uint256 tokenId, address payable recipient) private {
         require(block.timestamp > mintEndTime, "Mint not ended");
         require(!soldOut(), "All tokens minted");
         require(!refunded[tokenId], "Already refunded");
         address minter = originalMinter[tokenId];
         require(minter != address(0), "Token not eligible for refund");
-        require(msg.sender == minter, "Not original minter");
         require(recipient != address(0), "Zero refund recipient");
         uint256 amount = mintPayment[tokenId];
         refunded[tokenId] = true;

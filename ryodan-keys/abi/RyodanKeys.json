@@ -79,6 +79,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_REFUND_BATCH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_SUPPLY",
     "inputs": [],
     "outputs": [
@@ -164,15 +177,54 @@
   },
   {
     "type": "function",
+    "name": "allowlistConfigured",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "allowlistRoot",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "allowlistSnapshotHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "allowlisted",
     "inputs": [
       {
-        "name": "",
+        "name": "phaseId",
         "type": "uint8",
         "internalType": "uint8"
       },
       {
-        "name": "",
+        "name": "account",
         "type": "address",
         "internalType": "address"
       }
@@ -222,6 +274,39 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "configureAllowlist",
+    "inputs": [
+      {
+        "name": "root",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "snapshotHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "pioneer",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "operative",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recruit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -459,6 +544,39 @@
   },
   {
     "type": "function",
+    "name": "mintWithProof",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expectedPhase",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "expectedUnitPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "proof",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "mintedAmount",
     "inputs": [
       {
@@ -636,6 +754,19 @@
   },
   {
     "type": "function",
+    "name": "refundBatch",
+    "inputs": [
+      {
+        "name": "tokenIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "refundTo",
     "inputs": [
       {
@@ -686,6 +817,25 @@
   },
   {
     "type": "function",
+    "name": "registeredMembers",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "remainingAllowance",
     "inputs": [
       {
@@ -697,6 +847,40 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "remainingAllowanceWithProof",
+    "inputs": [
+      {
+        "name": "phaseId",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "proof",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
       }
     ],
     "outputs": [
@@ -880,29 +1064,6 @@
   },
   {
     "type": "function",
-    "name": "setPhaseAllowlist",
-    "inputs": [
-      {
-        "name": "phaseId",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "accounts",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "allowed",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "soldOut",
     "inputs": [],
     "outputs": [
@@ -942,6 +1103,25 @@
         "name": "",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tierMembers",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1047,6 +1227,54 @@
   },
   {
     "type": "function",
+    "name": "verifyEligibility",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "proof",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "walletTier",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "withdraw",
     "inputs": [],
     "outputs": [],
@@ -1054,25 +1282,37 @@
   },
   {
     "type": "event",
-    "name": "AllowlistUpdated",
+    "name": "AllowlistConfigured",
     "inputs": [
       {
-        "name": "phase",
-        "type": "uint8",
+        "name": "root",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "uint8"
+        "internalType": "bytes32"
       },
       {
-        "name": "account",
-        "type": "address",
+        "name": "snapshotHash",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes32"
       },
       {
-        "name": "allowed",
-        "type": "bool",
+        "name": "pioneer",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "bool"
+        "internalType": "uint256"
+      },
+      {
+        "name": "operative",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recruit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1142,6 +1382,25 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EligibilityRegistered",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
       }
     ],
     "anonymous": false

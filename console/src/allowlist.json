@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-10-30T12:00:00.000Z",
+  "sourceHashes": {
+    "pioneer.csv": "0x130561130cbd092f62923fe2851aef22e43eaff6a5330d79d473e07c8bcaaf76",
+    "operative.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57",
+    "recruit.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57"
+  },
+  "root": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+  "counts": {
+    "pioneer": 1,
+    "operative": 0,
+    "recruit": 0
+  },
+  "proofs": {
+    "0x27f09842a2b44ca7fcbf34c5c80b2267a1a26015f2f3d1de4e3a838bcdc0d2ca": {
+      "tier": 1,
+      "leaf": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+      "proof": []
+    }
+  },
+  "snapshotHash": "0xfac34ed3ada6950bab9bf455e6199e8db26e58b0b759f84e9a3c24c6e73eb0e3"
+}

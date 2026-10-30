@@ -17,16 +17,28 @@ contract SaleHandler is Test {
     function initialize(RyodanKeys keys_) external {
         require(address(keys) == address(0));
         keys = keys_;
-        address[] memory accounts = new address[](4);
-        for (uint256 i; i < 4; i++) {
-            accounts[i] = actors[i];
-        }
         for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
             keys.configurePhase(phaseId, uint256(phaseId) * 0.001 ether, 30);
-            if (phaseId < 4) keys.setPhaseAllowlist(phaseId, accounts, true);
         }
+        keys.configureAllowlist(
+            _pair(_pair(leaf(0), leaf(1)), _pair(leaf(2), leaf(3))), keccak256("invariant-snapshot"), 4, 0, 0
+        );
         keys.advancePhase();
         keys.setMintPaused(false);
+    }
+
+    function leaf(uint256 i) public view returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(actors[i], uint8(1)))));
+    }
+
+    function _pair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+        return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
+    }
+
+    function proof(uint256 i) public view returns (bytes32[] memory result) {
+        result = new bytes32[](2);
+        result[0] = leaf(i ^ 1);
+        result[1] = i < 2 ? _pair(leaf(2), leaf(3)) : _pair(leaf(0), leaf(1));
     }
 
     function mintPaid(uint256 actorSeed, uint256 amountSeed) external {
@@ -36,15 +48,20 @@ contract SaleHandler is Test {
         uint8 phaseId = keys.currentPhase();
         uint256 available = keys.MAX_PUBLIC_SUPPLY() - keys.mintedByUsers();
         if (phaseId > 2) available -= keys.totalGtdReserved();
-        uint256 walletAvailable = keys.remainingAllowance(phaseId, actor);
+        uint256 walletAvailable = keys.remainingAllowanceWithProof(phaseId, actor, 1, proof(actorSeed % actors.length));
         if (walletAvailable < available) available = walletAvailable;
         if (available == 0) return;
         uint256 amount = bound(amountSeed, 1, available > 30 ? 30 : available);
+        if (phaseId == 1) {
+            amount = amount / 2 * 2;
+            if (amount == 0) return;
+        }
         uint256 value = amount * keys.mintPrice();
         vm.deal(actor, actor.balance + value);
         uint256 price = keys.mintPrice();
+        bytes32[] memory membershipProof = proof(actorSeed % actors.length);
         vm.prank(actor);
-        keys.mint{value: value}(amount, phaseId, price);
+        keys.mintWithProof{value: value}(amount, phaseId, price, 1, membershipProof);
         paid += value;
     }
 
@@ -64,9 +81,11 @@ contract SaleHandler is Test {
         } else if (seed % 3 == 0) {
             keys.setMintPaused(seed % 2 == 0);
         } else if (phaseId < 4) {
-            address[] memory accounts = new address[](1);
-            accounts[0] = actors[seed % actors.length];
-            keys.setPhaseAllowlist(phaseId, accounts, seed % 2 == 0);
+            bytes32 root = keys.allowlistRoot();
+            (bool ok,) =
+                address(keys).call(abi.encodeCall(keys.configureAllowlist, (bytes32(0), keccak256("changed"), 0, 0, 0)));
+            assertFalse(ok);
+            assertEq(keys.allowlistRoot(), root);
         }
     }
 
@@ -76,7 +95,7 @@ contract SaleHandler is Test {
         uint256 limit = bound(limitSeed, 1, 50);
         uint256 price = bound(priceSeed, 1, 0.1 ether);
         (,,,,, uint256 maximumMinted) = keys.phases(phaseId);
-        bool shouldSucceed = phaseId > 2 || limit >= maximumMinted;
+        bool shouldSucceed = (phaseId > 2 || limit >= maximumMinted) && (phaseId != 1 || limit % 2 == 0);
         (bool ok,) = address(keys).call(abi.encodeCall(keys.configurePhase, (phaseId, price, limit)));
         assertEq(ok, shouldSucceed);
     }
@@ -102,8 +121,16 @@ contract SaleHandler is Test {
         uint256 id = idSeed % minted;
         address minter = keys.originalMinter(id);
         if (minter == address(0) || keys.refunded(id)) return;
-        vm.prank(minter);
-        keys.refundTo(id, payable(actors[recipientSeed % actors.length]));
+        if (recipientSeed % 3 == 0) {
+            keys.refund(id);
+        } else if (recipientSeed % 3 == 1) {
+            uint256[] memory ids = new uint256[](1);
+            ids[0] = id;
+            keys.refundBatch(ids);
+        } else {
+            vm.prank(minter);
+            keys.refundTo(id, payable(actors[recipientSeed % actors.length]));
+        }
         returned += keys.mintPayment(id);
     }
 
@@ -162,7 +189,7 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
     }
 
     function invariant_SupplyAndCapsRemainConsistent() public view {
-        assertLe(keys.mintedByUsers(), 5900);
+        assertLe(keys.mintedByUsers(), 6166);
         assertLe(keys.mintedByTreasury(), 500);
         uint256 phaseTotal;
         for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
@@ -204,7 +231,7 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         for (uint8 phaseId = 1; phaseId <= 2; phaseId++) {
             uint256 expected;
             for (uint256 i; i < 4; i++) {
-                expected += keys.remainingAllowance(phaseId, handler.actors(i));
+                expected += keys.remainingAllowanceWithProof(phaseId, handler.actors(i), 1, handler.proof(i));
             }
             (,,,, uint256 reserved,) = keys.phases(phaseId);
             assertEq(reserved, expected);

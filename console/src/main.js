@@ -1,7 +1,8 @@
 import './styles.css';
 import { BrowserProvider, Contract, formatEther, parseEther, getAddress, ZeroHash } from 'ethers';
 import { abiForVersion, reader, snapshot } from './chain.js';
-import { address, addresses, deadlineUTC, friendlyError, gate, metadataBase, phase, phaseNames, remaining, unsigned } from './model.js';
+import { address, addresses, deadlineUTC, friendlyError, gate, metadataBase, phase, phaseNames, remaining, refundIds, unsigned } from './model.js';
+import { currentSnapshot, mountAllowlist, renderAllowlist } from './allowlist-ui.js';
 import deployment from './deployment.json';
 
 const $ = selector => document.querySelector(selector);
@@ -16,6 +17,8 @@ const rpcUrls = local ? [import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:8547'
 ];
 const deployments = local ? [{ address: getAddress(import.meta.env.VITE_CONTRACT_ADDRESS), label: 'Local / integration test' }] : [
   ...(deployment.address ? [deployment] : []),
+  { address: '0x084E7a42D8CBdBd95F65FEc853f5Bc16E6656B5a', label: 'v4 / batch refund QA' },
+  ...(deployment.address?.toLowerCase() !== '0x3120e791e078acf04601d623307b0e6866633e7a' ? [{ address: '0x3120e791E078ACF04601d623307B0e6866633E7A', label: 'v3 / earlier management' }] : []),
   { address: '0x30f41eA9af605cB63C9Fb86af945e9D137B3d804', label: 'v3 / lifecycle refund QA' },
   ...(deployment.address?.toLowerCase() !== '0x4b8d8fd22fb818aa7b312cb72f7048e4d738109b' ? [{ address: '0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B', label: 'v2 / earlier management' }] : []),
   { address: '0xBc5338c4a71961d999Ec9551a2636850ec1561e0', label: 'v2 / expired refund QA' },
@@ -125,6 +128,19 @@ function render() {
   text('#metadata-detail', s.revealed ? 'FINAL URI COMMITTED' : 'AWAITING REVEAL');
   text('#mint-price', s.price ? formatEther(s.price) : '—');
   renderPhases(s);
+  renderAllowlist(s);
+  const total = s.maxPaid + s.maxTreasury;
+  text('#metric-supply', `OF ${total.toLocaleString('en-US')} KEYS`);
+  text('#hero-supply', `RYODAN / 旅団 / ${total.toLocaleString('en-US')} KEYS`);
+  text('#last-metadata-id', total - 1n);
+  for (const id of ['#refund-id', '#inspect-id']) $(id).max = String(total - 1n);
+  for (const id of ['#mint-amount', '#wallet-limit']) $(id).max = String(s.maxPaid);
+  $('#paid-progress').max = Number(s.maxPaid);
+  const step = s.version >= 4n && s.currentPhase === 1n ? 2 : 1;
+  $('#mint-amount').step = String(step); $('#mint-amount').min = String(step);
+  if (Number($('#mint-amount').value) < step) $('#mint-amount').value = String(step);
+  text('#mint-unit-note', step === 2 ? `Pioneer mints pairs: ${formatEther(s.price * 2n)} ETH per pair. Quantity is the number of keys (2, 4, …).` : 'Mint in the active phase. Token IDs are assigned in sequence.');
+  $('#batch-refund-panel').hidden = s.version < 4n || location.hash !== '#refund';
   text('#paid-count', `${s.paid.toLocaleString('en-US')} / ${s.maxPaid.toLocaleString('en-US')}`);
   text('#treasury-count', `${s.treasuryMinted} / ${s.maxTreasury}`);
   $('#paid-progress').value = Number(s.paid);
@@ -158,6 +174,8 @@ function fillPhaseConfiguration() {
 
 function renderPhases(s) {
   const modern = s.version >= 3n;
+  all('[data-v4]').forEach(node => { node.hidden = s.version < 4n; });
+  $('#legacy-allowlist').hidden = s.version >= 4n;
   all('[data-v3]').forEach(node => { node.hidden = !modern; });
   all('[data-legacy]').forEach(node => { node.hidden = modern; });
   $('#whitelist-form button').dataset.action = modern ? 'allowlist' : 'admin';
@@ -203,14 +221,14 @@ async function refresh({ force = false, quiet = false } = {}) {
   text('#sync-status', 'READING…');
   try {
     let next;
-    try { next = await snapshot(provider, target, identity, chainId); }
+    try { next = await snapshot(provider, target, identity, chainId, currentSnapshot()); }
     catch (first) {
       if (rpcUrls.length < 2) throw first;
       rpcIndex = (rpcIndex + 1) % rpcUrls.length;
       const previousProvider = provider;
       provider = reader(rpcUrls[rpcIndex], chainId);
       previousProvider.destroy();
-      next = await snapshot(provider, target, identity, chainId);
+      next = await snapshot(provider, target, identity, chainId, currentSnapshot());
     }
     if (current !== generation || target !== selected.address || identity !== account) return false;
     state = next;
@@ -232,7 +250,7 @@ async function refresh({ force = false, quiet = false } = {}) {
 }
 
 function updateTotal() {
-  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, 5900n, 1n))} ETH + gas` : 'Awaiting active phase'); }
+  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, state?.maxPaid || 6166n, 1n))} ETH + gas` : 'Awaiting active phase'); }
   catch { text('#mint-total', 'Enter a valid quantity'); }
 }
 
@@ -286,9 +304,9 @@ async function signerForCurrentWallet() {
 function validate(action) {
   const reason = gate(action.kind, state, { ...context(), busy: false });
   if (reason) throw new Error(reason);
-  if (action.method === 'mint' && state.version >= 3n && (action.args[1] !== state.currentPhase || action.args[2] !== state.price)) throw new Error('Mint phase or price changed. Review a new quote.');
+  if (['mint', 'mintWithProof'].includes(action.method) && state.version >= 3n && (action.args[1] !== state.currentPhase || action.args[2] !== state.price)) throw new Error('Mint phase or price changed. Review a new quote.');
   if (action.expectedPhase !== undefined && action.expectedPhase !== state.currentPhase) throw new Error('Active phase changed. Review the command again.');
-  if (action.method === 'mint' && action.args[0] > remaining(state)) throw new Error('Quantity exceeds your remaining mint allowance.');
+  if (['mint', 'mintWithProof'].includes(action.method) && action.args[0] > remaining(state)) throw new Error('Quantity exceeds your remaining mint allowance.');
   if (action.method === 'treasuryMint' && action.args[0] > state.maxTreasury - state.treasuryMinted) throw new Error('Quantity exceeds the remaining treasury allocation.');
   if (action.method === 'setMintEndTime' && action.args[0] <= state.timestamp) throw new Error('The new deadline must be after the latest block time.');
 }
@@ -299,15 +317,16 @@ async function review(action) {
   renderControls();
   try {
     if (!await refresh({ force: true, quiet: true })) throw new Error('Unable to obtain fresh chain state.');
-    action.value = action.method === 'mint' ? state.price * action.args[0] : 0n;
+    action.value = ['mint', 'mintWithProof'].includes(action.method) ? state.price * action.args[0] : 0n;
     validate(action);
     const reviewAccount = account;
     const reviewAddress = selected.address;
     const signer = await signerForCurrentWallet();
     const keys = new Contract(selected.address, abiForVersion(state?.version || 3n), signer);
     if (action.kind === 'refund') {
-      const paid = state.version >= 3n ? await keys.mintPayment(action.args[0], { blockTag: state.block }) : state.price;
-      action.warning = `This burns the key and returns its original payment of ${formatEther(paid)} ETH. Network fees are separate.`;
+      const ids = action.method === 'refundBatch' ? action.args[0] : [action.args[0]];
+      const paid = state.version >= 3n ? (await Promise.all(ids.map(id => keys.mintPayment(id, { blockTag: state.block })))).reduce((a, b) => a + b, 0n) : state.price;
+      action.warning = `This burns the selected key(s) and returns their original payments, totaling ${formatEther(paid)} ETH. Default recipients are the original minters. Network fees are separate.`;
     }
     await keys[action.method].staticCall(...action.args, { value: action.value });
     const gas = await keys[action.method].estimateGas(...action.args, { value: action.value });
@@ -411,7 +430,12 @@ function onForm(id, callback) {
   });
 }
 
-onForm('#mint-form', data => review({ kind: 'mint', label: 'Mint Ryodan Keys', method: 'mint', args: [unsigned(data.get('amount'), 5900n, 1n), ...(state?.version >= 3n ? [state.currentPhase, state.price] : [])] }));
+onForm('#mint-form', data => {
+  const amount = unsigned(data.get('amount'), state?.maxPaid || 6166n, 1n);
+  if (state?.version >= 4n && state.currentPhase === 1n && amount % 2n !== 0n) throw new Error('Pioneer mints pairs: choose an even quantity.');
+  const proof = state?.version >= 4n && state.currentPhase < 4n ? state.proof : null;
+  return review({ kind: 'mint', label: 'Mint Ryodan Keys', method: proof ? 'mintWithProof' : 'mint', args: [amount, ...(state?.version >= 3n ? [state.currentPhase, state.price] : []), ...(proof ? [proof.tier, proof.proof] : [])] });
+});
 onForm('#advance-form', () => review({ kind: 'advance', label: `Advance to ${phaseNames[Number(state.currentPhase) + 1]}`, method: 'advancePhase', args: [], expectedPhase: state.currentPhase, warning: 'Irreversible phase closure: unused guarantees are released, earlier phases cannot reopen. The next phase starts paused.' }));
 onForm('#pause-form', () => review({ kind: 'pause', label: state.paused ? 'Resume active phase' : 'Pause active phase', method: 'setMintPaused', args: [!state.paused], expectedPhase: state.currentPhase }));
 onForm('#phase-form', data => {
@@ -419,12 +443,13 @@ onForm('#phase-form', data => {
   const price = parseEther(data.get('price').trim());
   if (price <= 0n) throw new Error('The price must be greater than zero.');
   const id = unsigned(data.get('phase'), 4n, 1n);
-  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), 5900n, 1n)], warning: 'Price and per-wallet allowance apply to this phase. Existing mints still count; refunds preserve each token’s original payment. Guaranteed allocations must fit the remaining paid supply.' });
+  if (state?.version >= 4n && id === 1n && unsigned(data.get('limit')) % 2n !== 0n) throw new Error('The Pioneer wallet limit must be even.');
+  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), state?.maxPaid || 6166n, 1n)], warning: 'Price and per-wallet allowance apply to this phase. Existing mints still count; refunds preserve each token’s original payment. Guaranteed allocations must fit the remaining paid supply.' });
 });
 onForm('#legacy-phase-form', data => {
   const chosen = data.get('phase');
   const method = chosen === 'whitelist' || (chosen === 'paused' && state?.whitelistActive) ? 'setWhitelistMintActive' : 'setPublicMintActive';
-  return review({ kind: 'admin', label: `Set mint phase: ${chosen}`, method, args: [chosen !== 'paused', unsigned(data.get('limit'), 5900n, 1n)], pause: chosen === 'paused' });
+  return review({ kind: 'admin', label: `Set mint phase: ${chosen}`, method, args: [chosen !== 'paused', unsigned(data.get('limit'), state?.maxPaid || 6166n, 1n)], pause: chosen === 'paused' });
 });
 onForm('#deadline-form', data => review({ kind: 'deadline', label: 'Change mint deadline', method: 'setMintEndTime', args: [deadlineUTC(data.get('deadline'))], warning: `New deadline: ${utc(deadlineUTC(data.get('deadline')))}. Changing this date changes when refunds for an unsuccessful sale can begin. Expired sales cannot reopen.` }));
 onForm('#whitelist-form', data => {
@@ -445,13 +470,14 @@ onForm('#role-form', data => {
   if (revoke && target === account) throw new Error('Self-revocation is disabled in the console. Verify another administrator before using a separate administration tool.');
   return review({ kind: 'admin', label: `${revoke ? 'Revoke' : 'Grant'} ${data.get('role')} role`, method: revoke ? 'revokeRole' : 'grantRole', args: [data.get('role') === 'admin' ? ZeroHash : state.treasuryRoleId, target], warning: data.get('role') === 'admin' ? 'Administrators can grant roles, change sale settings and select final metadata. Verify the recipient carefully.' : 'Treasury role holders can mint reserved tokens and withdraw all successful-sale proceeds.' });
 });
+onForm('#batch-refund-form', data => review({ kind: 'refund', label: 'Refund paid keys in one batch', method: 'refundBatch', args: [refundIds(data.get('ids'), state.maxPaid + state.maxTreasury - 1n)] }));
 onForm('#refund-form', data => {
-  const id = unsigned(data.get('id'), 6399n);
+  const id = unsigned(data.get('id'), state ? state.maxPaid + state.maxTreasury - 1n : 6665n);
   const recipient = data.get('recipient').trim();
   return review({ kind: 'refund', label: `Refund token #${id}`, method: recipient ? 'refundTo' : 'refund', args: recipient ? [id, address(recipient)] : [id] });
 });
 onForm('#inspect-form', async data => {
-  const id = unsigned(data.get('id'), 6399n);
+  const id = unsigned(data.get('id'), state ? state.maxPaid + state.maxTreasury - 1n : 6665n);
   const keys = new Contract(selected.address, abiForVersion(state?.version || 3n), provider);
   const block = await provider.getBlockNumber();
   const target = selected.address;
@@ -487,7 +513,8 @@ $('#mint-amount').addEventListener('input', updateTotal);
 $('#phase').addEventListener('change', fillPhaseConfiguration);
 for (const id of ['#phase-price', '#wallet-limit']) $(id).addEventListener('input', () => { $('#phase-form').dataset.dirty = 'true'; });
 for (const [selector, change] of [['#decrement', -1], ['#increment', 1]]) $(selector).addEventListener('click', () => {
-  $('#mint-amount').value = Math.max(1, Math.min(5900, (Number($('#mint-amount').value) || 1) + change)); updateTotal();
+  const step = state?.version >= 4n && state.currentPhase === 1n ? 2 : 1;
+  $('#mint-amount').value = Math.max(step, Math.min(Number(state?.maxPaid || 6166n), (Number($('#mint-amount').value) || step) + change * step)); updateTotal();
 });
 $('#base-uri').addEventListener('input', () => text('#uri-preview', `${$('#base-uri').value || '<base URI>'}0.json`));
 $('#new-deadline').addEventListener('input', () => { try { text('#deadline-preview', utc(deadlineUTC($('#new-deadline').value))); } catch { text('#deadline-preview', 'Enter a valid date; all values are interpreted as UTC.'); } });
@@ -496,6 +523,7 @@ function route() {
   const page = ['mint', 'sale', 'treasury', 'reveal', 'access', 'refund'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'mint';
   all('.page').forEach(section => { section.hidden = section.id !== `page-${page}`; section.classList.toggle('active', !section.hidden); });
   all('.nav-item').forEach(link => { link.classList.toggle('active', link.dataset.page === page); if (link.dataset.page === page) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); });
+  $('#batch-refund-panel').hidden = state?.version !== 4n || page !== 'refund';
   text('#page-label', { mint: 'OVERVIEW', sale: 'SALE CONTROLS', treasury: 'TREASURY', reveal: 'REVEAL', access: 'ACCESS', refund: 'REFUNDS' }[page]);
 }
 
@@ -522,6 +550,7 @@ $('#deployment').addEventListener('change', () => { selected = deployments.find(
 window.addEventListener('hashchange', route);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy) void refresh(); });
 setInterval(() => { renderControls(); if (!document.hidden && !busy && !draft) void refresh({ quiet: true }); }, 15000);
+mountAllowlist({ getState: () => state, refresh, review, error, notice });
 text('#network-name', networkName);
 route();
 selectDeployment();

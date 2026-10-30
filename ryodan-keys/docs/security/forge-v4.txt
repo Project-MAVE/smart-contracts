@@ -1,0 +1,277 @@
+Compiling 29 files with Solc 0.8.37
+Solc 0.8.37 finished in 9.29s
+Compiler run successful with warnings:
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+  --> test/fixtures/LegacyRyodanKeys.sol:68:23:
+   |
+68 |     function tokenURI(uint256 tokenId) public view override returns (string memory) {
+   |                       ^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/fixtures/LegacyRyodanKeys.sol:101:21:
+    |
+101 |         (bool sent, bytes memory _data) = payable(msg.sender).call{value: address(this).balance}("");
+    |                     ^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/fixtures/LegacyRyodanKeys.sol:110:21:
+    |
+110 |         (bool sent, bytes memory _data) = payable(originalMinter[tokenId]).call{value: mintPrice}("");
+    |                     ^^^^^^^^^^^^^^^^^^
+
+
+Ran 4 tests for test/DeployScript.t.sol:DeployScriptTest
+[PASS] test_DeploymentScriptAllowsLocalAnvil() (gas: 3929829)
+[PASS] test_DeploymentScriptAssignsExplicitRolesOnSepolia() (gas: 3960137)
+[PASS] test_DeploymentScriptRejectsExpiredConfiguration() (gas: 142507)
+[PASS] test_DeploymentScriptRejectsMainnet() (gas: 8827)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 3.97ms (2.21ms CPU time)
+
+Ran 9 tests for test/Deadline.t.sol:DeadlineTest
+[PASS] testFuzz_MintAndRefundFollowChangedDeadline(uint256) (runs: 1000, μ: 451015, ~: 451284)
+[PASS] testFuzz_OnlyAdminCanChangeDeadline(address,uint256) (runs: 1000, μ: 17956, ~: 18232)
+[PASS] test_AdminReceiverCannotChangeDeadlineDuringMint() (gas: 1497522)
+[PASS] test_DeadlineCanChangeAtExactOldBoundary() (gas: 27443)
+[PASS] test_DeadlineCanExtendAndShortenWithEvents() (gas: 34168)
+[PASS] test_DeadlineCannotChangeAfterSoldOut() (gas: 444730640)
+[PASS] test_DeadlineCannotReopenAfterRefund() (gas: 431561)
+[PASS] test_DeadlineCannotReopenExpiredSaleBeforeFirstRefund() (gas: 432338)
+[PASS] test_DeadlineRejectsCurrentAndPastTime() (gas: 43016)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 951.68ms (1.12s CPU time)
+
+Ran 7 tests for test/LegacyRegression.t.sol:LegacyRegressionTest
+[PASS] test_LegacyDifferentPaidTokensEachHaveOneLegitimateRefund() (gas: 80609)
+[PASS] test_LegacyExpiredDeadlinePreventsRestart() (gas: 18174)
+[PASS] test_LegacyFreeTreasuryTokenDestroysPaidRefundReserve() (gas: 146598)
+[PASS] test_LegacyMetadataAcceptsUnmintedIdAndIgnoresTokenId() (gas: 15733)
+[PASS] test_LegacyNonexistentIdsDestroyAllRefundReserves() (gas: 141900)
+[PASS] test_LegacySameTokenCannotBeRefundedTwice() (gas: 46836)
+[PASS] test_LegacyZeroMintAndOverpaymentAreAccepted() (gas: 100561)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 1.33s (937.78µs CPU time)
+
+Ran 6 tests for test/BatchRefund.t.sol:BatchRefundTest
+[PASS] testFuzz_ArbitraryCallerBatchIsSolventAndSingleUse(uint256,uint256,address) (runs: 1000, μ: 2732801, ~: 2676537)
+[PASS] test_BatchCallbackCannotReenterAnotherBatchOrSingleRefund() (gas: 1727981)
+[PASS] test_BatchSizeAndOutcomeGuards() (gas: 444778359)
+[PASS] test_DuplicateAndInvalidIdsRollBackWholeBatch() (gas: 671921)
+[PASS] test_RejectingRecipientRollsBackOtherRefundsAndCanRecoverSeparately() (gas: 1621954)
+[PASS] test_ThirdPartyBatchPaysDifferentMintersTheirOriginalPrices() (gas: 615524)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 3.44s (3.61s CPU time)
+
+Ran 26 tests for test/Phases.t.sol:PhasesTest
+[PASS] testFuzz_IndependentLimitsAndOriginalRefunds(uint256,uint256) (runs: 1000, μ: 3440409, ~: 3415446)
+[PASS] testFuzz_PioneerAlwaysUsesPairs(uint256,uint256) (runs: 1000, μ: 1156249, ~: 631242)
+[PASS] test_AdminReceiverCannotReenterSaleMutators() (gas: 2448682)
+[PASS] test_CannotSelectAnotherPhaseEvenWithIdenticalPrice() (gas: 850002)
+[PASS] test_ClientDefaultsAndSupply() (gas: 66627)
+[PASS] test_ConflictingRootTiersCannotChangeCachedTier() (gas: 844691)
+[PASS] test_ExactGtdCapacityIsUsableAcrossInheritedTiers() (gas: 432416893)
+[PASS] test_ExpiryAndSelloutKeepConfigurationLocked() (gas: 132736)
+[PASS] test_FcfsLimitMayDropBelowUsedWithoutReset() (gas: 687521)
+[PASS] test_GtdLimitsResizeBothInheritedAllocationsWithoutResettingUsage() (gas: 1978677)
+[PASS] test_GtdOverbookingRejectedAtSnapshotAndQuotaUpdate() (gas: 424500)
+[PASS] test_InvalidProofCannotConsumeFundsOrRegisterTier() (gas: 579757)
+[PASS] test_InvalidSnapshotAndConfigurationRejected() (gas: 131677)
+[PASS] test_PhasesRequireSnapshotAndAdvanceOnlyInOrderWhilePausing() (gas: 417274)
+[PASS] test_PioneerInheritsLaterListsAndCanMint34WithoutDuplicateEntries() (gas: 3281298)
+[PASS] test_PioneerRejectsOddQuantitiesAndOddWalletLimits() (gas: 1072861)
+[PASS] test_PriceChangesPreserveOriginalPaymentsAndRejectOldQuote() (gas: 1002125)
+[PASS] test_ProofMintBeforeStartRejected() (gas: 396488)
+[PASS] test_ProofViewsHandleClosedInvalidAndExhaustedWallets() (gas: 933731)
+[PASS] test_ReceiverRejectionRollsBackProofRegistrationAndGuarantees() (gas: 1641310)
+[PASS] test_RecruitIsFcfsAndCannotExceedRemainingSupply() (gas: 432140426)
+[PASS] test_SelloutLocksAdvanceAndConfiguration() (gas: 444732812)
+[PASS] test_SnapshotCanBeReplacedBeforeOpeningAndIsFrozenAfterStart() (gas: 396182)
+[PASS] test_ThreeExclusiveTiersEnforceHierarchyAndProofsBeforeFirstMint() (gas: 5043526)
+[PASS] test_UnderstatedMemberCountCannotOversubscribeGuarantees() (gas: 983750)
+[PASS] test_UnusedGuaranteesReleaseAndCivilianReceivesRemainder() (gas: 432788747)
+Suite result: ok. 26 passed; 0 failed; 0 skipped; finished in 3.67s (5.18s CPU time)
+
+Ran 51 tests for test/RyodanKeys.t.sol:RyodanKeysTest
+[PASS] testFuzz_DeadlineBoundary(uint256,uint256) (runs: 1000, μ: 4167663, ~: 4264926)
+[PASS] testFuzz_InvalidRefundIdsPreserveSolvency(uint256) (runs: 1000, μ: 409669, ~: 409667)
+[PASS] testFuzz_MintAccountingAndWalletLimit(uint256) (runs: 1000, μ: 1838395, ~: 1883145)
+[PASS] testFuzz_OnlyExactPaymentAccepted(uint256,uint256) (runs: 1000, μ: 168858, ~: 168716)
+[PASS] testFuzz_RefundCannotBeStolen(address) (runs: 1000, μ: 405759, ~: 405759)
+[PASS] testFuzz_RefundOrderCannotExceedAmountPaid(uint256) (runs: 1000, μ: 1062064, ~: 1062122)
+[PASS] testFuzz_UnauthorizedSaleAdministration(address,bool,uint256) (runs: 1000, μ: 16332, ~: 16471)
+[PASS] test_ConstructorAssignsOnlyExplicitRoles() (gas: 32226)
+[PASS] test_ConstructorRejectsEmptyMetadata() (gas: 137785)
+[PASS] test_ConstructorRejectsPastOrCurrentDeadline() (gas: 262572)
+[PASS] test_ConstructorRejectsZeroRoles() (gas: 264684)
+[PASS] test_ForcedEtherCannotChangeOutcomeOrRefundAmount() (gas: 428422)
+[PASS] test_FreeTreasuryTokenCannotClaimRefund() (gas: 487860)
+[PASS] test_HiddenMetadataAndNonexistentId() (gas: 480464)
+[PASS] test_InterfaceSupport() (gas: 12626)
+[PASS] test_InvalidWalletLimitsRejected() (gas: 42884)
+[PASS] test_MintAtDeadlineAndRejectAfterDeadline() (gas: 417325)
+[PASS] test_MintCallbackCannotReenterAndSeesReservedState() (gas: 1491047)
+[PASS] test_MintCannotOverflowAmount() (gas: 154656)
+[PASS] test_MintInactiveReverts() (gas: 18045)
+[PASS] test_MintRejectsUnderpaymentAndOverpayment() (gas: 180626)
+[PASS] test_MintTracksSequentialIdsAndLifetimeLimits() (gas: 685416)
+[PASS] test_MintZeroReverts() (gas: 154446)
+[PASS] test_OnlyAdminCanManageSaleAndMetadata() (gas: 37479)
+[PASS] test_OnlyTreasuryCanMintOrWithdraw() (gas: 19189)
+[PASS] test_PaidSelloutWithoutTreasuryIsNotSuccessful() (gas: 431967880)
+[PASS] test_PausingOrChangingLimitsAfterExpiryCannotBlockRefunds() (gas: 437019)
+[PASS] test_PhaseIsPausableWithoutResettingAllowance() (gas: 566514)
+[PASS] test_PublicSupplyCapCannotBeExceeded() (gas: 431898098)
+[PASS] test_RefundAfterApprovalClearsApprovalAndOwnership() (gas: 439566)
+[PASS] test_RefundBurnsTokenAndPaysOnlyOnce() (gas: 535461)
+[PASS] test_RefundCallbackCannotReenterAnotherPaidToken() (gas: 1488680)
+[PASS] test_RefundRejectsNonexistentIdsWithoutDestroyingReserves() (gas: 559957)
+[PASS] test_RefundToRecipientAndZeroRecipientRejection() (gas: 438686)
+[PASS] test_RejectingEtherReceiverCanRetryRefundToAnotherAddress() (gas: 1473765)
+[PASS] test_RejectingNFTReceiverRollsBackTreasuryCounters() (gas: 1049770)
+[PASS] test_RejectingTreasuryCannotLoseProceeds() (gas: 445727475)
+[PASS] test_RevealIsOneShotAndEmitsMetadataUpdate() (gas: 444792301)
+[PASS] test_RevealRejectsEmptyOrMalformedBaseURI() (gas: 444734717)
+[PASS] test_RevealRequiresSellout() (gas: 15638)
+[PASS] test_RevokedTreasuryLosesAccess() (gas: 23401)
+[PASS] test_SafeMintRejectsNonReceiverWithoutTakingPayment() (gas: 490001)
+[PASS] test_SoldOutWithdrawsExactlyOnceAndEnablesTransfers() (gas: 444811664)
+[PASS] test_ThirdPartyCanTriggerButCannotRedirectRefund() (gas: 432859)
+[PASS] test_TransfersAndApprovedTransfersLockedUntilSoldOut() (gas: 434429)
+[PASS] test_TreasuryCallbackCannotReenter() (gas: 1213151)
+[PASS] test_TreasuryCapAndDeadline() (gas: 12895666)
+[PASS] test_TreasuryDoesNotConsumeWalletAllowance() (gas: 449770)
+[PASS] test_TreasuryRejectsZeroAmountAndRecipient() (gas: 87840)
+[PASS] test_WithdrawCallbackCannotReenter() (gas: 445737787)
+[PASS] test_WithdrawCannotTakeRefundReserves() (gas: 406568)
+Suite result: ok. 51 passed; 0 failed; 0 skipped; finished in 128.59s (134.22s CPU time)
+
+Ran 5 tests for test/RyodanKeys.invariant.t.sol:RyodanKeysInvariantTest
+[PASS] invariant_AllLiveTokensBelongToTrackedActors() (runs: 256, calls: 32768, reverts: 0)
+
+╭-------------+-------------------------+-------+---------+----------╮
+| Contract    | Selector                | Calls | Reverts | Discards |
++====================================================================+
+| SaleHandler | advance                 | 3373  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | attemptTransfer         | 3174  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeConfiguration     | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeDeadline          | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changePhaseAndWhitelist | 3234  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | invalidRefund           | 3294  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintPaid                | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintTreasury            | 3246  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | refundPaid              | 3244  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | withdrawIfSuccessful    | 3327  | 0       | 0        |
+╰-------------+-------------------------+-------+---------+----------╯
+
+[PASS] invariant_EtherIsConservedAndRefundsStaySolvent() (runs: 256, calls: 32768, reverts: 0)
+
+╭-------------+-------------------------+-------+---------+----------╮
+| Contract    | Selector                | Calls | Reverts | Discards |
++====================================================================+
+| SaleHandler | advance                 | 3373  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | attemptTransfer         | 3174  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeConfiguration     | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeDeadline          | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changePhaseAndWhitelist | 3234  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | invalidRefund           | 3294  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintPaid                | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintTreasury            | 3246  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | refundPaid              | 3244  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | withdrawIfSuccessful    | 3327  | 0       | 0        |
+╰-------------+-------------------------+-------+---------+----------╯
+
+[PASS] invariant_GtdReservationsEqualUnclaimedAllocations() (runs: 256, calls: 32768, reverts: 0)
+
+╭-------------+-------------------------+-------+---------+----------╮
+| Contract    | Selector                | Calls | Reverts | Discards |
++====================================================================+
+| SaleHandler | advance                 | 3373  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | attemptTransfer         | 3174  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeConfiguration     | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeDeadline          | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changePhaseAndWhitelist | 3234  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | invalidRefund           | 3294  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintPaid                | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintTreasury            | 3246  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | refundPaid              | 3244  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | withdrawIfSuccessful    | 3327  | 0       | 0        |
+╰-------------+-------------------------+-------+---------+----------╯
+
+[PASS] invariant_PhasesNeverOverlap() (runs: 256, calls: 32768, reverts: 0)
+
+╭-------------+-------------------------+-------+---------+----------╮
+| Contract    | Selector                | Calls | Reverts | Discards |
++====================================================================+
+| SaleHandler | advance                 | 3373  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | attemptTransfer         | 3174  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeConfiguration     | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeDeadline          | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changePhaseAndWhitelist | 3234  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | invalidRefund           | 3294  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintPaid                | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintTreasury            | 3246  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | refundPaid              | 3244  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | withdrawIfSuccessful    | 3327  | 0       | 0        |
+╰-------------+-------------------------+-------+---------+----------╯
+
+[PASS] invariant_SupplyAndCapsRemainConsistent() (runs: 256, calls: 32768, reverts: 0)
+
+╭-------------+-------------------------+-------+---------+----------╮
+| Contract    | Selector                | Calls | Reverts | Discards |
++====================================================================+
+| SaleHandler | advance                 | 3373  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | attemptTransfer         | 3174  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeConfiguration     | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changeDeadline          | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | changePhaseAndWhitelist | 3234  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | invalidRefund           | 3294  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintPaid                | 3292  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | mintTreasury            | 3246  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | refundPaid              | 3244  | 0       | 0        |
+|-------------+-------------------------+-------+---------+----------|
+| SaleHandler | withdrawIfSuccessful    | 3327  | 0       | 0        |
+╰-------------+-------------------------+-------+---------+----------╯
+
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 128.59s (214.32s CPU time)
+
+Ran 7 test suites in 128.59s (266.58s CPU time): 108 tests passed, 0 failed, 0 skipped (108 total tests)

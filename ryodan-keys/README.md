@@ -1,52 +1,53 @@
-# Ryodan Keys
+# Ryodan Keys v4
 
-ERC-721 sale with whitelist/public minting, a free treasury allocation, transfers locked until sellout, refunds on unsuccessful expiry, and one-shot metadata reveal.
+ERC-721 sale aligned with `neomars-mint-dev-2026-10-08.zip`: four sequential mint phases, inherited list eligibility, guaranteed allocations, editable phase prices/caps/deadline, atomic batch refunds and a one-shot reveal.
 
-- 5,900 paid NFTs at 0.01 ETH, including at most 1,000 whitelist mints.
-- 500 free treasury NFTs; all 6,400 must mint for the campaign to succeed.
-- Constructor parameters: future `endTime`, `hiddenURI`, `admin`, `treasury`.
-- v2 admin can shorten/extend the deadline using `setMintEndTime`; expiry and sellout permanently lock it.
-- A failed sale refunds the original paid minter once per token and burns that token.
-- A successful sale allows treasury withdrawal and NFT transfers. Admin can then reveal `<baseURI><id>.json` once.
+| Phase | ETH per key | Initial wallet cap | Access |
+| --- | ---: | ---: | --- |
+| Pioneer | 0.025 (0.050 per pair) | 4 | Pioneer; guaranteed; even quantities only |
+| Operative | 0.040 | 10 | Pioneer + Operative; guaranteed |
+| Recruit | 0.045 | 10 | Pioneer + Operative + Recruit; FCFS |
+| Civilian | 0.050 | 10 | Public; FCFS |
+
+Caps are independent per phase and admin-editable. A Pioneer can initially mint 34 keys across the four phases. Phase selection is controlled by the contract: users cannot choose or revisit a phase. Token IDs are sequential across paid and treasury mints.
+
+Supply is **6,666 = 6,166 paid + 500 treasury**. Civilian receives the paid supply remaining after Recruit; it has no fixed separate allocation. All 6,666 lifetime mints are required to unlock transfers, reveal and treasury withdrawal. Unsuccessful expiry enables refunds of each token's original payment, burns the token and prevents a second refund.
+
+Lists come from three CSVs with one highest tier per address. The console downloads empty templates and builds a Merkle snapshot plus the checker data from exactly those files. Membership freezes when Pioneer starts. No production CSVs were supplied; the Sepolia deployment uses only the dedicated test wallet.
 
 ## Development
-
-Initialize pinned Solidity dependencies from the repository root:
 
 ```sh
 git submodule update --init --recursive
 cd ryodan-keys
 forge build --sizes
 forge fmt --check
-forge test
 FOUNDRY_PROFILE=ci forge test
 python3 scripts/export-abi.py --check
+slither . --config-file slither.config.json
+cd ../console
+npm ci --ignore-scripts
+npm test
+npm run test:deploy
+npm run test:browser
 ```
 
-Compiler: Solidity **0.8.37**; EVM: **Cancun**; optimizer: **200 runs**. Dependencies: OpenZeppelin Contracts **5.7.0**, forge-std **1.16.2**. Foundry **1.7.1** was used for validation and is pinned in the prepared CI workflow. Solidity development needs no npm installation; the optional `../console/` UI has its own pinned JavaScript dependencies.
+Pinned Solidity 0.8.37, Cancun, optimizer 200 runs, OpenZeppelin 5.7.0, forge-std 1.16.2, Foundry 1.7.1 and Slither 0.11.6. Slither may clean/rebuild artifacts: run it sequentially with deployment/coverage tooling. Never deploy coverage artifacts; rebuild the optimized artifact afterward.
 
-The suite contains 78 tests/properties: deterministic scenarios, legacy exploit reproductions, nine fuzz tests, four stateful invariants and four deployment-script tests. v2 coverage reaches 100% of lines, branches and functions in the contract and deployment script, excluding generated getters and dependencies. `test/fixtures/LegacyRyodanKeys.sol` is vulnerable historical source for tests only; never deploy it.
+The legacy vulnerable fixture is test-only. V4 requires a new deployment: previous contracts, holders and funds are not automatically upgraded or migrated.
 
-Slither:
+## Operations and integration
 
-```sh
-python3 -m venv /tmp/ryodan-slither
-/tmp/ryodan-slither/bin/pip install --only-binary=:all: slither-analyzer==0.11.6
-VIRTUAL_ENV=/tmp/ryodan-slither /tmp/ryodan-slither/bin/slither . --config-file slither.config.json
-```
+- [Single document to forward to other agents](docs/AGENT_HANDOFF_V4.md)
 
-Keep `forge` on `PATH`. The Slither configuration gates medium/high findings. Read the security review for the one scoped false-positive annotation and accepted low/informational findings. Slither may rebuild artifacts; run ABI export again after intentional contract changes.
+- [Management panel](https://ryodan.grooooog.space/#sale)
+- [Client requirements and CSV workflow](docs/ALLOWLISTS_AND_CLIENT_ALIGNMENT.md)
+- [Frontend agent handoff](docs/FRONTEND_INTEGRATION.md)
+- [Management guide](docs/MANAGEMENT_CONSOLE.md)
+- [Metadata and reveal](docs/METADATA_AND_REVEAL.md)
+- [Security review and verification limits](docs/SECURITY_REVIEW.md)
+- [Sepolia runbook](docs/SEPOLIA_RUNBOOK.md)
+- [V4 ABI](abi/RyodanKeys.json); [v3 ABI](abi/RyodanKeys.v3.json); [v1/v2 ABI](abi/RyodanKeys.v2.json)
+- [V4 management receipts](deployments/sepolia-v4.json)
 
-## Documentation
-
-- [Live management console](https://ryodan.grooooog.space) and [operator guide](docs/MANAGEMENT_CONSOLE.md)
-- [Security findings, regression evidence and retained risks](docs/SECURITY_REVIEW.md)
-- [Frontend mint/refund integration handoff](docs/FRONTEND_INTEGRATION.md)
-- [Metadata preparation and reveal procedure](docs/METADATA_AND_REVEAL.md)
-- [Sepolia deployments and operations](docs/SEPOLIA_RUNBOOK.md)
-- [Frontend ABI](abi/RyodanKeys.json)
-- [Current v2 Sepolia deployment receipts](deployments/sepolia-v2.json)
-- [v2 shortened-deadline refund QA](deployments/sepolia-v2-refund.json)
-- [Archived v1 Sepolia evidence](deployments/sepolia.json)
-
-The old contract is not upgradeable. These changes require a new deployment and frontend address/ABI update; no existing holders or funds are migrated automatically.
+The operator console is a static application with wallet signing; it contains no private key or signing backend.
