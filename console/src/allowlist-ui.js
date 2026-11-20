@@ -58,7 +58,7 @@ export function mountAllowlist({ getState, refresh, review, error, notice }) {
     event.preventDefault();
     Promise.resolve().then(() => {
       const state = getState(); validateSnapshot(loaded);
-      if (state?.version !== 4n) throw new Error('Select a v4 contract.');
+      if (state?.version !== 6n) throw new Error('Select a v6 contract.');
       capacity(loaded.counts, state.phases[0].limit, state.phases[1].limit, state.maxPaid - state.paid);
       return review({ kind: 'allowlist', label: 'Load frozen allowlist snapshot', method: 'configureAllowlist', args: [loaded.root, loaded.snapshotHash, ...tiers.map(tier => BigInt(loaded.counts[tier]))], expectedPhase: 0n, warning: 'Review the CSV counts, hashes and GTD budget. Starting Pioneer permanently freezes this membership snapshot. Publish the matching allowlist.json and check-data.js to the frontend.' });
     }).catch(error);

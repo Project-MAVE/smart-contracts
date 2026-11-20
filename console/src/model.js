@@ -15,12 +15,6 @@ export function address(value) {
   return account;
 }
 
-export function addresses(value) {
-  const list = [...new Set(value.trim().split(/[\s,;]+/).map(address))];
-  if (!list.length || list.length > 100) throw new Error('Enter between 1 and 100 addresses.');
-  return list;
-}
-
 export function deadlineUTC(value) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value)) throw new Error('Enter a valid UTC date and time.');
   const normalized = value.length === 16 ? `${value}:00` : value;
@@ -29,34 +23,31 @@ export function deadlineUTC(value) {
   return BigInt(Math.floor(time.getTime() / 1000));
 }
 
-export function metadataBase(value) {
-  const uri = value.trim();
-  if (!uri.endsWith('/') || /[\s?#]/.test(uri) || !/^(ipfs:\/\/[^/]+\/|https:\/\/[^/]+\/)/.test(uri)) {
-    throw new Error('Use an ipfs:// or https:// directory URI ending with /, without spaces, query or fragment.');
-  }
-  return uri;
+export const SUPPORTED_VERSION = 6n;
+
+export function assertSupported(version) {
+  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v6.`), { code: 'UNSUPPORTED_CONTRACT' });
 }
 
 export const phaseNames = ['Not started', 'Pioneer', 'Operative', 'Recruit', 'Civilian'];
 
 export function remaining(s) {
-  if (s.version >= 3n) {
-    const supply = s.maxPaid - s.paid - (s.currentPhase > 2n ? s.reserved : 0n);
-    return s.phaseAllowance < supply ? s.phaseAllowance : supply;
-  }
-  const wallet = s.limit > s.walletMinted ? s.limit - s.walletMinted : 0n;
-  return [s.maxPaid - s.paid, wallet, s.whitelistActive ? s.maxWhitelist - s.whitelistMinted : s.maxPaid]
-    .reduce((a, b) => a < b ? a : b);
+  const supply = s.maxPaid - s.paid - (s.currentPhase > 2n ? s.reserved : 0n);
+  return s.phaseAllowance < supply ? s.phaseAllowance : supply;
+}
+
+export function tokenRange(s) {
+  const first = s ? s.firstTokenId : 1n;
+  const total = s ? s.maxPaid + s.maxTreasury : 6666n;
+  return [first, first + total - 1n];
 }
 
 export function phase(s) {
   if (s.soldOut) return 'SOLD OUT';
+  if (s.timestamp > s.deadline && s.choiceWindowOpen) return 'KEEP OR REFUND';
   if (s.timestamp > s.deadline) return 'EXPIRED';
   if (s.paid === s.maxPaid) return 'PAID CAP';
-  if (s.version >= 3n) return s.currentPhase === 0n ? 'NOT STARTED' : s.paused ? 'PAUSED' : phaseNames[Number(s.currentPhase)].toUpperCase();
-  if (s.publicActive) return 'PUBLIC';
-  if (s.whitelistActive) return 'WHITELIST';
-  return 'PAUSED';
+  return s.currentPhase === 0n ? 'NOT STARTED' : s.paused ? 'PAUSED' : phaseNames[Number(s.currentPhase)].toUpperCase();
 }
 
 export function gate(kind, s, context) {
@@ -65,30 +56,30 @@ export function gate(kind, s, context) {
   if (!s || context.stale) return 'Refresh contract state before submitting.';
   if (!context.account) return 'Connect a wallet to continue.';
   if (!context.correctChain) return 'Switch your wallet to the displayed network.';
-  if (['admin', 'phaseAdmin', 'allowlist', 'advance', 'pause', 'deadline', 'reveal'].includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
-  if (['treasuryMint', 'withdraw'].includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
+  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v6.';
+  if (['admin', 'phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
+  if (['treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury'].includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
   if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {
-    if (s.version < 3n) return 'Four-phase controls require a v3 deployment.';
     if (s.timestamp > s.deadline || s.soldOut) return 'Sale configuration is closed after expiry or sellout.';
-    if (kind === 'allowlist' && s.version >= 4n && s.currentPhase !== 0n) return 'The snapshot is frozen: Pioneer has already started.';
-    if (kind === 'advance' && s.version >= 4n && !s.allowlistConfigured) return 'Load the allowlist snapshot before starting Pioneer.';
-    if (kind === 'allowlist' && s.currentPhase === 4n) return 'All allowlist phases are closed. Civilian is public.';
+    if (kind === 'allowlist' && s.currentPhase !== 0n) return 'The snapshot is frozen: Pioneer has already started.';
+    if (kind === 'advance' && !s.allowlistConfigured) return 'Load the allowlist snapshot before starting Pioneer.';
     if (kind === 'advance' && s.currentPhase === 4n) return 'Civilian is the final phase.';
     if (kind === 'pause' && s.currentPhase === 0n) return 'Start Pioneer before resuming minting.';
   }
-  if (kind === 'deadline' && s.version < 2n) return 'This earlier deployment has an immutable deadline. Select the v2 contract.';
-  if (['mint', 'treasuryMint', 'deadline'].includes(kind) && s.timestamp > s.deadline) return 'The sale has expired. Minting and deadline changes are closed.';
-  if (kind === 'deadline' && s.soldOut) return 'The deadline is locked after sellout.';
+  if (['mint', 'treasuryMint'].includes(kind) && s.timestamp > s.deadline) return 'The sale has expired. Minting is closed.';
   if (kind === 'mint') {
     if (!s.publicActive && !s.whitelistActive) return 'Minting is paused.';
     if (s.whitelistActive && !s.whitelisted) return 'This wallet is not on the active phase allowlist.';
     if (remaining(s) <= 0n) return 'The remaining supply or your wallet allowance is exhausted.';
   }
   if (kind === 'treasuryMint' && s.treasuryMinted === s.maxTreasury) return 'All treasury keys have been minted.';
-  if (['withdraw', 'reveal'].includes(kind) && !s.soldOut) return `All ${(s.maxPaid + s.maxTreasury).toLocaleString('en-US')} keys must mint before this operation unlocks.`;
+  if (kind === 'withdraw' && !s.soldOut) return `All ${(s.maxPaid + s.maxTreasury).toLocaleString('en-US')} keys must mint before this operation unlocks.`;
   if (kind === 'withdraw' && s.balance === 0n) return 'There is no balance to withdraw.';
-  if (kind === 'reveal' && s.revealed) return 'The collection has already been permanently revealed.';
-  if (kind === 'refund' && !s.refundsAvailable) return 'Refunds open only after unsuccessful expiry.';
+  if (['refund', 'settle', 'withdrawKept', 'burnTreasury'].includes(kind) && !s.refundsAvailable) return 'This opens only after an unsuccessful expiry.';
+  if (kind === 'settle' && !s.choiceWindowOpen) return `The ${s.choiceWindow / 3600n}-hour keep-or-refund window has closed. Remaining paid keys can only be refunded.`;
+  if (kind === 'burnTreasury' && s.choiceWindowOpen) return 'Treasury keys can be burned only after the keep-or-refund window closes.';
+  if (kind === 'withdrawKept' && s.keptFunds === s.keptWithdrawn) return 'No payments from kept keys are waiting to be withdrawn.';
+  if (kind === 'claimPending' && !s.pendingRefund) return 'This wallet has no pending refund.';
   return '';
 }
 
@@ -98,8 +89,18 @@ export function friendlyError(error) {
   return error?.revert?.args?.[0] || error?.reason || error?.shortMessage || error?.message || 'The request failed. Refresh and try again.';
 }
 
-export function refundIds(value, maximum = 6665n) {
-  const ids = String(value).trim().split(/[\s,;]+/).map(value => unsigned(value, maximum));
+export function refundIds(value, maximum = 6666n, minimum = 1n) {
+  const ids = String(value).trim().split(/[\s,;]+/).map(value => unsigned(value, maximum, minimum));
   if (!ids.length || ids.length > 50 || new Set(ids.map(String)).size !== ids.length) throw new Error('Enter 1–50 unique token IDs.');
   return ids;
+}
+
+export function settleIds(keepValue, refundValue, maximum = 6666n, minimum = 1n) {
+  const parse = value => String(value).trim() ? String(value).trim().split(/[\s,;]+/).map(value => unsigned(value, maximum, minimum)) : [];
+  const keep = parse(keepValue);
+  const refund = parse(refundValue);
+  const count = keep.length + refund.length;
+  if (!count || count > 50) throw new Error('Enter 1–50 token IDs in total to keep or refund.');
+  if (new Set([...keep, ...refund].map(String)).size !== count) throw new Error('Each token ID can appear only once, in one list.');
+  return [keep, refund];
 }

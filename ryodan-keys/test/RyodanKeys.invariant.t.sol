@@ -104,28 +104,23 @@ contract SaleHandler is Test {
         vm.warp(block.timestamp + bound(stepSeed, 0, 1 days));
     }
 
-    function changeDeadline(uint256 offsetSeed) external {
-        uint256 previous = keys.mintEndTime();
-        uint256 nextEnd = block.timestamp + bound(offsetSeed, 1, 14 days);
-        bool locked = block.timestamp > previous || keys.soldOut();
-        (bool ok,) = address(keys).call(abi.encodeCall(keys.setMintEndTime, (nextEnd)));
-        assertEq(ok, !locked);
-        assertEq(keys.mintEndTime(), locked ? previous : nextEnd);
-        if (block.timestamp > previous && !keys.soldOut()) assertTrue(keys.refundsAvailable());
-    }
-
     function refundPaid(uint256 idSeed, uint256 recipientSeed) external {
         if (!keys.refundsAvailable()) return;
         uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
         if (minted == 0) return;
-        uint256 id = idSeed % minted;
+        uint256 id = idSeed % minted + 1;
         address minter = keys.originalMinter(id);
         if (minter == address(0) || keys.refunded(id)) return;
+        if (keys.kept(id)) return;
+        // v5: during the choice window only the original minter may refund.
+        bool asMinter = keys.choiceWindowOpen();
         if (recipientSeed % 3 == 0) {
+            if (asMinter) vm.prank(minter);
             keys.refund(id);
         } else if (recipientSeed % 3 == 1) {
             uint256[] memory ids = new uint256[](1);
             ids[0] = id;
+            if (asMinter) vm.prank(minter);
             keys.refundBatch(ids);
         } else {
             vm.prank(minter);
@@ -134,10 +129,45 @@ contract SaleHandler is Test {
         returned += keys.mintPayment(id);
     }
 
+    function keepPaid(uint256 idSeed) external {
+        if (!keys.choiceWindowOpen()) return;
+        uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
+        if (minted == 0) return;
+        uint256 id = idSeed % minted + 1;
+        address minter = keys.originalMinter(id);
+        if (minter == address(0) || keys.refunded(id) || keys.kept(id)) return;
+        uint256[] memory keep = new uint256[](1);
+        keep[0] = id;
+        vm.prank(minter);
+        keys.settle(keep, new uint256[](0));
+    }
+
+    function burnUnlocked(uint256 idSeed) external {
+        uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
+        if (minted == 0) return;
+        uint256 id = idSeed % minted + 1;
+        if (keys.refunded(id) || !(keys.soldOut() || keys.kept(id))) return;
+        (bool exists, bytes memory data) = address(keys).staticcall(abi.encodeCall(keys.ownerOf, (id)));
+        if (!exists) return;
+        address owner = abi.decode(data, (address));
+        uint256 balanceBefore = address(keys).balance;
+        vm.prank(owner);
+        keys.burn(id);
+        assertEq(address(keys).balance, balanceBefore);
+    }
+
+    function withdrawKeptIfAny() external {
+        if (!keys.refundsAvailable() || keys.keptFunds() == keys.keptWithdrawn()) return;
+        uint256 value = keys.keptFunds() - keys.keptWithdrawn();
+        keys.withdrawKept();
+        withdrawn += value;
+    }
+
     function invalidRefund(uint256 idSeed) external {
         if (!keys.refundsAvailable()) return;
         uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
-        uint256 id = bound(idSeed, minted, type(uint256).max);
+        // token IDs run from 1 to minted: 0 and anything above are invalid
+        uint256 id = idSeed % 2 == 0 ? 0 : bound(idSeed, minted + 1, type(uint256).max);
         uint256 balanceBefore = address(keys).balance;
         (bool ok,) = address(keys).call(abi.encodeCall(keys.refund, (id)));
         assertFalse(ok);
@@ -147,13 +177,15 @@ contract SaleHandler is Test {
     function attemptTransfer(uint256 idSeed, uint256 recipientSeed) external {
         uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
         if (minted == 0) return;
-        uint256 id = idSeed % minted;
+        uint256 id = idSeed % minted + 1;
         if (keys.refunded(id)) return;
-        address owner = keys.ownerOf(id);
+        (bool exists, bytes memory data) = address(keys).staticcall(abi.encodeCall(keys.ownerOf, (id)));
+        if (!exists) return;
+        address owner = abi.decode(data, (address));
         address to = actors[recipientSeed % actors.length];
         vm.prank(owner);
         (bool ok,) = address(keys).call(abi.encodeCall(keys.transferFrom, (owner, to, id)));
-        assertEq(ok, keys.soldOut());
+        assertEq(ok, keys.soldOut() || keys.kept(id));
     }
 
     function withdrawIfSuccessful() external {
@@ -171,9 +203,10 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
     function setUp() public {
         vm.warp(1_800_000_000);
         handler = new SaleHandler();
-        keys = new RyodanKeys(block.timestamp + 7 days, "ipfs://hidden/hidden.json", address(handler), address(handler));
+        keys =
+            new RyodanKeys(block.timestamp + 7 days, "ipfs://sbt/", "ipfs://nft/", address(handler), address(handler));
         handler.initialize(keys);
-        bytes4[] memory selectors = new bytes4[](10);
+        bytes4[] memory selectors = new bytes4[](12);
         selectors[0] = handler.mintPaid.selector;
         selectors[1] = handler.mintTreasury.selector;
         selectors[2] = handler.changePhaseAndWhitelist.selector;
@@ -182,22 +215,27 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         selectors[5] = handler.invalidRefund.selector;
         selectors[6] = handler.attemptTransfer.selector;
         selectors[7] = handler.withdrawIfSuccessful.selector;
-        selectors[8] = handler.changeDeadline.selector;
-        selectors[9] = handler.changeConfiguration.selector;
+        selectors[8] = handler.changeConfiguration.selector;
+        selectors[9] = handler.keepPaid.selector;
+        selectors[10] = handler.withdrawKeptIfAny.selector;
+        selectors[11] = handler.burnUnlocked.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }
 
     function invariant_SupplyAndCapsRemainConsistent() public view {
-        assertLe(keys.mintedByUsers(), 6166);
-        assertLe(keys.mintedByTreasury(), 500);
+        assertLe(keys.mintedByUsers(), 6000);
+        assertLe(keys.mintedByTreasury(), 666);
         uint256 phaseTotal;
         for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
             (,, uint256 minted,,,) = keys.phases(phaseId);
             phaseTotal += minted;
         }
         assertEq(phaseTotal, keys.mintedByUsers());
-        assertEq(keys.totalSupply() + keys.totalRefunded(), keys.mintedByUsers() + keys.mintedByTreasury());
+        assertEq(
+            keys.totalSupply() + keys.totalRefunded() + keys.totalBurned(),
+            keys.mintedByUsers() + keys.mintedByTreasury()
+        );
     }
 
     function invariant_EtherIsConservedAndRefundsStaySolvent() public view {
@@ -205,7 +243,7 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         uint256 historicalPayments;
         uint256 refundedPayments;
         uint256 minted = keys.mintedByUsers() + keys.mintedByTreasury();
-        for (uint256 id; id < minted; ++id) {
+        for (uint256 id = 1; id <= minted; ++id) {
             uint256 payment = keys.mintPayment(id);
             if (keys.originalMinter(id) == address(0)) assertEq(payment, 0);
             historicalPayments += payment;
@@ -214,7 +252,9 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         assertEq(handler.paid(), historicalPayments);
         assertEq(handler.returned(), refundedPayments);
         if (!keys.soldOut()) {
-            assertGe(address(keys).balance, historicalPayments - refundedPayments);
+            // v5: only kept payments may leave without a sellout; everything refundable stays in the contract.
+            assertGe(address(keys).balance, historicalPayments - refundedPayments - keys.keptWithdrawn());
+            assertEq(keys.keptFunds() >= keys.keptWithdrawn(), true);
         }
     }
 

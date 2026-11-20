@@ -1,0 +1,86 @@
+{
+  "chainId": 11155111,
+  "deployer": "0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc",
+  "version": 6,
+  "purpose": "management",
+  "transactions": {
+    "Load test-wallet Merkle snapshot": {
+      "hash": "0x3a3fd7495ad4be1c5774e75f13fd5e4dc9ef902e8400504d494c04fcf83a2b54",
+      "blockNumber": 12173847,
+      "status": 1,
+      "gasUsed": "1138001"
+    },
+    "Start Pioneer": {
+      "hash": "0xe440cebd492cbade7af7bb742fd66c9b76ab03bd332a248545afd1d2ef0340e0",
+      "blockNumber": 12173849,
+      "status": 1,
+      "gasUsed": "44312"
+    },
+    "Resume Pioneer": {
+      "hash": "0x2297ab2ada56ae5ea9bd25991e26e417972cc2933261c93a221e3e765150e95f",
+      "blockNumber": 12173852,
+      "status": 1,
+      "gasUsed": "35069"
+    },
+    "Mint Pioneer test pair": {
+      "hash": "0xc9d221839aa1041551b5c593d2cdc356feca2425df222122d52f7eaef746ded2",
+      "blockNumber": 12173854,
+      "status": 1,
+      "gasUsed": "1729916"
+    },
+    "Mint treasury test key": {
+      "hash": "0x8e011021ce992f662540fe56c2b327755753d7484a5d0e268061f08be33f86cf",
+      "blockNumber": 12173856,
+      "status": 1,
+      "gasUsed": "272158"
+    }
+  },
+  "checks": [
+    "Exact runtime bytecode matches current compiler artifact",
+    "Immutable deadline in the runtime code equals the deploy deadline",
+    "Contract version 6",
+    "Deadline and metadata folders are the ones fixed at deploy",
+    "No function can move the deadline",
+    "Test wallet is admin",
+    "Test wallet is treasury",
+    "Token IDs start at 1 and record the original payment",
+    "Paid and treasury mint counters",
+    "Receipt: Load test-wallet Merkle snapshot",
+    "Receipt: Start Pioneer",
+    "Receipt: Resume Pioneer",
+    "Receipt: Mint Pioneer test pair",
+    "Receipt: Mint treasury test key"
+  ],
+  "address": "0xF4A43dF64D41B743Da20582AF49021732Aa298ad",
+  "deploymentTransaction": "0x61639672851c89e8c0f4e15cabe60bd4cff79785c62a2ad960faa8fc376de96c",
+  "deadline": 1797751512,
+  "sbtBaseURI": "https://ryodan-meta.grooooog.space/sbt/",
+  "nftBaseURI": "https://ryodan-meta.grooooog.space/nft/",
+  "deploymentBlock": 12173845,
+  "runtimeCodeHash": "0xd513f9406dc352f251360ab5dde58636f14178b1b63ea57a8fbd25668ea080c8",
+  "allowlist": {
+    "schemaVersion": 1,
+    "frozenAt": "2026-10-30T12:00:00.000Z",
+    "sourceHashes": {
+      "pioneer.csv": "0x130561130cbd092f62923fe2851aef22e43eaff6a5330d79d473e07c8bcaaf76",
+      "operative.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57",
+      "recruit.csv": "0x2a6943dbf0912de45d3f688d11de2dcf0ac55375df94edb22a242cfce6330b57"
+    },
+    "root": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+    "counts": {
+      "pioneer": 1,
+      "operative": 0,
+      "recruit": 0
+    },
+    "proofs": {
+      "0x27f09842a2b44ca7fcbf34c5c80b2267a1a26015f2f3d1de4e3a838bcdc0d2ca": {
+        "tier": 1,
+        "leaf": "0x1c3f71d15b22e7a4ca06efb989864ed611fffc408f6092a2dfd90836e9cdb937",
+        "proof": []
+      }
+    },
+    "snapshotHash": "0xfac34ed3ada6950bab9bf455e6199e8db26e58b0b759f84e9a3c24c6e73eb0e3"
+  },
+  "currentPhase": 1,
+  "lastVerifiedBlock": 12173857
+}

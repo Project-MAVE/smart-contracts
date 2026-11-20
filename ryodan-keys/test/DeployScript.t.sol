@@ -19,7 +19,8 @@ contract DeployScriptTest is Test {
         vm.setEnv("ADMIN_ADDRESS", vm.toString(admin));
         vm.setEnv("TREASURY_ADDRESS", vm.toString(treasury));
         vm.setEnv("MINT_END_TIME", vm.toString(end));
-        vm.setEnv("HIDDEN_METADATA_URI", "ipfs://hidden/hidden.json");
+        vm.setEnv("SBT_BASE_URI", "ipfs://sbt/");
+        vm.setEnv("NFT_BASE_URI", "ipfs://nft/");
         script = new RyodanKeysScript();
     }
 
@@ -33,7 +34,8 @@ contract DeployScriptTest is Test {
         assertFalse(keys.hasRole(keys.DEFAULT_ADMIN_ROLE(), address(this)));
         assertFalse(keys.hasRole(keys.DEFAULT_ADMIN_ROLE(), address(script)));
         assertEq(keys.mintEndTime(), end);
-        assertEq(keys.hiddenMetadataURI(), "ipfs://hidden/hidden.json");
+        assertEq(keys.sbtBaseURI(), "ipfs://sbt/");
+        assertEq(keys.nftBaseURI(), "ipfs://nft/");
     }
 
     function test_DeploymentScriptAllowsLocalAnvil() public {

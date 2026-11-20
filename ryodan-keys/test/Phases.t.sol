@@ -114,10 +114,10 @@ contract PhasesTest is ListedFixture {
             assertEq(price, prices[id - 1]);
             assertEq(limit, limits[id - 1]);
         }
-        assertEq(keys.CONTRACT_VERSION(), 4);
+        assertEq(keys.CONTRACT_VERSION(), 6);
         assertEq(keys.MAX_SUPPLY(), 6666);
-        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6166);
-        assertEq(keys.MAX_TREASURY_SUPPLY(), 500);
+        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6000);
+        assertEq(keys.MAX_TREASURY_SUPPLY(), 666);
     }
 
     function test_PioneerInheritsLaterListsAndCanMint34WithoutDuplicateEntries() public {
@@ -131,7 +131,7 @@ contract PhasesTest is ListedFixture {
             assertEq(keys.mintedInPhase(id, bob), amounts[id - 1]);
         }
         assertEq(keys.balanceOf(bob), 34);
-        assertEq(keys.ownerOf(33), bob);
+        assertEq(keys.ownerOf(34), bob);
         assertEq(address(keys).balance, 1.45 ether);
         assertEq(keys.registeredMembers(1), 1);
     }
@@ -171,7 +171,7 @@ contract PhasesTest is ListedFixture {
         _mintListed(bob, 2);
         _buy(bob, 2);
         _mintListed(bob, 2, "Max mint amount reached for address");
-        assertEq(keys.mintPayment(0), 0.025 ether);
+        assertEq(keys.mintPayment(1), 0.025 ether);
         assertEq(address(keys).balance, 0.1 ether);
     }
 
@@ -245,11 +245,11 @@ contract PhasesTest is ListedFixture {
         vm.expectRevert("Mint quote changed");
         keys.mint{value: 0.05 ether}(2, 1, 0.025 ether);
         _buy(bob, 2);
-        vm.warp(end + 1);
+        vm.warp(end + 72 hours + 1);
         uint256 beforeBalance = bob.balance;
         uint256[] memory ids = new uint256[](4);
         for (uint256 i; i < 4; i++) {
-            ids[i] = i;
+            ids[i] = i + 1;
         }
         vm.prank(alice);
         keys.refundBatch(ids);
@@ -280,7 +280,7 @@ contract PhasesTest is ListedFixture {
         assertFalse(keys.allowlistConfigured());
         _one(bob, 1);
         vm.expectRevert("Insufficient GTD supply");
-        keys.configurePhase(1, 1, 6166);
+        keys.configurePhase(1, 1, 6000);
         assertEq(keys.totalGtdReserved(), 14);
     }
 
@@ -292,15 +292,15 @@ contract PhasesTest is ListedFixture {
         tiers[0] = 1;
         tiers[1] = 2;
         keys.configurePhase(1, 1, 2000);
-        keys.configurePhase(2, 1, 2083);
+        keys.configurePhase(2, 1, 2000);
         _lists(accounts, tiers);
-        assertEq(keys.totalGtdReserved(), 6166);
+        assertEq(keys.totalGtdReserved(), 6000);
         _next();
         _mintListed(bob, 2000);
         _next();
-        _buy(bob, 2083);
-        _mintListed(alice, 2083);
-        assertEq(keys.mintedByUsers(), 6166);
+        _buy(bob, 2000);
+        _mintListed(alice, 2000);
+        assertEq(keys.mintedByUsers(), 6000);
         assertEq(keys.totalGtdReserved(), 0);
     }
 
@@ -315,20 +315,20 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.totalGtdReserved(), 0);
         _mintListed(treasury, 4);
         _next();
-        keys.configurePhase(4, 1, 6166);
-        _buy(bob, 6157);
-        assertEq(keys.mintedByUsers(), 6166);
+        keys.configurePhase(4, 1, 6000);
+        _buy(bob, 5991);
+        assertEq(keys.mintedByUsers(), 6000);
         assertEq(keys.remainingAllowance(1, bob), 0);
     }
 
     function test_RecruitIsFcfsAndCannotExceedRemainingSupply() public {
         _one(bob, 3);
         assertEq(keys.totalGtdReserved(), 0);
-        keys.configurePhase(3, 1, 6166);
+        keys.configurePhase(3, 1, 6000);
         _next();
         _next();
         _next();
-        _mintListed(bob, 6166);
+        _mintListed(bob, 6000);
         vm.deal(alice, 1);
         vm.prank(alice);
         vm.expectRevert("Max supply reached");
@@ -404,7 +404,7 @@ contract PhasesTest is ListedFixture {
 
     function test_ExpiryAndSelloutKeepConfigurationLocked() public {
         _next();
-        vm.warp(end + 1);
+        vm.warp(end + 72 hours + 1);
         vm.expectRevert("Mint ended");
         keys.advancePhase();
         vm.expectRevert("Mint ended");
@@ -446,11 +446,11 @@ contract PhasesTest is ListedFixture {
             minted += cap;
             assertEq(keys.remainingAllowance(id, bob), 0);
         }
-        vm.warp(end + 1);
+        vm.warp(end + 72 hours + 1);
         uint256 beforeBalance = bob.balance;
         uint256[] memory ids = new uint256[](minted);
         for (uint256 id; id < minted; id++) {
-            ids[id] = minted - 1 - id;
+            ids[id] = minted - id;
         }
         vm.prank(alice);
         keys.refundBatch(ids);

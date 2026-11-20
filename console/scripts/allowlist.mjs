@@ -25,7 +25,7 @@ if (mode === 'build') {
     if (![11155111, 31337].includes(chain)) throw new Error('This loader supports Sepolia and local Anvil only.');
     const abi = JSON.parse(await readFile(new URL('../../ryodan-keys/abi/RyodanKeys.json', import.meta.url), 'utf8'));
     let keys = new Contract(target, abi, provider);
-    if (await keys.CONTRACT_VERSION() !== 4n) throw new Error('A v4 contract is required.');
+    if (await keys.CONTRACT_VERSION() !== 6n) throw new Error('A v6 contract is required.');
     const [pioneer, operative, maxPaid, root, hash, current, deadline, block] = await Promise.all([keys.phases(1), keys.phases(2), keys.MAX_PUBLIC_SUPPLY(), keys.allowlistRoot(), keys.allowlistSnapshotHash(), keys.currentPhase(), keys.mintEndTime(), provider.getBlock('latest')]);
     if (root === snapshot.root && hash === snapshot.snapshotHash) {
       const actual = await Promise.all([1, 2, 3].map(tier => keys.tierMembers(tier)));
