@@ -1,6 +1,6 @@
 # Ryodan Control — v6 operator guide
 
-Open [ryodan.grooooog.space](https://ryodan.grooooog.space). The console uses Ethereum Sepolia, shows the selected contract's full address and links directly to Sepolia Etherscan. It manages **only Ryodan Keys v6**: it reads `CONTRACT_VERSION` first and refuses any other version (UNSUPPORTED CONTRACT, every action disabled). It manages the v6 test deployment [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad); with no v6 deployment configured it shows NO V6 CONTRACT. This is testnet, not a mainnet launch.
+Open [ryodan.grooooog.space](https://ryodan.grooooog.space). The console uses Ethereum Sepolia, shows the selected contract's full address and links directly to Sepolia Etherscan. It manages **only Ryodan Keys v6**: it reads `CONTRACT_VERSION` first and refuses any other version (UNSUPPORTED CONTRACT, every action disabled). It manages the v6 test deployment [`0xd069E170ECD211ca09157Afe6E9110E322BC30f8`](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8); with no v6 deployment configured it shows NO V6 CONTRACT. This is testnet, not a mainnet launch.
 
 Supply: **6,666 keys = 6,000 paid + 666 treasury**, token IDs 1–6666.
 

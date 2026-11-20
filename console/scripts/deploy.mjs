@@ -15,6 +15,8 @@ const qa = args.includes('--qa') || refund || burnTreasury;
 const sbtBase = option('--sbt-base', local ? 'ipfs://ryodan-sbt-local/' : null);
 const nftBase = option('--nft-base', local ? 'ipfs://ryodan-nft-local/' : null);
 const chainId = local ? 31337 : 11155111;
+const fixedDeadline = option('--deadline', null);
+const pioneerWallets = (option('--pioneers', '') || '').split(',').map(value => value.trim()).filter(Boolean);
 const rpc = option('--rpc', local ? 'http://127.0.0.1:8547' : 'https://ethereum-sepolia-rpc.publicnode.com');
 const provider = new JsonRpcProvider(rpc, chainId, { cacheTimeout: -1, pollingInterval: 1500 });
 if (Number(await provider.send('eth_chainId', [])) !== chainId) throw new Error('Wrong chain');
@@ -58,7 +60,8 @@ if (!manifest.address) {
   if (!base.test(sbtBase || '') || !base.test(nftBase || '')) throw new Error('Pass --sbt-base and --nft-base: ipfs:// or https:// folders ending with /');
   const block = await provider.getBlock('latest');
   // v6: the deadline is fixed at deploy. The QA deployment gets a short one so its refund flow can run.
-  const deadline = block.timestamp + (qa ? 3600 : 30 * 86400);
+  const deadline = fixedDeadline ? Number(fixedDeadline) : block.timestamp + (qa ? 3600 : 30 * 86400);
+  if (!Number.isSafeInteger(deadline) || deadline <= block.timestamp) throw new Error('--deadline must be a future Unix timestamp');
   const factory = new ContractFactory(artifact.abi, artifact.bytecode.object, signer);
   const nonce = await provider.getTransactionCount(deployer, 'pending');
   const transaction = await signer.sendTransaction({ ...await factory.getDeployTransaction(deadline, sbtBase, nftBase, deployer, deployer), nonce });
@@ -124,14 +127,19 @@ if (refund) {
   await transact('Burn treasury key 3', 'burnTreasuryKeys', [[3]]);
   await check('Only the kept key remains', await keys.totalSupply() === 1n && await keys.totalBurned() === 1n && await keys.ownerOf(1) === deployer);
 } else if (!verifyOnly) {
-  const { snapshot } = buildSnapshot({ 'pioneer.csv': `address\n${deployer}\n`, 'operative.csv': 'address\n', 'recruit.csv': 'address\n' }, '2026-10-30T12:00:00.000Z');
-  manifest.allowlist = snapshot;
-  await transact('Load test-wallet Merkle snapshot', 'configureAllowlist', [snapshot.root, snapshot.snapshotHash, 1, 0, 0]);
+  manifest.allowlist ||= buildSnapshot({ 'pioneer.csv': `address\n${[deployer, ...pioneerWallets].join('\n')}\n`, 'operative.csv': 'address\n', 'recruit.csv': 'address\n' }, new Date().toISOString()).snapshot;
+  const snapshot = manifest.allowlist;
+  await save();
+  await transact('Load test-wallet Merkle snapshot', 'configureAllowlist', [snapshot.root, snapshot.snapshotHash, snapshot.counts.pioneer, 0, 0]);
   const eligibility = proofFor(snapshot, deployer);
   await transact('Start Pioneer', 'advancePhase');
   await transact('Resume Pioneer', 'setMintPaused', [false]);
   await transact('Mint Pioneer test pair', 'mintWithProof', [2, 1, 25n * 10n ** 15n, eligibility.tier, eligibility.proof], 5n * 10n ** 16n);
   await transact('Mint treasury test key', 'treasuryMint', [1, deployer]);
+  for (const [index, wallet] of [deployer, ...pioneerWallets].entries()) {
+    const entry = proofFor(snapshot, wallet);
+    await check(`Pioneer proof accepted on-chain for snapshot wallet ${index + 1} of ${pioneerWallets.length + 1}`, entry?.tier === 1 && await keys.verifyEligibility(wallet, 1, entry.proof));
+  }
   await check('Token IDs start at 1 and record the original payment', await keys.mintPayment(1) === 25n * 10n ** 15n && await keys.ownerOf(1) === deployer && await keys.tokenURI(1) === `${manifest.sbtBaseURI}1.json`);
   if (qa) {
     for (const [phaseId, name, price] of [[2, 'Operative', 4n * 10n ** 16n], [3, 'Recruit', 45n * 10n ** 15n], [4, 'Civilian', 5n * 10n ** 16n]]) {

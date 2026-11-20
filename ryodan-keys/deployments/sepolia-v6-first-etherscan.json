@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-11-20T10:05:48.050Z",
+  "address": "0xF4A43dF64D41B743Da20582AF49021732Aa298ad",
+  "chainId": 11155111,
+  "etherscanStatus": "VERIFIED_EXACT_MATCH",
+  "similarMatch": null,
+  "compiler": "v0.8.37+commit.f401782d",
+  "optimizerRuns": 200,
+  "evmVersion": "cancun",
+  "sourcesCompared": 25,
+  "constructorArgumentsMatch": true,
+  "creationBytecodeAndArgumentsMatch": true,
+  "runtimeMatches": true,
+  "runtimeCodeHash": "0x5524220e5269a5cfedc52f467d38dd9a7ea80c7242c5aaec8160aef5794f79e5",
+  "abiEntries": 117,
+  "codeUrl": "https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad#code"
+}

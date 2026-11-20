@@ -8,16 +8,16 @@ Deployed 2026-11-20 on Ethereum Sepolia **11155111**.
 
 | Item | Value |
 | --- | --- |
-| Contract | [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad) |
-| Deploy transaction | [`0x61639672…76de96c`](https://sepolia.etherscan.io/tx/0x61639672851c89e8c0f4e15cabe60bd4cff79785c62a2ad960faa8fc376de96c), block 12173845 |
+| Contract | [`0xd069E170ECD211ca09157Afe6E9110E322BC30f8`](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8) |
+| Deploy transaction | [`0x72fc3d2f…e1432bd`](https://sepolia.etherscan.io/tx/0x72fc3d2f69ff3a53d796f8c09cfb3a248042da182f98817db8febc6a6e1432bd), block 12176051 |
 | `CONTRACT_VERSION` / supply | 6 / `MAX_PUBLIC_SUPPLY` 6000, `MAX_TREASURY_SUPPLY` 666, `MAX_SUPPLY` 6666 |
 | Deadline (immutable) | 1797751512 = **2026-12-20 07:25:12 UTC** |
 | Admin and treasury | dedicated test wallet `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc` |
 | `sbtBaseURI` / `nftBaseURI` | `https://ryodan-meta.grooooog.space/sbt/` / `https://ryodan-meta.grooooog.space/nft/` |
 | Runtime code hash | `0xd513f9406dc352f251360ab5dde58636f14178b1b63ea57a8fbd25668ea080c8` |
-| Etherscan | [**Exact Match**](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad#code), verified 2026-11-20 |
+| Etherscan | [**Exact Match**](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8#code), verified 2026-11-20 |
 
-Smoke state after deploy: a snapshot with only the test wallet in Pioneer was loaded, Pioneer was started and resumed, the test wallet bought one Pioneer pair (IDs 1–2) and the treasury minted one key (ID 3). Pioneer is the active phase; the console shows 2 / 6,000 paid and 1 / 666 treasury. `tokenURI(1)` returns `https://ryodan-meta.grooooog.space/sbt/1.json`.
+Smoke state after deploy: a test snapshot with six wallets in Pioneer (the dedicated test wallet plus five team test wallets) was loaded and every wallet's Pioneer proof was accepted by `verifyEligibility` on-chain; Pioneer was started and resumed, then the test wallet bought one Pioneer pair (IDs 1–2) and the treasury minted one key (ID 3). Pioneer is the active phase; the console shows 2 / 6,000 paid and 1 / 666 treasury. `tokenURI(1)` returns `https://ryodan-meta.grooooog.space/sbt/1.json`.
 
 The metadata are **test placeholders**: random square pixel art generated per ID by `metadata-test/server.js` (grey SBT set, coloured NFT set), served at [ryodan-meta.grooooog.space](https://ryodan-meta.grooooog.space). The base URIs cannot change after deploy, so a campaign with the final artwork needs a fresh deployment.
 
@@ -26,6 +26,12 @@ The source is verified on Etherscan with **Exact Match**: all 25 source files, c
 Not done for v6: a refund-QA deployment. The full 6,666-key sellout, the 72-hour keep-or-refund window and refunds are covered by Solidity tests and the local Anvil browser test.
 
 Evidence: [management receipts and checks](../deployments/sepolia-v6.json), [Etherscan verification](../deployments/sepolia-v6-etherscan.json).
+
+A wallet's `walletTier` is written on its first `mintWithProof`; before that, eligibility is read with `verifyEligibility(wallet, 1, proof)` or `remainingAllowanceWithProof(1, wallet, 1, proof)` (4 for an unminted Pioneer).
+
+### Superseded v6 test deployment
+
+The first v6 test contract, [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad#code) (block 12173845, Etherscan Exact Match), had only the test wallet in Pioneer. Its allowlist froze when Pioneer started, so the six-wallet test list needed the redeployment above. Same source, deadline and metadata folders; records in [sepolia-v6-first.json](../deployments/sepolia-v6-first.json) and [sepolia-v6-first-etherscan.json](../deployments/sepolia-v6-first-etherscan.json). The console no longer selects it.
 
 ## V4 deployments (historical)
 
@@ -61,7 +67,7 @@ Etherscan automatically associates the QA contract's identical runtime with the 
 
 Dedicated Sepolia wallet: `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`, with both admin and treasury roles. Secret name: `YOMI_RYODAN_SEPOLIA_DEPLOYER`. Etherscan key name: `YOMI_ETHERSCAN_API_KEY`. Use hush injection; never put values in source, browser code, logs or plaintext files.
 
-The v4 deploys above used the v4 script of that time. The current script deploys **v6** only, writes `deployments/sepolia-v6.json` (`sepolia-v6-refund.json` with `--qa`) and requires both metadata folders outside local Anvil. From the repository root, after successful Foundry/static/frontend checks and an optimized build:
+The v4 deploys above used the v4 script of that time. The current script deploys **v6** only, writes `deployments/sepolia-v6.json` (`sepolia-v6-refund.json` with `--qa`) and requires both metadata folders outside local Anvil. `--deadline <unix>` fixes the immutable deadline (default: 30 days after deploy) and `--pioneers <a,b,...>` adds wallets to the test Pioneer snapshot next to the test wallet. From the repository root, after successful Foundry/static/frontend checks and an optimized build:
 
 ```sh
 hush run --name YOMI_RYODAN_SEPOLIA_DEPLOYER --env PRIVATE_KEY --redact -- \

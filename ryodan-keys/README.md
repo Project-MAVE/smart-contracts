@@ -46,7 +46,7 @@ npm run test:browser
 
 Pinned Solidity 0.8.37, Cancun, optimizer 200 runs, OpenZeppelin 5.7.0, forge-std 1.16.2, Foundry 1.7.1 and Slither 0.11.6. Slither may clean/rebuild artifacts: run it sequentially with deployment/coverage tooling. Never deploy coverage artifacts; rebuild the optimized artifact afterward.
 
-The constructor takes five arguments: `endTime`, `sbtBaseURI`, `nftBaseURI`, `admin`, `treasury`. Both base URIs must end with `/`. The legacy vulnerable fixture is test-only. V6 requires a new deployment: previous contracts, holders and funds are not upgraded or migrated. The v6 test deployment on Sepolia is [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad).
+The constructor takes five arguments: `endTime`, `sbtBaseURI`, `nftBaseURI`, `admin`, `treasury`. Both base URIs must end with `/`. The legacy vulnerable fixture is test-only. V6 requires a new deployment: previous contracts, holders and funds are not upgraded or migrated. The v6 test deployment on Sepolia is [`0xd069E170ECD211ca09157Afe6E9110E322BC30f8`](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8).
 
 ## Operations and integration
 
