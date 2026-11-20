@@ -49,9 +49,9 @@ test('snapshot detects modified counts, source digests, proof nodes, leaves and 
   }
 });
 test('GTD includes both inherited allocations and rejects overbooking and odd caps', () => {
-  assert.equal(capacity({ pioneer: 440, operative: 0 }).total, 6160n);
-  assert.throws(() => capacity({ pioneer: 441, operative: 0 }), /6166/);
-  assert.equal(capacity({ pioneer: 1, operative: 1 }, 2000n, 2083n).total, 6166n);
+  assert.equal(capacity({ pioneer: 428, operative: 0 }).total, 5992n);
+  assert.throws(() => capacity({ pioneer: 429, operative: 0 }), /6000 paid/);
+  assert.equal(capacity({ pioneer: 1, operative: 1 }, 2000n, 2000n).total, 6000n);
   assert.throws(() => capacity({ pioneer: 1, operative: 0 }, 3n, 10n));
   assert.throws(() => buildSnapshot({ 'pioneer.csv': csvTemplate }, frozen), /Missing operative/);
   assert.throws(() => buildSnapshot(sources(), '2026-10-30'), /UTC/);

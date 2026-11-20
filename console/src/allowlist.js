@@ -57,7 +57,7 @@ function manifest(snapshot) {
 }
 export const snapshotDigest = snapshot => keccak256(toUtf8Bytes(JSON.stringify(manifest(snapshot))));
 
-export function capacity(counts, pioneerLimit = 4n, operativeLimit = 10n, paidSupply = 6166n) {
+export function capacity(counts, pioneerLimit = 4n, operativeLimit = 10n, paidSupply = 6000n) {
   requireValid(pioneerLimit > 0n && pioneerLimit % 2n === 0n && operativeLimit > 0n, 'Pioneer requires a positive even cap; Operative requires a positive cap.');
   const pioneer = BigInt(counts.pioneer) * pioneerLimit;
   const operative = BigInt(counts.pioneer + counts.operative) * operativeLimit;

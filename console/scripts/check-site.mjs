@@ -8,6 +8,7 @@ const url = process.argv[2] || 'https://ryodan.grooooog.space';
 const destination = new URL('../test-results/', import.meta.url);
 await mkdir(destination, { recursive: true });
 const deployment = JSON.parse(await readFile(new URL('../src/deployment.json', import.meta.url), 'utf8'));
+if (!deployment.address) throw new Error('No v6 deployment in src/deployment.json: deploy the v6 contract before checking the live site.');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
 let page;
@@ -25,7 +26,7 @@ try {
   await page.waitForFunction(() => document.querySelector('#sync-status')?.textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
   assert.equal(await page.locator('#contract-link').textContent(), deployment.address);
   assert.equal(await page.locator('#contract-link').getAttribute('href'), `https://sepolia.etherscan.io/address/${deployment.address}`);
-  assert.equal(await page.locator('#deployment option').count(), 8);
+  assert.equal(await page.locator('#deployment option').count(), 1);
   assert.equal(await page.locator('[data-action="mint"]').isDisabled(), true);
   const metrics = await page.locator('.metrics').innerText();
   assert.match(metrics, /PIONEER/);
@@ -44,20 +45,6 @@ try {
   assert((await readFile(await download.path())).length > 500);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: fileURLToPath(new URL('sepolia-sale.png', destination)), fullPage: true, animations: 'disabled' });
-  await page.locator('#deployment').selectOption('0x3120e791E078ACF04601d623307B0e6866633E7A');
-  await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
-  assert.equal(await page.locator('#legacy-allowlist').isVisible(), true);
-  assert.equal(await page.locator('#snapshot-panel').isVisible(), false);
-  await page.locator('#deployment').selectOption('0x4b8D8fd22FB818aa7b312Cb72F7048E4d738109B');
-  await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
-  await page.locator('a[data-page="sale"]').click();
-  assert.equal(await page.locator('#legacy-phase-form').isVisible(), true);
-  assert.equal(await page.locator('#phase-form').isVisible(), false);
-  await page.locator('#deployment').selectOption('0x85b1024194cFd547Eb81877f8efF77587e7604f9');
-  await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
-  assert.match(await page.locator('#contract-link').getAttribute('href'), /0x85b1024/);
-  await page.locator('#deployment').selectOption(deployment.address);
-  await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED'), null, { timeout: 60000 });
   await page.route('**/ethereum-sepolia-rpc.publicnode.com/**', async route => {
     const payload = route.request().postDataJSON();
     const failure = request => ({ id: request.id, jsonrpc: '2.0', error: { code: -32000, message: 'Expected test: primary RPC unavailable' } });
@@ -81,7 +68,7 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: fileURLToPath(new URL('sepolia-mobile.png', destination)), fullPage: true, animations: 'disabled' });
   assert.deepEqual(errors, []);
-  const result = { url, checkedAt: new Date().toISOString(), address: deployment.address, metrics, checks: ['HTTP 200', 'Live Sepolia state', 'v4 selected by default', 'Etherscan address links', 'v3, v2 and v1 controls/read compatibility', 'Matching live snapshot and downloadable CSV/ZIP templates', 'Read-only without wallet', 'Six mobile views without overflow', 'Primary RPC failure recovers through live ethPandaOps fallback', 'No unexpected browser or network errors'] };
+  const result = { url, checkedAt: new Date().toISOString(), address: deployment.address, metrics, checks: ['HTTP 200', 'Live Sepolia state', 'v6 contract only', 'Etherscan address links', 'Matching live snapshot and downloadable CSV/ZIP templates', 'Read-only without wallet', 'Six mobile views without overflow', 'Primary RPC failure recovers through live ethPandaOps fallback', 'No unexpected browser or network errors'] };
   await writeFile(new URL('site-verification.json', destination), JSON.stringify(result, null, 2) + '\n');
   console.log(JSON.stringify(result, null, 2));
 } catch (error) {
