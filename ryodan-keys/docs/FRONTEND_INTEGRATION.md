@@ -1,6 +1,6 @@
 # Frontend agent handoff — Ryodan Keys v6
 
-Use `abi/RyodanKeys.json` (v6) and `console/src/allowlist.js`. The management reference is [ryodan.grooooog.space](https://ryodan.grooooog.space). The v6 test contract on Sepolia is [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad) (deployment block 12173845, test metadata); see the [Sepolia runbook](SEPOLIA_RUNBOOK.md). Older v1–v4 contracts use other ABIs and different supply; do not attach the v6 API to them. Contracts are not upgradeable and histories must be keyed by chain + contract + wallet.
+Use `abi/RyodanKeys.json` (v6) and `console/src/allowlist.js`. The management reference is [ryodan.grooooog.space](https://ryodan.grooooog.space). The v6 test contract on Sepolia is [`0xd069E170ECD211ca09157Afe6E9110E322BC30f8`](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8) (deployment block 12176051, test metadata); see the [Sepolia runbook](SEPOLIA_RUNBOOK.md). Older v1–v4 contracts use other ABIs and different supply; do not attach the v6 API to them. Contracts are not upgradeable and histories must be keyed by chain + contract + wallet.
 
 ## Commercial and phase model
 
@@ -18,7 +18,7 @@ Supply: `MAX_PUBLIC_SUPPLY=6000`, `MAX_TREASURY_SUPPLY=666`, `MAX_SUPPLY=6666` �
 
 ## Frozen CSV/checker integration
 
-Follow [the shared list workflow](ALLOWLISTS_AND_CLIENT_ALIGNMENT.md). Downloadable empty templates are in the management panel. Publish the generated `allowlist.json` and `check-data.js` from the same three frozen CSVs. The latter matches the ZIP's `NM.checkData` checker format. No production list files have been supplied. The bundled Sepolia snapshot contains only the dedicated test wallet in Pioneer.
+Follow [the shared list workflow](ALLOWLISTS_AND_CLIENT_ALIGNMENT.md). Downloadable empty templates are in the management panel. Publish the generated `allowlist.json` and `check-data.js` from the same three frozen CSVs. The latter matches the ZIP's `NM.checkData` checker format. No production list files have been supplied. The bundled Sepolia snapshot is a test list: the dedicated test wallet plus five team test wallets, all in Pioneer.
 
 Validate the JSON once with `validateSnapshot`. Compare `root`, `snapshotHash` and counts against `allowlistRoot`, `allowlistSnapshotHash` and `tierMembers(1..3)` at a pinned block. Use `proofFor(snapshot, account)` to get its highest tier and proof. Pioneer inherits eligibility for Operative and Recruit; Operative inherits Recruit. Do not duplicate addresses in three on-chain lists or treat raw checker membership as the final per-phase eligibility result.
 

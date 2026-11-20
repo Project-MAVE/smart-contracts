@@ -1,2 +1,2 @@
 window.NM=window.NM||{};
-NM.checkData={"frozen":"2026-10-30T12:00:00.000Z","pioneer":["27f09842a2b44ca7fcbf34c5c80b2267a1a26015f2f3d1de4e3a838bcdc0d2ca"],"operative":[],"recruit":[]};
+NM.checkData={"frozen":"2026-11-20T15:31:15.038Z","pioneer":["27f09842a2b44ca7fcbf34c5c80b2267a1a26015f2f3d1de4e3a838bcdc0d2ca","4f37e2ff72ff56bfabbe5ecd13cb13223a31f2f163bf7622deba78654d2045b1","5ce6048d424c1ca714e1a5e6f4639da01334f3939c84427d741f812b98d02f3b","7f3897fa8cc3c5cf38fb20f2fc15fe581b01a4d3e196dd5c581772742fe9e361","99bebaf4bd17f949f6a49c7e73a4ebff54d64e3a6598e9c6eae2a355fde43a5c","c714b0718a277523bbbaa81459b21e8fadf7cfab463b52e0ff95bb40c2c2e9a4"],"operative":[],"recruit":[]};
