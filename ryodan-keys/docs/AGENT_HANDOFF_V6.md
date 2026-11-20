@@ -8,7 +8,7 @@ Updated: 2026-11-20. This document supersedes the v4 handoff.
 - [V6 ABI](https://github.com/Project-MAVE/smart-contracts/blob/main/ryodan-keys/abi/RyodanKeys.json); `CONTRACT_VERSION() == 6`.
 - [Shared CSV/Merkle implementation](https://github.com/Project-MAVE/smart-contracts/blob/main/console/src/allowlist.js).
 - [Management panel](https://ryodan.grooooog.space/) and [CSV preparation](https://ryodan.grooooog.space/#sale). The panel manages only v6.
-- Network for tests: **Ethereum Sepolia, chain ID 11155111**. V6 test contract: [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad), deployment block 12173845, immutable deadline 2026-12-20 07:25:12 UTC, test pixel-art metadata (not final). Not yet verified on Etherscan. The v1–v4 contracts on Sepolia are a different version with a different supply; do not use them for v6 work.
+- Network for tests: **Ethereum Sepolia, chain ID 11155111**. V6 test contract: [`0xF4A43dF64D41B743Da20582AF49021732Aa298ad`](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad), deployment block 12173845, immutable deadline 2026-12-20 07:25:12 UTC, test pixel-art metadata (not final). Source verified on Etherscan with [Exact Match](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad#code) ([report](../deployments/sepolia-v6-etherscan.json)). The v1–v4 contracts on Sepolia are a different version with a different supply; do not use them for v6 work.
 
 V6 is a new, non-upgradeable contract. Do not mix deployment histories or use an older ABI against v6.
 

@@ -15,14 +15,17 @@ Deployed 2026-11-20 on Ethereum Sepolia **11155111**.
 | Admin and treasury | dedicated test wallet `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc` |
 | `sbtBaseURI` / `nftBaseURI` | `https://ryodan-meta.grooooog.space/sbt/` / `https://ryodan-meta.grooooog.space/nft/` |
 | Runtime code hash | `0xd513f9406dc352f251360ab5dde58636f14178b1b63ea57a8fbd25668ea080c8` |
+| Etherscan | [**Exact Match**](https://sepolia.etherscan.io/address/0xF4A43dF64D41B743Da20582AF49021732Aa298ad#code), verified 2026-11-20 |
 
 Smoke state after deploy: a snapshot with only the test wallet in Pioneer was loaded, Pioneer was started and resumed, the test wallet bought one Pioneer pair (IDs 1–2) and the treasury minted one key (ID 3). Pioneer is the active phase; the console shows 2 / 6,000 paid and 1 / 666 treasury. `tokenURI(1)` returns `https://ryodan-meta.grooooog.space/sbt/1.json`.
 
 The metadata are **test placeholders**: random square pixel art generated per ID by `metadata-test/server.js` (grey SBT set, coloured NFT set), served at [ryodan-meta.grooooog.space](https://ryodan-meta.grooooog.space). The base URIs cannot change after deploy, so a campaign with the final artwork needs a fresh deployment.
 
-Not done for v6: Etherscan source verification and a refund-QA deployment. The full 6,666-key sellout, the 72-hour keep-or-refund window and refunds are covered by Solidity tests and the local Anvil browser test.
+The source is verified on Etherscan with **Exact Match**: all 25 source files, compiler `v0.8.37+commit.f401782d`, optimizer 200 runs, EVM `cancun` and the five constructor arguments match; the creation transaction and the deployed runtime match the local optimized artifact. The report's `runtimeCodeHash` is the compiled runtime before the immutable deadline is written; the table above hashes the deployed code.
 
-Evidence: [management receipts and checks](../deployments/sepolia-v6.json).
+Not done for v6: a refund-QA deployment. The full 6,666-key sellout, the 72-hour keep-or-refund window and refunds are covered by Solidity tests and the local Anvil browser test.
+
+Evidence: [management receipts and checks](../deployments/sepolia-v6.json), [Etherscan verification](../deployments/sepolia-v6-etherscan.json).
 
 ## V4 deployments (historical)
 
