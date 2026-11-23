@@ -19,6 +19,10 @@ Not changed: optional ERC-5192 `locked()` (not requested as required); `settle` 
 
 `console/scripts/allowlist.mjs build --frozen-at 2026-11-23T09:36:00.000Z` on the supplied CSVs reproduces the client's expected result: 100 Pioneer, 1,403 Operative, 5,705 Recruit, root `0x40c8b3704d183afdb00b007b9409e4889767748360514333c38b442dfffaac5f`, snapshotHash `0xf367b4e690152ac5561b76480c1f3e3ad025b17ee8d23b907a8e5869d948f858`. On v7, `configureAllowlist` with these counts reserves 6,012 guaranteed keys and leaves 154 (v6 reverts with "Insufficient GTD supply"). With the current caps the lists can grow by at most 38 guaranteed wallets.
 
+## Sepolia test deployment
+
+[`0xd84bEbd8C2ED11546578962ebfD07FC56b79f07b`](https://sepolia.etherscan.io/address/0xd84bEbd8C2ED11546578962ebfD07FC56b79f07b), deployed 2026-11-23 with the mainnet deadline 1795629600, the client lists plus the six team test wallets in Pioneer, the 500 treasury keys minted before Pioneer, and Pioneer open. Details in [SEPOLIA_RUNBOOK.md](SEPOLIA_RUNBOOK.md).
+
 ## Launch order (mainnet)
 
 1. Deploy with `mintEndTime = 1795629600` (2026-11-25 18:00 UTC), the final SBT/NFT folders and the Safe as admin and treasury; verify on Etherscan.

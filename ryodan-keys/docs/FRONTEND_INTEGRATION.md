@@ -2,7 +2,7 @@
 
 > v7 (2026-11-23): Pioneer without pairs, a Pioneer cap shared by Pioneer and Operative, 6,166 paid + 500 treasury, a 4-day keep-or-refund window, prices/caps locked from Pioneer, sellout withdrawal after the deadline, two-step admin. See [V7_CHANGES.md](V7_CHANGES.md). Read `CONTRACT_VERSION` and accept only 7.
 
-Use `abi/RyodanKeys.json` (v6) and `console/src/allowlist.js`. The management reference is [ryodan.grooooog.space](https://ryodan.grooooog.space). The v6 test contract on Sepolia is [`0xd069E170ECD211ca09157Afe6E9110E322BC30f8`](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8) (deployment block 12176051, test metadata); see the [Sepolia runbook](SEPOLIA_RUNBOOK.md). Older v1–v4 contracts use other ABIs and different supply; do not attach the v6 API to them. Contracts are not upgradeable and histories must be keyed by chain + contract + wallet.
+Use `abi/RyodanKeys.json` (v7) and `console/src/allowlist.js`. The management reference is [ryodan.grooooog.space](https://ryodan.grooooog.space). The v7 test contract on Sepolia is [`0xd84bEbd8C2ED11546578962ebfD07FC56b79f07b`](https://sepolia.etherscan.io/address/0xd84bEbd8C2ED11546578962ebfD07FC56b79f07b) (deployment block 12176051, test metadata); see the [Sepolia runbook](SEPOLIA_RUNBOOK.md). Older v1–v4 contracts use other ABIs and different supply; do not attach the v6 API to them. Contracts are not upgradeable and histories must be keyed by chain + contract + wallet.
 
 ## Commercial and phase model
 
