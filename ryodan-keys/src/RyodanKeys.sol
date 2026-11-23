@@ -328,9 +328,8 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         require(allowlistConfigured, "Configure allowlist first");
         require(previous < CIVILIAN, "Final phase reached");
         // Unused Pioneer keys stay guaranteed through OPERATIVE; both GTD reservations end when RECRUIT opens.
-        uint256 released;
+        uint256 released = previous == OPERATIVE ? totalGtdReserved : 0;
         if (previous == OPERATIVE) {
-            released = phases[PIONEER].reserved + phases[OPERATIVE].reserved;
             phases[PIONEER].reserved = 0;
             phases[OPERATIVE].reserved = 0;
             totalGtdReserved = 0;
