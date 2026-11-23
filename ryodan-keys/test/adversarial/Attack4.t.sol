@@ -52,7 +52,7 @@ contract J_Extras is Fixture {
         _toEnd();
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         keys.refundBatch(ids);
         assertEq(keys.pendingRefund(address(p)), 0);
         assertLe(p.seenGas(), 52_300);
@@ -65,7 +65,7 @@ contract J_Extras is Fixture {
         vm.deal(address(p), 1 ether);
         p.setWrites(3);
         p.buy{value: 0.01 ether}(1);
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         keys.refundBatch(ids);
@@ -98,7 +98,7 @@ contract J_Extras is Fixture {
         vm.deal(address(p), 1 ether);
         p.setWrites(3);
         p.buy{value: 0.01 ether}(1);
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         keys.refundBatch(ids);
@@ -121,15 +121,15 @@ contract J_Extras is Fixture {
     }
 
     function test_J06_CapsRejectTheExactBoundary() public {
-        _openCivilian(6000, 0.01 ether);
-        _buy(address(0xAA), 5999);
+        _openCivilian(6166, 0.01 ether);
+        _buy(address(0xAA), 6165);
         vm.deal(address(0xAA), 100 ether);
         vm.prank(address(0xAA));
         vm.expectRevert("Max supply reached");
         keys.mint{value: 0.02 ether}(2, 4, 0.01 ether);
         vm.prank(address(0xAA));
         keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
-        assertEq(keys.mintedByUsers(), 6000);
+        assertEq(keys.mintedByUsers(), 6166);
     }
 
     function test_J07_PreApprovedOperatorCanMoveAKeptKey() public {

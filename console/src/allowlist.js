@@ -57,10 +57,11 @@ function manifest(snapshot) {
 }
 export const snapshotDigest = snapshot => keccak256(toUtf8Bytes(JSON.stringify(manifest(snapshot))));
 
-export function capacity(counts, pioneerLimit = 4n, operativeLimit = 10n, paidSupply = 6000n) {
-  requireValid(pioneerLimit > 0n && pioneerLimit % 2n === 0n && operativeLimit > 0n, 'Pioneer requires a positive even cap; Operative requires a positive cap.');
+// Each Pioneer is reserved once: the Pioneer cap is shared by PIONEER and OPERATIVE, as in the v7 contract.
+export function capacity(counts, pioneerLimit = 4n, operativeLimit = 4n, paidSupply = 6166n) {
+  requireValid(pioneerLimit > 0n && operativeLimit > 0n, 'Pioneer and Operative require a positive cap.');
   const pioneer = BigInt(counts.pioneer) * pioneerLimit;
-  const operative = BigInt(counts.pioneer + counts.operative) * operativeLimit;
+  const operative = BigInt(counts.operative) * operativeLimit;
   const total = pioneer + operative;
   requireValid(total <= paidSupply, `GTD allocations need ${total} keys; only ${paidSupply} paid keys are available.`);
   return { pioneer, operative, total, unreserved: paidSupply - total };

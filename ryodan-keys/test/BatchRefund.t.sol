@@ -52,15 +52,16 @@ contract BatchRefundTest is RyodanKeysFixture {
     function test_ThirdPartyBatchPaysDifferentMintersTheirOriginalPrices() public {
         _open(10);
         _buy(bob, 1);
+        vm.expectRevert("Phases locked");
         keys.configurePhase(4, 0.045 ether, 10);
         _buy(alice, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256 bobBefore = bob.balance;
         uint256 aliceBefore = alice.balance;
         vm.prank(treasury);
         keys.refundBatch(ids(2, 1));
         assertEq(bob.balance - bobBefore, 0.01 ether);
-        assertEq(alice.balance - aliceBefore, 0.045 ether);
+        assertEq(alice.balance - aliceBefore, 0.01 ether);
         assertEq(treasury.balance, 0);
         assertEq(keys.totalRefunded(), 2);
         assertEq(address(keys).balance, 0);
@@ -69,7 +70,7 @@ contract BatchRefundTest is RyodanKeysFixture {
     function test_DuplicateAndInvalidIdsRollBackWholeBatch() public {
         _open(2);
         _buy(bob, 2);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Already refunded");
         keys.refundBatch(ids(1, 1));
         vm.expectRevert("Token not eligible for refund");
@@ -90,7 +91,7 @@ contract BatchRefundTest is RyodanKeysFixture {
         vm.deal(address(this), 1 ether);
         wallet.buy{value: 0.01 ether}(1);
         wallet.configure("", true, false);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         // v5: a rejecting recipient no longer blocks the batch; its amount waits until it pulls it.
         keys.refundBatch(ids(1, 2));
         assertEq(keys.totalRefunded(), 2);
@@ -108,7 +109,7 @@ contract BatchRefundTest is RyodanKeysFixture {
         BatchReentryWallet wallet = new BatchReentryWallet(keys);
         vm.deal(address(this), 1 ether);
         wallet.buy{value: 0.03 ether}(3);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         bytes4 guard = ReentrancyGuard.ReentrancyGuardReentrantCall.selector;
         // Both payments of the batch try to re-enter refundBatch and refund within the 50k gas cap.
         for (uint256 i; i < 2; i++) {
@@ -132,15 +133,14 @@ contract BatchRefundTest is RyodanKeysFixture {
         keys.refundBatch(new uint256[](0));
         vm.expectRevert("Invalid refund batch size");
         keys.refundBatch(new uint256[](51));
-        _open(2);
+        _open(6166);
         _buy(bob, 2);
         vm.expectRevert("Mint not ended");
         keys.refundBatch(ids(1, 2));
-        keys.configurePhase(4, 0.01 ether, 6000);
-        _buy(bob, 5998);
+        _buy(bob, 6164);
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
-        vm.warp(end + 72 hours + 1);
+        keys.treasuryMint(500, treasury);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("All tokens minted");
         keys.refundBatch(ids(1, 2));
     }
@@ -151,7 +151,7 @@ contract BatchRefundTest is RyodanKeysFixture {
         uint256 count = bound(countSeed, 1, 50);
         _open(count);
         _buy(bob, count);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256[] memory list = new uint256[](count);
         for (uint256 i; i < count; i++) {
             list[i] = (i + rotationSeed % count) % count + 1;

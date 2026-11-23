@@ -128,7 +128,7 @@ contract E_Refunds is Fixture {
         _openCivilian(10, 0.01 ether);
         vm.deal(address(w), 1 ether);
         w.buy{value: 0.02 ether}(2);
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         uint256[] memory ids = new uint256[](2);
         ids[0] = 1;
         ids[1] = 2;
@@ -155,7 +155,7 @@ contract E_Refunds is Fixture {
         w.buy{value: 0.02 ether}(2);
         vm.prank(address(0xAA));
         keys.mint{value: 0.02 ether}(2, 4, 0.01 ether);
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         uint256[] memory ids = new uint256[](4);
         ids[0] = 1;
         ids[1] = 2;
@@ -218,7 +218,7 @@ contract E_Refunds is Fixture {
         vm.prank(treasury);
         vm.expectRevert("Choice window not closed");
         keys.burnTreasuryKeys(ids);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256[] memory pub = new uint256[](1);
         pub[0] = 1;
         vm.prank(treasury);
@@ -231,7 +231,7 @@ contract E_Refunds is Fixture {
     }
 
     function test_E15_BatchSizeLimits() public {
-        _openCivilian(6000, 0.01 ether);
+        _openCivilian(6166, 0.01 ether);
         _buy(address(0xAA), 51);
         _toEnd();
         uint256[] memory ids = new uint256[](51);
@@ -288,7 +288,7 @@ contract E_Refunds is Fixture {
         for (uint256 i; i < 5; i++) {
             _buy(ws[i], 10);
         }
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         uint256[] memory ids = new uint256[](50);
         for (uint256 i; i < 50; i++) {
             ids[i] = i + 1;
@@ -326,7 +326,7 @@ contract E_Refunds is Fixture {
         _openCivilian(10, 0.01 ether);
         vm.deal(address(w), 1 ether);
         w.buy{value: 0.01 ether}(1);
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         keys.refundBatch(ids);
@@ -339,7 +339,7 @@ contract E_Refunds is Fixture {
         address bob = makeAddr("bob");
         _openCivilian(10, 0.01 ether);
         _buy(bob, 2);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256[] memory keep = new uint256[](1);
         keep[0] = 1;
         vm.prank(bob);
@@ -382,7 +382,7 @@ contract F_Reentrancy is Fixture {
         _openCivilian(10, 0.01 ether);
         vm.deal(address(w), 1 ether);
         w.buy{value: 0.02 ether}(2);
-        vm.warp(end + 73 hours);
+        vm.warp(end + 4 days + 1 hours);
         w.setMode(4);
         uint256[] memory ids = new uint256[](2);
         ids[0] = 1;
@@ -415,17 +415,17 @@ contract F_Reentrancy is Fixture {
 
     function test_F05_BurnReentryAtSelloutIsHarmless() public {
         ReenterNFT w = new ReenterNFT(keys);
-        _openCivilian(6000, 0.01 ether);
+        _openCivilian(6166, 0.01 ether);
         w.setMode(4);
         vm.deal(address(w), 100 ether);
-        _buy(address(0xAA), 6000);
+        _buy(address(0xAA), 6166);
         vm.prank(treasury);
-        keys.treasuryMint(666, address(w));
-        assertEq(w.burnOk(), 666);
+        keys.treasuryMint(500, address(w));
+        assertEq(w.burnOk(), 500);
         assertTrue(keys.soldOut());
-        assertEq(keys.totalSupply(), 6000);
-        assertEq(keys.totalBurned(), 666);
-        assertEq(keys.mintedByTreasury(), 666);
+        assertEq(keys.totalSupply(), 6166);
+        assertEq(keys.totalBurned(), 500);
+        assertEq(keys.mintedByTreasury(), 500);
     }
 
     function test_F06_BurnBeforeSelloutReverts() public {

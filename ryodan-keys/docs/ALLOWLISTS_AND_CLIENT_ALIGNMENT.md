@@ -1,19 +1,19 @@
-# Client alignment and allowlist workflow — v6
+# Client alignment and allowlist workflow — v7
 
-Updated 2026-11-19 for v6 (supply 6,000 paid + 666 treasury). First written 2026-10-30. The supplied `neomars-mint-dev-2026-10-08.zip` and the client's latest instruction supersede v3's earlier commercial defaults. The ZIP's mock dates are illustrative, not a launch schedule. Source archive SHA-256: `15035ab84d2b4e877a718b1c00e9e26c0f134c1719cedfe714b0a03368b761bb`.
+Updated 2026-11-23 for v7 (supply 6,166 paid + 500 treasury; each Pioneer reserved once). The 2026-11-23 lists reserve 100 × 4 + 1,403 × 4 = 6,012 guaranteed keys, leaving 154. Earlier: 2026-11-19 for v6. First written 2026-10-30. The supplied `neomars-mint-dev-2026-10-08.zip` and the client's latest instruction supersede v3's earlier commercial defaults. The ZIP's mock dates are illustrative, not a launch schedule. Source archive SHA-256: `15035ab84d2b4e877a718b1c00e9e26c0f134c1719cedfe714b0a03368b761bb`.
 
 ## Responses to the frontend handoff
 
 | Question | Resolution |
 | --- | --- |
-| Prices | Approved 2026-11-18 per key: Pioneer 0.0075, Operative 0.012, Recruit 0.0135, Civilian 0.015 ETH. The constructor still sets 0.025/0.040/0.045/0.050: the admin sets each phase with `configurePhase` before resuming it. |
+| Prices | Approved 2026-11-18 per key: Pioneer 0.0075, Operative 0.012, Recruit 0.0135, Civilian 0.015 ETH. In v7 the constructor sets them; they lock when Pioneer opens. |
 | Hierarchical lists | One canonical tier per wallet. Pioneer inherits Operative and Recruit; Operative inherits Recruit. No duplicate on-chain list transactions are needed. |
-| Wallet limits | Initial caps 4 / 10 / 10 / 10, independent per phase. Contract and panel allow changes. Pioneer cap and quantities must be even. |
-| Batch refund | `refundBatch(uint256[])`, 1–50 unique eligible IDs, original minters receive their individual original payments. During the 72 hours after an unsuccessful deadline only each minter acts on their own keys (keep or refund); afterwards any caller. A wallet that rejects ETH does not block the batch: its amount waits in `pendingRefund`. |
-| Supply | **6,666 total = 6,000 paid + 666 treasury.** Token IDs 1–6666. Civilian receives the remaining paid supply. |
+| Wallet limits | Caps 4 / 4 / 10 / 20 (client, 2026-11-22), set in the constructor and locked once Pioneer opens. A Pioneer mints at most 4 across Pioneer and Operative together; any quantity. |
+| Batch refund | `refundBatch(uint256[])`, 1–50 unique eligible IDs, original minters receive their individual original payments. During the 4 days after an unsuccessful deadline only each minter acts on their own keys (keep or refund); afterwards any caller. A wallet that rejects ETH does not block the batch: its amount waits in `pendingRefund`. |
+| Supply | **6,666 total = 6,166 paid + 500 treasury** (client, 2026-11-23). Token IDs 1–6666. Civilian receives the remaining paid supply. |
 | CSV ownership and timing | The client/operator fills the templates. The administrator loads the generated root/counts before starting Pioneer. Frontend publishes the matching `allowlist.json` and `check-data.js`. No production lists currently exist or are loaded. |
 
-Pioneer buys pairs: at the approved price 2 keys cost 0.015 ETH and 4 keys cost 0.030 ETH. The on-chain price is always **per key**, including Pioneer. Do not multiply a pair price by a key quantity.
+Pioneer buys any quantity from 1 to 4 at 0.0075 ETH per key (pairs were removed in v7). The on-chain price is always **per key**, including Pioneer. Do not multiply a pair price by a key quantity.
 
 ## Download and fill the templates
 
@@ -41,10 +41,10 @@ With exclusive counts `P` and `O`, the initial reservation is:
 ```text
 Pioneer reserve  = P × Pioneer wallet cap
 Operative reserve = (P + O) × Operative wallet cap
-Combined reserve ≤ 6,000 paid keys
+Combined reserve ≤ 6,166 paid keys
 ```
 
-At defaults this is `14P + 10O ≤ 6000`. Recruit membership adds no guaranteed allocation. For example, 428 Pioneers alone reserve 5,992 keys; 429 cannot fit. The 666 treasury keys are separate and never count toward this budget. The compiler/panel and contract reject an oversized reservation. The panel's full-list budget is the allocation computed at current caps, not the unclaimed live reserve; the latter is displayed separately.
+At defaults this is `4P + 4O ≤ 6166`. Recruit membership adds no guaranteed allocation. For example, the 2026-11-23 lists reserve 6,012; with them at most 38 more guaranteed wallets fit. The 500 treasury keys are separate and never count toward this budget. The compiler/panel and contract reject an oversized reservation. The panel's full-list budget is the allocation computed at current caps, not the unclaimed live reserve; the latter is displayed separately.
 
 A paid mint consumes its phase's reservation. Closing a phase releases its unused guarantee permanently. Changing an open/future GTD cap recalculates reservations and cannot lower the cap below the highest quantity already minted by one wallet in that phase. Increasing limits may fail if the combined promises exceed remaining supply. Recruit/Civilian caps can be reduced below historical purchases; that wallet then has zero remaining allowance until the cap increases. Purchased tokens and counters are not reset.
 
@@ -57,11 +57,11 @@ node scripts/allowlist.mjs build --csv-dir /path/to/frozen-csvs \
   --out /path/to/output --frozen-at 2026-10-30T12:00:00.000Z
 # Optional --pioneer-limit and --operative-limit match nondefault caps.
 node scripts/allowlist.mjs load --snapshot /path/to/output/allowlist.json \
-  --contract <v6-address> --rpc <sepolia-rpc>
+  --contract <v7-address> --rpc <sepolia-rpc>
 # After reviewing the dry run, the authorized operator signs:
 hush run --name YOMI_RYODAN_SEPOLIA_DEPLOYER --env PRIVATE_KEY --redact -- \
   node scripts/allowlist.mjs load --snapshot /path/to/output/allowlist.json \
-  --contract <v6-address> --rpc <sepolia-rpc> --apply
+  --contract <v7-address> --rpc <sepolia-rpc> --apply
 ```
 
 The loader supports Sepolia/local Anvil only, validates every proof and manifest, checks live phase/caps/capacity and skips an already matching root/hash/count set. It never prints private keys or wallet lists. The hash-only outputs are not an anonymity guarantee: known addresses can be checked against them.

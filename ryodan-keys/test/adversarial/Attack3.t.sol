@@ -99,7 +99,7 @@ contract H_Metadata is Fixture {
 
     function test_H04_SelloutAnnouncementOnlyAt6666() public {
         address collector = makeAddr("collector");
-        _openCivilian(6000, 0.01 ether);
+        _openCivilian(6166, 0.01 ether);
         vm.recordLogs();
         _buy(collector, 10);
         bytes32 sig = keccak256("BatchMetadataUpdate(uint256,uint256)");
@@ -109,7 +109,7 @@ contract H_Metadata is Fixture {
             if (logs[i].topics[0] == sig) seen++;
         }
         assertEq(seen, 0);
-        _buy(collector, 5990);
+        _buy(collector, 6156);
         logs = vm.getRecordedLogs();
         seen = 0;
         for (uint256 i; i < logs.length; i++) {
@@ -118,7 +118,7 @@ contract H_Metadata is Fixture {
         assertEq(seen, 0);
         vm.recordLogs();
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
         logs = vm.getRecordedLogs();
         seen = 0;
         for (uint256 i; i < logs.length; i++) {
@@ -173,6 +173,13 @@ contract I_MeV is Fixture {
         vm.deal(bob, 100 ether);
         vm.prank(bob);
         keys.mintWithProof{value: 0.06 ether}(4, 1, 0.015 ether, 1, new bytes32[](0));
+        keys.advancePhase();
+        keys.setMintPaused(false);
+        // Pioneer guarantee is 4 keys across PIONEER and OPERATIVE together.
+        assertEq(keys.remainingAllowance(2, bob), 0);
+        vm.prank(bob);
+        vm.expectRevert("Max mint amount reached for address");
+        keys.mint{value: 0.03 ether}(1, 2, 0.03 ether);
         while (keys.currentPhase() < 4) {
             keys.advancePhase();
             keys.setMintPaused(false);
@@ -182,7 +189,7 @@ contract I_MeV is Fixture {
             vm.prank(bob);
             keys.mint{value: n * price}(n, ph, price);
         }
-        assertEq(keys.mintedAmount(bob), 34);
+        assertEq(keys.mintedAmount(bob), 24);
     }
 }
 

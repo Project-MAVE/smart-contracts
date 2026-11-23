@@ -52,10 +52,6 @@ contract SaleHandler is Test {
         if (walletAvailable < available) available = walletAvailable;
         if (available == 0) return;
         uint256 amount = bound(amountSeed, 1, available > 30 ? 30 : available);
-        if (phaseId == 1) {
-            amount = amount / 2 * 2;
-            if (amount == 0) return;
-        }
         uint256 value = amount * keys.mintPrice();
         vm.deal(actor, actor.balance + value);
         uint256 price = keys.mintPrice();
@@ -95,9 +91,10 @@ contract SaleHandler is Test {
         uint256 limit = bound(limitSeed, 1, 50);
         uint256 price = bound(priceSeed, 1, 0.1 ether);
         (,,,,, uint256 maximumMinted) = keys.phases(phaseId);
-        bool shouldSucceed = (phaseId > 2 || limit >= maximumMinted) && (phaseId != 1 || limit % 2 == 0);
+        maximumMinted;
         (bool ok,) = address(keys).call(abi.encodeCall(keys.configurePhase, (phaseId, price, limit)));
-        assertEq(ok, shouldSucceed);
+        // Prices and limits are frozen once the first phase opened in initialize().
+        assertFalse(ok);
     }
 
     function advance(uint256 stepSeed) external {
@@ -189,7 +186,7 @@ contract SaleHandler is Test {
     }
 
     function withdrawIfSuccessful() external {
-        if (!keys.soldOut() || address(keys).balance == 0) return;
+        if (!keys.soldOut() || address(keys).balance == 0 || block.timestamp <= keys.mintEndTime()) return;
         uint256 value = address(keys).balance;
         keys.withdraw();
         withdrawn += value;
@@ -224,8 +221,8 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
     }
 
     function invariant_SupplyAndCapsRemainConsistent() public view {
-        assertLe(keys.mintedByUsers(), 6000);
-        assertLe(keys.mintedByTreasury(), 666);
+        assertLe(keys.mintedByUsers(), 6166);
+        assertLe(keys.mintedByTreasury(), 500);
         uint256 phaseTotal;
         for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
             (,, uint256 minted,,,) = keys.phases(phaseId);
@@ -267,18 +264,20 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
     }
 
     function invariant_GtdReservationsEqualUnclaimedAllocations() public view {
-        uint256 total;
-        for (uint8 phaseId = 1; phaseId <= 2; phaseId++) {
-            uint256 expected;
+        // Every actor is a Pioneer: one shared guarantee of the Pioneer limit across PIONEER and OPERATIVE.
+        (, uint256 pioneerLimit,,, uint256 pioneerReserved,) = keys.phases(1);
+        (,,,, uint256 operativeReserved,) = keys.phases(2);
+        uint256 expected;
+        if (keys.currentPhase() <= 2) {
             for (uint256 i; i < 4; i++) {
-                expected += keys.remainingAllowanceWithProof(phaseId, handler.actors(i), 1, handler.proof(i));
+                address actor = handler.actors(i);
+                expected += pioneerLimit - keys.mintedInPhase(1, actor) - keys.mintedInPhase(2, actor);
             }
-            (,,,, uint256 reserved,) = keys.phases(phaseId);
-            assertEq(reserved, expected);
-            total += reserved;
         }
-        assertEq(total, keys.totalGtdReserved());
-        assertLe(total + keys.mintedByUsers(), keys.MAX_PUBLIC_SUPPLY());
+        assertEq(pioneerReserved, expected);
+        assertEq(operativeReserved, 0);
+        assertEq(pioneerReserved + operativeReserved, keys.totalGtdReserved());
+        assertLe(keys.totalGtdReserved() + keys.mintedByUsers(), keys.MAX_PUBLIC_SUPPLY());
     }
 
     function invariant_AllLiveTokensBelongToTrackedActors() public view {

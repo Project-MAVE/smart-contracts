@@ -66,10 +66,10 @@ abstract contract Fixture is Test {
     }
 
     function _sellOut(address collector) internal {
-        _openCivilian(6000, 0.01 ether);
-        _buy(collector, 6000);
+        _openCivilian(6166, 0.01 ether);
+        _buy(collector, 6166);
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
     }
 
     function _toEnd() internal {

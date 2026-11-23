@@ -8,9 +8,9 @@ const option = name => args.includes(name) ? args[args.indexOf(name) + 1] : unde
 const mode = args[0];
 if (mode === 'build') {
   const source = option('--csv-dir'), output = option('--out'), frozenAt = option('--frozen-at');
-  if (!source || !output || !frozenAt) throw new Error('Usage: allowlist.mjs build --csv-dir DIR --out DIR --frozen-at ISO_UTC [--pioneer-limit 4 --operative-limit 10]');
+  if (!source || !output || !frozenAt) throw new Error('Usage: allowlist.mjs build --csv-dir DIR --out DIR --frozen-at ISO_UTC [--pioneer-limit 4 --operative-limit 4]');
   const sources = Object.fromEntries(await Promise.all(tiers.map(async tier => [`${tier}.csv`, await readFile(resolve(source, `${tier}.csv`))])));
-  const { snapshot, duplicateRows } = buildSnapshot(sources, frozenAt, { pioneer: BigInt(option('--pioneer-limit') || 4), operative: BigInt(option('--operative-limit') || 10) });
+  const { snapshot, duplicateRows } = buildSnapshot(sources, frozenAt, { pioneer: BigInt(option('--pioneer-limit') || 4), operative: BigInt(option('--operative-limit') || 4) });
   await mkdir(output, { recursive: true });
   await writeFile(resolve(output, 'allowlist.json'), JSON.stringify(snapshot, null, 2) + '\n');
   await writeFile(resolve(output, 'check-data.js'), checkerScript(snapshot));
