@@ -6,6 +6,30 @@ Supply: **6,666 keys = 6,166 paid + 500 treasury**, token IDs 1–6666.
 
 Read-only operation requires no wallet. To sign, import/use the dedicated test wallet in an Ethereum wallet and connect it on Sepolia. Its public address is `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`; it holds admin and treasury roles in test deployments. The private key is stored in hush under `YOMI_RYODAN_SEPOLIA_DEPLOYER`; never enter it in this webpage. The frontend has no signing server and stores no key.
 
+## Operating from a Safe
+
+When the contract's administrator is a Safe, the overview opens with **00 / Safe operations**: the Safe address, its owners and threshold, the roles it holds and the launch sequence. The current Sepolia deployment `0x28097DF55dA295bB969b8B187c26978D63D099B8` is administered by the client Safe `0x31Cd849c982ED10a94A66b4FD7867e97656952Eb` (2 of 3 owners), which is also its treasury.
+
+No key signs in the console in this mode, and no wallet is needed to prepare a call:
+
+1. Press the step, or any administrator or treasury form. The console re-reads the chain, simulates the call **from the Safe** and shows contract, method, arguments, gas and the exact calldata.
+2. **Download Safe batch** saves one JSON file in the Safe Transaction Builder format. Nothing is sent to the chain.
+3. In the Safe app open **Apps → Transaction Builder** (the panel links to it), drop the file, check the decoded call against the review, then **Create batch → Send batch**.
+4. The owners sign in the Safe with their own wallets (Rabby, Ledger, any wallet the Safe app supports); once the threshold is met one of them executes.
+5. The console follows the chain: when the transaction is mined the step turns to done and the next one is offered.
+
+Launch sequence:
+
+| Step | Safe transactions | Calls |
+| --- | --- | --- |
+| 1. Load the allowlist | 1 | `configureAllowlist(root, snapshotHash, pioneer, operative, recruit)` from the snapshot loaded in the console |
+| 2. Mint the 500 treasury keys | 5 | `treasuryMint(100, Safe)` each; the step always offers the next block |
+| 3. Open a phase | 1 per phase | `advancePhase()` then `setMintPaused(false)` in the same Safe transaction, so minting starts when it is executed |
+
+A single transaction cannot use more than 16,777,216 gas. On Sepolia 100 treasury keys minted to the Safe take about 12.3M gas, so the allocation is minted in five Safe transactions; the console refuses to prepare a call that would not fit. Every other administrator and treasury form (prices and limits before Pioneer, pause, withdrawals, treasury burn, roles) prepares its batch the same way.
+
+A wallet that connects **as the Safe itself** (for example through WalletConnect from the Safe app) is treated as the administrator and signs through the wallet as usual. An owner connected with its own key is shown as *Safe owner*; its key alone cannot administer the contract, so the console keeps preparing batches.
+
 ## Prepare the lists
 
 In **Sale controls → Prepare the three lists**, download the complete template ZIP or the individual Pioneer, Operative and Recruit CSVs. Each is empty except for the `address` header. Add one wallet per line and assign it only to its highest tier. Pioneer inherits Operative/Recruit and Operative inherits Recruit. See [CSV requirements and the full loading procedure](ALLOWLISTS_AND_CLIENT_ALIGNMENT.md).

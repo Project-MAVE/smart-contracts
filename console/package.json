@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test test/*.test.js",
     "test:browser": "node scripts/browser-test.mjs",
+    "test:safe": "node scripts/safe-test.mjs",
     "deploy:sepolia": "node scripts/deploy.mjs",
     "test:deploy": "node scripts/deploy-test.mjs",
     "allowlist": "node scripts/allowlist.mjs"

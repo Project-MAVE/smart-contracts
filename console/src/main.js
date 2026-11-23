@@ -1,7 +1,8 @@
 import './styles.css';
 import { BrowserProvider, Contract, formatEther, parseEther, getAddress, ZeroHash } from 'ethers';
 import { abi, reader, snapshot } from './chain.js';
-import { address, friendlyError, gate, phase, phaseNames, remaining, refundIds, settleIds, tokenRange, unsigned } from './model.js';
+import { address, friendlyError, gate, phase, phaseNames, remaining, refundIds, settleIds, tokenRange, unsigned, viaSafe } from './model.js';
+import { batchCall, batchCalldata, batchFile, launchSteps, safeGasNeeded, safeLinks, TRANSACTION_GAS_CAP, TREASURY_BLOCK } from './safe.js';
 import { currentSnapshot, mountAllowlist, renderAllowlist } from './allowlist-ui.js';
 import deployment from './deployment.json';
 
@@ -38,6 +39,12 @@ const short = value => `${value.slice(0, 6)}…${value.slice(-4)}`;
 const utc = seconds => new Date(Number(seconds) * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC');
 const stale = () => !refreshedAt || performance.now() - refreshedAt > 45000;
 const context = () => ({ busy, pending, account, correctChain: walletChain === chainId, stale: stale() });
+
+function download(name, content) {
+  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
 
 function notice(message, kind = '') {
   text('#notice', message);
@@ -103,7 +110,13 @@ function renderControls() {
     button.title = reason;
   });
   all('[data-hint]').forEach(hint => {
-    hint.textContent = gate(hint.dataset.hint, state, context()) || 'Ready. Review the transaction before signing.';
+    hint.textContent = gate(hint.dataset.hint, state, context()) || (viaSafe(hint.dataset.hint, state, account) ? 'Ready. Review the call, then download its batch for the Safe.' : 'Ready. Review the transaction before signing.');
+  });
+  all('[data-safe-step]').forEach(button => {
+    const reason = gate(button.dataset.kind, state, context());
+    button.disabled = Boolean(reason);
+    button.title = reason;
+    button.nextElementSibling.textContent = reason;
   });
   $('#deployment').disabled = busy || Boolean(pending);
   $('#connect').disabled = busy;
@@ -147,13 +160,68 @@ function render() {
   text('#refund-count', s.refunded);
   text('#live-supply', s.supply);
   text('#identity-address', account || 'Not connected');
-  text('#identity-roles', account ? [s.admin && 'Administrator', s.treasuryRole && 'Treasury', 'Holder / minter'].filter(Boolean).join(' · ') : 'Read-only');
+  text('#identity-roles', account ? [s.admin && 'Administrator', s.treasuryRole && 'Treasury', s.safe?.owner && 'Safe owner', 'Holder / minter'].filter(Boolean).join(' · ') : 'Read-only');
   text('#block-label', `BLOCK ${s.block.toLocaleString('en-US')} / ${utc(s.timestamp).slice(11)}`);
   text('#sync-status', '● SYNCHRONIZED');
   text('#reserve-label', s.soldOut ? 'TREASURY WITHDRAWABLE' : 'SALE / REFUND RESERVES');
-  if (!$('#treasury-recipient').value && account) $('#treasury-recipient').value = account;
+  const treasurySafe = viaSafe('treasuryMint', s, account);
+  if (!$('#treasury-recipient').value && (treasurySafe || account)) $('#treasury-recipient').value = treasurySafe ? s.safe.address : account;
+  $('#treasury-amount').max = String(treasurySafe ? TREASURY_BLOCK : 50n);
+  text('#treasury-amount-label', treasurySafe ? `QUANTITY (UP TO ${TREASURY_BLOCK} PER SAFE TRANSACTION)` : 'QUANTITY (UP TO 50 PER TRANSACTION)');
+  renderSafe(s);
   updateTotal();
   renderControls();
+}
+
+let safeSignature = '';
+function renderSafe(s) {
+  $('#safe-section').hidden = !s.safe;
+  if (!s.safe) { safeSignature = ''; return; }
+  const { safe } = s;
+  const steps = launchSteps(s, currentSnapshot());
+  const signature = JSON.stringify([selected.address, safe.address, safe.owners, String(safe.threshold), safe.treasury, String(safe.keys), safe.owner, account, steps]);
+  if (signature === safeSignature) return;
+  safeSignature = signature;
+  const links = safeLinks(chainId, safe.address);
+  text('#safe-tag', `${safe.threshold} OF ${safe.owners.length} OWNERS SIGN`);
+  text('#safe-address', safe.address);
+  for (const [id, href] of [['#safe-address', links?.home], ['#safe-builder', links?.builder], ['#safe-queue', links?.queue]]) {
+    if (href) $(id).href = href; else $(id).removeAttribute('href');
+    if (id !== '#safe-address') $(id).hidden = !href;
+  }
+  text('#safe-owners', `${safe.owners.join('\n')}\n${!account ? 'No wallet is needed here to prepare a call.' : account === safe.address ? 'The connected wallet is this Safe.' : safe.owner ? 'The connected wallet is one of the owners.' : 'The connected wallet is not an owner.'}`);
+  text('#safe-roles', [`Administrator`, safe.treasury && 'Treasury', `holds ${safe.keys} key${safe.keys === 1n ? '' : 's'}`, `Safe ${safe.version}`].filter(Boolean).join(' · '));
+  const kinds = { allowlist: 'allowlist', treasury: 'treasuryMint', open: s.currentPhase > 0n && s.paused ? 'pause' : 'advance' };
+  $('#safe-steps').replaceChildren(...steps.map((step, index) => {
+    const item = document.createElement('li');
+    item.className = `safe-step ${step.status.toLowerCase()}`;
+    for (const [tag, value, className] of [['span', `0${index + 1} / ${step.status}`, 'phase-state'], ['strong', step.title, ''], ['p', step.detail, 'form-note']]) {
+      const node = document.createElement(tag); node.textContent = value; node.className = className; item.append(node);
+    }
+    if (!step.done) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = `button wide ${step.status === 'NEXT' ? 'primary' : ''}`; button.dataset.safeStep = step.id; button.dataset.kind = kinds[step.id];
+      button.textContent = step.id === 'treasury' ? `Prepare the next ${s.maxTreasury - s.treasuryMinted < TREASURY_BLOCK ? s.maxTreasury - s.treasuryMinted : TREASURY_BLOCK} keys ↗` : 'Prepare for the Safe ↗';
+      const hint = document.createElement('p'); hint.className = 'action-hint';
+      item.append(button, hint);
+    }
+    return item;
+  }));
+}
+
+function safeStep(id) {
+  if (!state?.safe) throw new Error('This contract is not administered by a Safe.');
+  if (id === 'allowlist') return $('#snapshot-form').requestSubmit();
+  if (id === 'treasury') {
+    const left = state.maxTreasury - state.treasuryMinted;
+    const amount = left < TREASURY_BLOCK ? left : TREASURY_BLOCK;
+    const first = state.firstTokenId + state.paid + state.treasuryMinted;
+    return review({ kind: 'treasuryMint', label: `Mint treasury keys ${first}-${first + amount - 1n}`, method: 'treasuryMint', args: [amount, state.safe.address], warning: `The ${amount} keys go to the Safe itself.` });
+  }
+  const current = Number(state.currentPhase);
+  if (current && state.paused) return review({ kind: 'pause', label: `Resume ${phaseNames[current]}`, method: 'setMintPaused', args: [false], expectedPhase: state.currentPhase });
+  return review({ kind: 'advance', label: `Open ${phaseNames[current + 1]}`, method: 'advancePhase', args: [], expectedPhase: state.currentPhase, followUp: { method: 'setMintPaused', args: [false] },
+    warning: `Irreversible: ${current ? `${phaseNames[current]} closes for good` : 'the allowlist, prices and limits freeze'}. Minting in ${phaseNames[current + 1]} starts as soon as the Safe transaction is executed.` });
 }
 
 function renderV6(s) {
@@ -318,8 +386,9 @@ async function review(action) {
     validate(action);
     const reviewAccount = account;
     const reviewAddress = selected.address;
-    const signer = await signerForCurrentWallet();
-    const keys = new Contract(selected.address, abi, signer);
+    const safe = viaSafe(action.kind, state, account) ? state.safe : null;
+    const keys = new Contract(selected.address, abi, safe ? provider : await signerForCurrentWallet());
+    const sender = safe ? { from: safe.address } : {};
     if (action.kind === 'refund' && state.choiceWindowOpen) {
       const ids = action.method === 'refundBatch' ? action.args[0] : [action.args[0]];
       const minters = await Promise.all(ids.map(id => keys.originalMinter(id, { blockTag: state.block })));
@@ -341,21 +410,29 @@ async function review(action) {
       const paid = (await Promise.all(ids.map(id => keys.mintPayment(id, { blockTag: state.block })))).reduce((a, b) => a + b, 0n);
       action.warning = `This burns the selected key(s) and returns their original payments, totaling ${formatEther(paid)} ETH. Default recipients are the original minters. Network fees are separate.`;
     }
-    await keys[action.method].staticCall(...action.args, { value: action.value });
-    const gas = await keys[action.method].estimateGas(...action.args, { value: action.value });
-    if (reviewAccount !== account || reviewAddress !== selected.address || walletChain !== chainId) throw new Error('Wallet context changed during simulation. Review the action again.');
-    draft = { ...action, account, address: selected.address, chainId, gas, generation };
+    await keys[action.method].staticCall(...action.args, { value: action.value, ...sender });
+    const gas = await keys[action.method].estimateGas(...action.args, { value: action.value, ...sender });
+    if (reviewAccount !== account || reviewAddress !== selected.address || (!safe && walletChain !== chainId)) throw new Error('Wallet context changed during simulation. Review the action again.');
+    if (safe && safeGasNeeded(gas) > TRANSACTION_GAS_CAP) throw new Error(`Through the Safe this call needs about ${safeGasNeeded(gas).toLocaleString('en-US')} gas, above the ${TRANSACTION_GAS_CAP.toLocaleString('en-US')} a single transaction may use. Reduce the quantity.`);
+    const calls = safe ? [action, ...(action.followUp ? [action.followUp] : [])].map(call => batchCall(abi, selected.address, call.method, call.args)) : null;
+    draft = { ...action, account, address: selected.address, chainId, gas, generation, safe, calls };
     text('#review-title', action.label);
-    const fields = [ ['NETWORK', networkName + ` (${chainId})`], ['CONTRACT', selected.address], ['SIGNER', account], ['CALL', action.method],
+    const fields = [ ['NETWORK', networkName + ` (${chainId})`], ['CONTRACT', selected.address],
+      safe ? ['EXECUTED BY', `Safe ${safe.address}\n${safe.threshold} of ${safe.owners.length} owners sign`] : ['SIGNER', account],
+      ['CALL', [action, ...(safe && action.followUp ? [action.followUp] : [])].map(call => `${call.method}(${call.args.map(v => Array.isArray(v) ? `[${v.length} values]` : String(v)).join(', ')})`).join('\nthen ')],
       ['ARGUMENTS', action.args.length ? action.args.map(v => Array.isArray(v) ? v.join('\n') : String(v)).join('\n') : 'None'],
-      ['PAYMENT', `${formatEther(action.value)} ETH + wallet-estimated network fee`], ['ESTIMATED GAS', gas.toString()] ];
+      safe ? ['SIMULATED GAS', `${gas.toLocaleString('en-US')} from the Safe at block ${state.block}`] : ['PAYMENT', `${formatEther(action.value)} ETH + wallet-estimated network fee`],
+      ...(safe ? calls.map((call, index) => [`CALLDATA ${index + 1} / ${calls.length}`, batchCalldata(call)]) : [['ESTIMATED GAS', gas.toString()]]) ];
     $('#review-details').replaceChildren();
     for (const [key, value] of fields) {
       const dt = document.createElement('dt'); dt.textContent = key;
       const dd = document.createElement('dd'); dd.textContent = value;
       $('#review-details').append(dt, dd);
     }
-    text('#review-warning', action.warning || 'The wallet displays the final network fee. State may change before this transaction is mined.');
+    text('#review-note', safe ? 'Nothing is signed here. Verify the call, then download its batch for the Safe.' : 'Verify these details before opening your wallet.');
+    text('#confirm-transaction', safe ? 'Download Safe batch ↓' : 'Sign in wallet ↗');
+    text('#review-warning', safe ? `${(action.warning || '').replaceAll('your connected treasury wallet', 'the Safe')} The call succeeds when simulated from the Safe now. Drop the file in the Safe Transaction Builder: ${safe.threshold} owners sign there and one of them executes.`.trim()
+      : action.warning || 'The wallet displays the final network fee. State may change before this transaction is mined.');
     $('#review-dialog').showModal();
   } finally { busy = false; renderControls(); }
 }
@@ -372,6 +449,14 @@ async function submit() {
     if (action.account !== account || action.address !== selected.address || action.chainId !== chainId) throw new Error('The transaction context changed. Review it again.');
     if (!await refresh({ force: true, quiet: true })) throw new Error('Cannot confirm fresh state before signing.');
     validate(action);
+    if (action.safe) {
+      await new Contract(selected.address, abi, provider)[action.method].staticCall(...action.args, { from: action.safe.address });
+      const file = batchFile({ chainId, safe: action.safe.address, name: action.label, description: `Ryodan Keys ${selected.address} on chain ${chainId}: ${action.calls.map(call => call.contractMethod.name).join(' then ')}.`, transactions: action.calls });
+      download(`ryodan-safe-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`, JSON.stringify(file, null, 2) + '\n');
+      log('PREPARED', `${action.label} · batch for Safe ${short(action.safe.address)} downloaded`);
+      notice(`Batch downloaded: ${action.label}. Drop it in the Safe Transaction Builder; ${action.safe.threshold} of ${action.safe.owners.length} owners sign and one executes. This page follows the chain and updates when it is mined.`);
+      return;
+    }
     const signer = await signerForCurrentWallet();
     const keys = new Contract(selected.address, abi, signer);
     await keys[action.method].staticCall(...action.args, { value: action.value });
@@ -456,7 +541,7 @@ onForm('#phase-form', data => {
   const id = unsigned(data.get('phase'), 4n, 1n);
   return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), state?.maxPaid || 6166n, 1n)], warning: 'Set every phase before Pioneer opens: from then on prices and per-wallet limits cannot change. Guaranteed allocations are recalculated and must fit the paid supply.' });
 });
-onForm('#treasury-form', data => review({ kind: 'treasuryMint', label: 'Mint treasury allocation', method: 'treasuryMint', args: [unsigned(data.get('amount'), 50n, 1n), address(data.get('recipient'))] }));
+onForm('#treasury-form', data => review({ kind: 'treasuryMint', label: 'Mint treasury allocation', method: 'treasuryMint', args: [unsigned(data.get('amount'), viaSafe('treasuryMint', state, account) ? TREASURY_BLOCK : 50n, 1n), address(data.get('recipient'))] }));
 onForm('#withdraw-form', () => review({ kind: 'withdraw', label: 'Withdraw sale proceeds', method: 'withdraw', args: [], warning: 'The full contract balance is sent to your connected treasury wallet.' }));
 onForm('#role-form', data => {
   const target = address(data.get('account'));
@@ -520,6 +605,10 @@ onForm('#replacement-form', async data => {
 });
 
 $('#connect').addEventListener('click', () => connect().catch(error));
+$('#safe-steps').addEventListener('click', event => {
+  const step = event.target.closest('[data-safe-step]')?.dataset.safeStep;
+  if (step) Promise.resolve().then(() => safeStep(step)).catch(error);
+});
 $('#refresh').addEventListener('click', () => void refresh({ force: true }));
 $('#reconcile').addEventListener('click', () => reconcile().catch(error));
 $('#confirm-transaction').addEventListener('click', () => void submit());
