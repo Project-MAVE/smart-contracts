@@ -21,3 +21,7 @@ runs = 1000
 [profile.ci.invariant]
 runs = 256
 depth = 128
+
+[profile.fork]
+gas_limit = "18446744073709551615"
+fs_permissions = [{ access = "read", path = "./fixtures" }]
