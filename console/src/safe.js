@@ -1,9 +1,19 @@
-import { Contract, Interface, getAddress, keccak256, toUtf8Bytes } from 'ethers';
+import { Contract, Interface, ZeroAddress, ZeroHash, concat, dataLength, getAddress, keccak256, solidityPacked, toUtf8Bytes, zeroPadValue } from 'ethers';
 
 const safeAbi = [
   'function getOwners() view returns (address[])', 'function getThreshold() view returns (uint256)',
   'function nonce() view returns (uint256)', 'function VERSION() view returns (string)',
+  'function approvedHashes(address owner, bytes32 hash) view returns (uint256)',
+  'function getTransactionHash(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, uint256 nonce) view returns (bytes32)',
+  'function approveHash(bytes32 hashToApprove)',
+  'function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures) payable returns (bool)',
 ];
+export const safeInterface = new Interface(safeAbi);
+// MultiSendCallOnly per Safe version (safe-deployments, canonical addresses): the contract a Safe delegates to for several calls at once.
+const multiSendCallOnly = {
+  '1.5.0': ['0xA83c336B20401Af773B6219BA5027174338D1836', '0xcdbdcec38d2f1c7d961b0029ff8416b7e86e9974d6f0e9c9580c7d17fcfb6663'],
+  '1.4.1': ['0x9641d764fc13c8B624c04430C7356C1C7C8102e2', '0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939'],
+};
 // EIP-7825: no single transaction may use more gas than this, whatever the block limit is.
 export const TRANSACTION_GAS_CAP = 16_777_216n;
 // A Safe forwards 63/64 of its gas to the call and adds its own signature checks and bookkeeping.
@@ -94,3 +104,47 @@ export function launchSteps(s, snapshot) {
   const next = steps.findIndex(step => !step.done);
   return steps.map((step, index) => ({ ...step, status: step.done ? 'DONE' : index === next ? 'NEXT' : 'WAITING' }));
 }
+
+/** The Safe transaction for one or more batch entries: a single call goes straight to its target, several run through MultiSendCallOnly. */
+export function safeTransaction(safe, calls) {
+  const list = calls.map(call => ({ to: getAddress(call.to), value: BigInt(call.value), data: batchCalldata(call) }));
+  if (list.length === 1) return { ...list[0], operation: 0 };
+  const known = multiSendCallOnly[safe.version.split('+')[0]];
+  if (!known) throw new Error(`Several calls in one transaction are not prepared here for Safe ${safe.version}. Download the batch for the Safe app.`);
+  const packed = concat(list.map(call => solidityPacked(['uint8', 'address', 'uint256', 'uint256', 'bytes'], [0, call.to, call.value, dataLength(call.data), call.data])));
+  return { to: known[0], value: 0n, data: new Interface(['function multiSend(bytes transactions)']).encodeFunctionData('multiSend', [packed]), operation: 1, codeHash: known[1] };
+}
+
+const safeTxArguments = (tx, last) => [tx.to, tx.value, tx.data, tx.operation, 0, 0, 0, ZeroAddress, ZeroAddress, last];
+
+/** Reads from the Safe the hash of this transaction at its current nonce and which owners approved it on chain. */
+export async function confirmations(provider, safe, tx, options = {}) {
+  if (tx.operation === 1 && keccak256(await provider.getCode(tx.to, options.blockTag)) !== tx.codeHash) throw new Error('The Safe batch contract on this network is not the published one. Download the batch for the Safe app.');
+  const contract = new Contract(safe.address, safeAbi, provider);
+  const nonce = await contract.nonce(options);
+  const hash = await contract.getTransactionHash(...safeTxArguments(tx, nonce), options);
+  const flags = await Promise.all(safe.owners.map(owner => contract.approvedHashes(owner, hash, options)));
+  return { hash, nonce, approved: safe.owners.filter((_, index) => flags[index] !== 0n) };
+}
+
+const includes = (list, account) => Boolean(account) && list.some(item => item.toLowerCase() === account.toLowerCase());
+
+/** What the connected account can do with a Safe transaction: approve it, execute it, wait for another owner, or nothing. */
+export function ownerStep(safe, approved, account) {
+  const needed = Number(safe.threshold);
+  if (!account) return 'connect';
+  if (approved.length >= needed) return 'execute';
+  if (!isOwner(safe, account)) return 'observe';
+  if (includes(approved, account)) return 'wait';
+  return approved.length + 1 >= needed ? 'execute' : 'approve';
+}
+
+/** Signatures for execTransaction made of on-chain approvals: the sender counts as approving when it is an owner. */
+export function executionSignatures(safe, approved, sender) {
+  const signers = [...new Set([...(isOwner(safe, sender) ? [getAddress(sender)] : []), ...approved.map(owner => getAddress(owner))])].slice(0, Number(safe.threshold));
+  if (signers.length < Number(safe.threshold)) throw new Error('This Safe transaction does not have enough owner approvals yet.');
+  return concat(signers.sort((a, b) => BigInt(a) < BigInt(b) ? -1 : 1).map(owner => concat([zeroPadValue(owner, 32), ZeroHash, '0x01'])));
+}
+
+export const approveCall = (safe, hash) => ({ to: safe.address, data: safeInterface.encodeFunctionData('approveHash', [hash]) });
+export const executeCall = (safe, tx, signatures) => ({ to: safe.address, data: safeInterface.encodeFunctionData('execTransaction', [...safeTxArguments(tx, signatures)]) });

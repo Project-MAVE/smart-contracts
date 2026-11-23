@@ -10,13 +10,13 @@ Read-only operation requires no wallet. To sign, import/use the dedicated test w
 
 When the contract's administrator is a Safe, the overview opens with **00 / Safe operations**: the Safe address, its owners and threshold, the roles it holds and the launch sequence. The current Sepolia deployment `0x28097DF55dA295bB969b8B187c26978D63D099B8` is administered by the client Safe `0x31Cd849c982ED10a94A66b4FD7867e97656952Eb` (2 of 3 owners), which is also its treasury.
 
-No key signs in the console in this mode, and no wallet is needed to prepare a call:
+Each owner uses its own wallet (Rabby, MetaMask, a hardware wallet), connected with **its own owner address**:
 
-1. Press the step, or any administrator or treasury form. The console re-reads the chain, simulates the call **from the Safe** and shows contract, method, arguments, gas and the exact calldata.
-2. **Download Safe batch** saves one JSON file in the Safe Transaction Builder format. Nothing is sent to the chain.
-3. In the Safe app open **Apps → Transaction Builder** (the panel links to it), drop the file, check the decoded call against the review, then **Create batch → Send batch**.
-4. The owners sign in the Safe with their own wallets (Rabby, Ledger, any wallet the Safe app supports); once the threshold is met one of them executes.
-5. The console follows the chain: when the transaction is mined the step turns to done and the next one is offered.
+1. **First owner:** connect, press the next step, check the review, press **Approve as owner (1 of 2)** and confirm in the wallet. The approval is recorded on the Safe; nothing else changes.
+2. **Second owner:** connect, press the same step. The console shows who approved and offers **Execute from the Safe**; confirming in the wallet runs the call from the Safe.
+3. The console follows the chain: the step turns to done and the next one is offered.
+
+Any two owners can take either role. An approval is tied to the Safe's current nonce: if the Safe executes something else first, the step is approved again. Both owners need a little ETH for gas. With a higher threshold the owners approve one after the other and the last one executes.
 
 Launch sequence:
 
@@ -26,9 +26,16 @@ Launch sequence:
 | 2. Mint the 500 treasury keys | 5 | `treasuryMint(100, Safe)` each; the step always offers the next block |
 | 3. Open a phase | 1 per phase | `advancePhase()` then `setMintPaused(false)` in the same Safe transaction, so minting starts when it is executed |
 
-A single transaction cannot use more than 16,777,216 gas. On Sepolia 100 treasury keys minted to the Safe take about 12.3M gas, so the allocation is minted in five Safe transactions; the console refuses to prepare a call that would not fit. Every other administrator and treasury form (prices and limits before Pioneer, pause, withdrawals, treasury burn, roles) prepares its batch the same way.
+A single transaction cannot use more than 16,777,216 gas. On Sepolia 100 treasury keys minted to the Safe take about 12.3M gas, so the allocation is minted in five Safe transactions; the console refuses a call that would not fit. Every other administrator and treasury form (prices and limits before Pioneer, pause, withdrawals, treasury burn, roles) follows the same two-owner route. The opening can be approved ahead of time and executed at the opening hour.
 
-A wallet that connects **as the Safe itself** (for example through WalletConnect from the Safe app) is treated as the administrator and signs through the wallet as usual. An owner connected with its own key is shown as *Safe owner*; its key alone cannot administer the contract, so the console keeps preparing batches.
+Before anything is signed the review shows the contract, method, arguments and calldata, the Safe transaction hash read from the Safe, and the approvals already on chain. The wallet then shows a call to the Safe: `approveHash` with that hash, or `execTransaction`.
+
+Other routes:
+
+- **Batch file.** Without an owner wallet, or with **Download batch file** in the review, the step is saved as a JSON file in the Safe Transaction Builder format. In the Safe app open **Apps → Transaction Builder**, drop the file, create and send the batch; the owners sign there.
+- **Wallet connected as the Safe.** A wallet that presents the Safe itself as its account (Rabby with the Safe imported, WalletConnect from the Safe app) is treated as the administrator and signs through that wallet. Rabby offers this only on networks where it supports Safe accounts: Ethereum mainnet yes, Sepolia no (it answers *Multi-signature addresses are not on this chain*).
+
+Rabby does not know Sepolia until it is added: on the first connection the console asks the wallet to add it, and Rabby shows **Add Custom Network**.
 
 ## Prepare the lists
 

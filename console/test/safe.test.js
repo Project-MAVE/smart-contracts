@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Interface } from 'ethers';
-import { batchCall, batchCalldata, batchChecksum, batchFile, isOwner, launchSteps, safeGasNeeded, safeLinks, TRANSACTION_GAS_CAP } from '../src/safe.js';
+import { approveCall, batchCall, batchCalldata, batchChecksum, batchFile, executeCall, executionSignatures, isOwner, launchSteps, ownerStep, safeGasNeeded, safeInterface, safeLinks, safeTransaction, TRANSACTION_GAS_CAP } from '../src/safe.js';
 import { gate, viaSafe } from '../src/model.js';
 
 const abi = JSON.parse(await readFile(new URL('../../ryodan-keys/abi/RyodanKeys.json', import.meta.url), 'utf8'));
@@ -117,4 +117,49 @@ test('Safe links exist only for the networks the Safe app serves', () => {
   assert.equal(links.builder, `https://app.safe.global/apps/open?safe=sep:${safeAddress}&appUrl=https%3A%2F%2Fapps-portal.safe.global%2Ftx-builder`);
   assert.equal(safeLinks(1, safeAddress).queue, `https://app.safe.global/transactions/queue?safe=eth:${safeAddress}`);
   assert.equal(safeLinks(31337, safeAddress), null);
+});
+
+test('owners act in turn: approve until one approval is missing, then the next owner executes', () => {
+  const [a, b, c] = owners;
+  assert.equal(ownerStep(safe, [], null), 'connect');
+  assert.equal(ownerStep(safe, [], keys), 'observe');
+  assert.equal(ownerStep(safe, [], a), 'approve');
+  assert.equal(ownerStep(safe, [a], a.toLowerCase()), 'wait');
+  assert.equal(ownerStep(safe, [a], b), 'execute');
+  assert.equal(ownerStep(safe, [a, b], c), 'execute');
+  assert.equal(ownerStep(safe, [a, b], keys), 'execute', 'with every approval on chain any wallet may execute');
+  const three = { ...safe, threshold: 3n };
+  assert.equal(ownerStep(three, [a], b), 'approve');
+  assert.equal(ownerStep(three, [a, b], c), 'execute');
+  assert.equal(ownerStep({ ...safe, threshold: 1n }, [], a), 'execute');
+});
+
+test('execution signatures list exactly the threshold of approving owners, in ascending address order', () => {
+  const [a, b, c] = owners;
+  const words = signatures => signatures.slice(2).match(/.{130}/g).map(chunk => [`0x${chunk.slice(24, 64)}`, chunk.slice(64, 128), chunk.slice(128)]);
+  const signed = words(executionSignatures(safe, [a], b));
+  assert.deepEqual(signed.map(item => item[0]), [b, a].map(owner => owner.toLowerCase()).sort((x, y) => BigInt(x) < BigInt(y) ? -1 : 1));
+  assert.ok(signed.every(item => /^0+$/.test(item[1]) && item[2] === '01'), 'approved-hash signatures: zero s, v = 1');
+  assert.equal(words(executionSignatures(safe, [a, b, c], c)).length, 2);
+  assert.deepEqual(words(executionSignatures(safe, [a, b], keys)).map(item => item[0]).sort(), [a, b].map(owner => owner.toLowerCase()).sort());
+  assert.throws(() => executionSignatures(safe, [], a), /not have enough owner approvals/);
+  assert.throws(() => executionSignatures(safe, [a], a), /not have enough owner approvals/);
+  assert.throws(() => executionSignatures(safe, [a], keys), /not have enough owner approvals/);
+});
+
+test('one call goes straight to the contract, several are packed for MultiSendCallOnly by delegatecall', () => {
+  const single = safeTransaction(safe, [batchCall(abi, keys, 'treasuryMint', [100n, safeAddress])]);
+  assert.deepEqual([single.to, single.value, single.operation, single.data], [keys, 0n, 0, iface.encodeFunctionData('treasuryMint', [100n, safeAddress])]);
+  const advance = iface.encodeFunctionData('advancePhase'), resume = iface.encodeFunctionData('setMintPaused', [false]);
+  const batch = safeTransaction(safe, [batchCall(abi, keys, 'advancePhase', []), batchCall(abi, keys, 'setMintPaused', [false])]);
+  assert.deepEqual([batch.to, batch.value, batch.operation], ['0xA83c336B20401Af773B6219BA5027174338D1836', 0n, 1]);
+  const entry = data => `00${keys.slice(2).toLowerCase()}${'0'.repeat(64)}${(data.length / 2 - 1).toString(16).padStart(64, '0')}${data.slice(2)}`;
+  const packed = `${entry(advance)}${entry(resume)}`;
+  assert.equal(batch.data, `0x8d80ff0a${'20'.padStart(64, '0')}${(packed.length / 2).toString(16).padStart(64, '0')}${packed.padEnd(Math.ceil(packed.length / 64) * 64, '0')}`);
+  assert.throws(() => safeTransaction({ ...safe, version: '1.1.1' }, [batchCall(abi, keys, 'advancePhase', []), batchCall(abi, keys, 'setMintPaused', [false])]), /Download the batch for the Safe app/);
+  const hash = `0x${'ab'.repeat(32)}`;
+  assert.deepEqual(approveCall(safe, hash), { to: safeAddress, data: `0xd4d9bdcd${'ab'.repeat(32)}` });
+  const execute = executeCall(safe, single, executionSignatures(safe, [owners[0]], owners[1]));
+  const decoded = safeInterface.decodeFunctionData('execTransaction', execute.data);
+  assert.deepEqual([execute.to, decoded[0], decoded[1], decoded[2], decoded[3], decoded[4], decoded[5], decoded[6]], [safeAddress, keys, 0n, single.data, 0n, 0n, 0n, 0n]);
 });
