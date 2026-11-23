@@ -6,14 +6,14 @@ import { AbiCoder, JsonRpcProvider, keccak256 } from 'ethers';
 
 if (!process.env.ETHERSCAN_API_KEY) throw new Error('Inject ETHERSCAN_API_KEY via hush run --redact.');
 const qa = process.argv.includes('--qa');
-const suffix = qa ? '-refund' : '';
+const suffix = qa ? '-refund' : process.argv.includes('--safe') ? '-safe' : '';
 const root = fileURLToPath(new URL('../../ryodan-keys/', import.meta.url));
 const manifest = JSON.parse(await readFile(`${root}deployments/sepolia-v7${suffix}.json`, 'utf8'));
 if (manifest.version !== 7 || manifest.chainId !== 11155111) throw new Error('Expected the v7 Sepolia deployment.');
 const forge = process.env.FORGE_BIN || `${homedir()}/.foundry/bin/forge`;
 const contract = 'src/RyodanKeys.sol:RyodanKeys';
 const compiler = 'v0.8.37+commit.f401782d';
-const constructor = AbiCoder.defaultAbiCoder().encode(['uint256', 'string', 'string', 'address', 'address'], [manifest.deadline, manifest.sbtBaseURI, manifest.nftBaseURI, manifest.deployer, manifest.deployer]).slice(2);
+const constructor = AbiCoder.defaultAbiCoder().encode(['uint256', 'string', 'string', 'address', 'address'], [manifest.deadline, manifest.sbtBaseURI, manifest.nftBaseURI, manifest.admin || manifest.deployer, manifest.admin || manifest.deployer]).slice(2);
 const expected = JSON.parse(execFileSync(forge, ['verify-contract', manifest.address, contract, '--chain', '11155111', '--compiler-version', compiler.slice(1), '--show-standard-json-input'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
 const artifact = JSON.parse(await readFile(`${root}out/RyodanKeys.sol/RyodanKeys.json`, 'utf8'));
 const provider = new JsonRpcProvider('https://rpc.sepolia.ethpandaops.io');

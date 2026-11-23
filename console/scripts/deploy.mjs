@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import { buildSnapshot, proofFor, checkerScript } from '../src/allowlist.js';
-import { Contract, ContractFactory, JsonRpcProvider, Wallet, getCreateAddress, keccak256, ZeroHash } from 'ethers';
+import { Contract, ContractFactory, JsonRpcProvider, Wallet, ZeroAddress, getAddress, getCreateAddress, keccak256, ZeroHash } from 'ethers';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
@@ -22,10 +22,14 @@ const pioneerWallets = (option('--pioneers', '') || '').split(',').map(value => 
 const listsDir = option('--lists', null);
 // --treasury-first: mint the whole treasury allocation before Pioneer opens, as at launch.
 const treasuryFirst = args.includes('--treasury-first');
+// --admin ADDRESS: that address (the client's Safe) is admin and treasury from the constructor; the deploy wallet gets no role and sends nothing else.
+const roleHolder = option('--admin', null);
+// --allowlist-from FILE: with --admin, the console gets the Merkle snapshot of that manifest for the Safe to load.
+const allowlistFrom = option('--allowlist-from', 'ryodan-keys/deployments/sepolia-v7.json');
 const rpc = option('--rpc', local ? 'http://127.0.0.1:8547' : 'https://ethereum-sepolia-rpc.publicnode.com');
 const provider = new JsonRpcProvider(rpc, chainId, { cacheTimeout: -1, pollingInterval: 1500 });
 if (Number(await provider.send('eth_chainId', [])) !== chainId) throw new Error('Wrong chain');
-const manifestPath = resolve(root, option('--manifest', local ? 'console/test-results/local-deployment.json' : `ryodan-keys/deployments/sepolia-v7${qa ? '-refund' : ''}.json`));
+const manifestPath = resolve(root, option('--manifest', local ? 'console/test-results/local-deployment.json' : `ryodan-keys/deployments/sepolia-v7${qa ? '-refund' : roleHolder ? '-safe' : ''}.json`));
 await mkdir(dirname(manifestPath), { recursive: true });
 const artifact = JSON.parse(await readFile(resolve(root, 'ryodan-keys/out/RyodanKeys.sol/RyodanKeys.json'), 'utf8'));
 const expectedWallet = '0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc';
@@ -39,11 +43,14 @@ if (!verifyOnly) {
   }
 }
 const deployer = local ? (await provider.listAccounts())[0].address : expectedWallet;
+const admin = roleHolder ? getAddress(roleHolder) : deployer;
+const safeManaged = admin !== deployer;
+if (safeManaged && (qa || treasuryFirst || listsDir || pioneerWallets.length)) throw new Error('--admin deploys only: the Safe loads the list, mints the treasury and opens Pioneer');
 let manifest;
 try { manifest = JSON.parse(await readFile(manifestPath, 'utf8')); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
-manifest ||= { chainId, deployer, version: 7, purpose: qa ? 'refund' : 'management', transactions: {}, checks: [] };
-if (manifest.chainId !== chainId || manifest.deployer !== deployer || manifest.version !== 7) throw new Error('Manifest context mismatch');
+manifest ||= { chainId, deployer, admin, version: 7, purpose: qa ? 'refund' : safeManaged ? 'safe-managed' : 'management', transactions: {}, checks: [] };
+if (manifest.chainId !== chainId || manifest.deployer !== deployer || (manifest.admin || deployer) !== admin || manifest.version !== 7) throw new Error('Manifest context mismatch');
 async function save() {
   await writeFile(`${manifestPath}.tmp`, JSON.stringify(manifest, null, 2) + '\n');
   await rename(`${manifestPath}.tmp`, manifestPath);
@@ -69,7 +76,7 @@ if (!manifest.address) {
   if (!Number.isSafeInteger(deadline) || deadline <= block.timestamp) throw new Error('--deadline must be a future Unix timestamp');
   const factory = new ContractFactory(artifact.abi, artifact.bytecode.object, signer);
   const nonce = await provider.getTransactionCount(deployer, 'pending');
-  const transaction = await signer.sendTransaction({ ...await factory.getDeployTransaction(deadline, sbtBase, nftBase, deployer, deployer), nonce });
+  const transaction = await signer.sendTransaction({ ...await factory.getDeployTransaction(deadline, sbtBase, nftBase, admin, admin), nonce });
   manifest.address = getCreateAddress({ from: deployer, nonce });
   manifest.deploymentTransaction = transaction.hash;
   manifest.deadline = deadline;
@@ -91,8 +98,21 @@ manifest.runtimeCodeHash = keccak256(runtime);
 await check('Contract version 7', await keys.CONTRACT_VERSION() === 7n);
 await check('Deadline and metadata folders are the ones fixed at deploy', await keys.mintEndTime() === BigInt(manifest.deadline) && await keys.sbtBaseURI() === manifest.sbtBaseURI && await keys.nftBaseURI() === manifest.nftBaseURI);
 await check('No function can move the deadline', !artifact.abi.some(item => item.name === 'setMintEndTime'));
-await check('Test wallet is admin', await keys.hasRole(ZeroHash, deployer) && await keys.defaultAdmin() === deployer);
-await check('Test wallet is treasury', await keys.hasRole(await keys.TREASURY_ROLE(), deployer));
+if (safeManaged) {
+  const treasuryRole = await keys.TREASURY_ROLE();
+  await check('Safe has contract code', await provider.getCode(admin) !== '0x');
+  await check('Safe is admin', await keys.hasRole(ZeroHash, admin) && await keys.defaultAdmin() === admin);
+  await check('Safe is treasury', await keys.hasRole(treasuryRole, admin));
+  await check('Deploy wallet holds no role', !await keys.hasRole(ZeroHash, deployer) && !await keys.hasRole(treasuryRole, deployer));
+  await check('No admin transfer pending', (await keys.pendingDefaultAdmin())[0] === ZeroAddress);
+  await check('Nothing loaded, minted or opened before the Safe acts', await keys.currentPhase() === 0n && await keys.allowlistRoot() === ZeroHash && await keys.mintedByTreasury() === 0n && await keys.mintedByUsers() === 0n);
+  if (!manifest.allowlist) manifest.allowlist = JSON.parse(await readFile(resolve(root, allowlistFrom), 'utf8')).allowlist;
+  if (!manifest.allowlist?.root) throw new Error('No allowlist snapshot in --allowlist-from');
+  await save();
+} else {
+  await check('Test wallet is admin', await keys.hasRole(ZeroHash, deployer) && await keys.defaultAdmin() === deployer);
+  await check('Test wallet is treasury', await keys.hasRole(await keys.TREASURY_ROLE(), deployer));
+}
 
 async function transact(label, method, values = [], value = 0n) {
   let record = manifest.transactions[label];
@@ -131,7 +151,7 @@ if (refund) {
   await expectRevert('Paid key cannot be burned as treasury', 'burnTreasuryKeys', [[1]]);
   await transact('Burn treasury key 3', 'burnTreasuryKeys', [[3]]);
   await check('Only the kept key remains', await keys.totalSupply() === 1n && await keys.totalBurned() === 1n && await keys.ownerOf(1) === deployer);
-} else if (!verifyOnly) {
+} else if (!verifyOnly && !safeManaged) {
   if (!manifest.allowlist) {
     const testPioneers = [deployer, ...pioneerWallets].join('\n');
     const read = async name => (await readFile(join(listsDir, name), 'utf8')).replace(/^\s*address\s*\n/i, '');
@@ -185,7 +205,7 @@ await save();
 if (!local && !qa && !verifyOnly) {
   await writeFile(resolve(root, 'console/src/allowlist.json'), JSON.stringify(manifest.allowlist, null, 2) + '\n');
   await writeFile(resolve(root, 'console/public/testnet-check-data.js'), checkerScript(manifest.allowlist));
-  await writeFile(resolve(root, 'console/src/deployment.json'), JSON.stringify({ chainId, address: manifest.address, label: 'v7 / client-aligned management', deploymentBlock: manifest.deploymentBlock, runtimeCodeHash: manifest.runtimeCodeHash }, null, 2) + '\n');
+  await writeFile(resolve(root, 'console/src/deployment.json'), JSON.stringify({ chainId, address: manifest.address, label: safeManaged ? 'v7 / Safe-managed' : 'v7 / client-aligned management', admin, deploymentBlock: manifest.deploymentBlock, runtimeCodeHash: manifest.runtimeCodeHash }, null, 2) + '\n');
 }
 console.log(JSON.stringify({ address: manifest.address, chainId, deadline: manifest.deadline, manifest: manifestPath }));
 provider.destroy();

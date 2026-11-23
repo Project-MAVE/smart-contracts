@@ -1,7 +1,8 @@
 {
   "chainId": 11155111,
-  "address": "0xd84bEbd8C2ED11546578962ebfD07FC56b79f07b",
-  "label": "v7 / client-aligned management",
-  "deploymentBlock": 12195097,
+  "address": "0x28097DF55dA295bB969b8B187c26978D63D099B8",
+  "label": "v7 / Safe-managed",
+  "admin": "0x31Cd849c982ED10a94A66b4FD7867e97656952Eb",
+  "deploymentBlock": 12196120,
   "runtimeCodeHash": "0xd8fa2ce7c0d3a4927b0ed3b61125bd7c3b9f5983c11ceb5add86320a7cb41d32"
 }
