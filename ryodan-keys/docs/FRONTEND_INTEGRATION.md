@@ -30,7 +30,7 @@ Validate the JSON once with `validateSnapshot`. Compare `root`, `snapshotHash` a
 
 Read `CONTRACT_VERSION` and accept only 7. Read one block and pin calls using `{ blockTag }`, including prices, all four `phases(id)` records, `currentPhase`, `mintPaused`, `mintEndTime`, totals, reserves, role checks and wallet counters. Use the block's timestamp, not the browser clock, for expiry.
 
-`phases(id)` returns `(price, walletLimit, minted, members, reserved, maxWalletMinted)`. Members are inherited totals for phase eligibility; `tierMembers` are exclusive CSV counts. `mintedInPhase(id, account)` is historical phase usage. `mintedAmount(account)` is historical total paid purchases, useful for statistics rather than cap enforcement.
+`phases(id)` returns `(price, walletLimit, minted, members, maxWalletMinted)`. Guaranteed keys are one reservation, `totalGtdReserved`, not split by phase; `gtdMinted(account)` counts what a wallet minted across Pioneer and Operative. Members are inherited totals for phase eligibility; `tierMembers` are exclusive CSV counts. `mintedInPhase(id, account)` is historical phase usage. `mintedAmount(account)` is historical total paid purchases, useful for statistics rather than cap enforcement.
 
 For the ZIP's `NM.chain` adapter:
 

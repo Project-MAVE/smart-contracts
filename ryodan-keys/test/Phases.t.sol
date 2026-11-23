@@ -111,7 +111,7 @@ contract PhasesTest is ListedFixture {
         uint256[4] memory prices = [uint256(0.0075 ether), 0.012 ether, 0.0135 ether, 0.015 ether];
         uint256[4] memory limits = [uint256(4), 4, 10, 20];
         for (uint8 id = 1; id <= 4; id++) {
-            (uint256 price, uint256 limit,,,,) = keys.phases(id);
+            (uint256 price, uint256 limit,,,) = keys.phases(id);
             assertEq(price, prices[id - 1]);
             assertEq(limit, limits[id - 1]);
         }
@@ -148,9 +148,9 @@ contract PhasesTest is ListedFixture {
         _next();
         // The three unused Pioneer keys stay reserved in OPERATIVE and only bob can draw on them.
         assertEq(keys.totalGtdReserved(), 7);
-        (uint256 pioneerPrice,,,, uint256 pioneerReserved,) = keys.phases(1);
+        (uint256 pioneerPrice,,,,) = keys.phases(1);
         assertEq(pioneerPrice, 0.0075 ether);
-        assertEq(pioneerReserved, 3);
+        assertEq(keys.gtdMinted(bob), 1);
         assertEq(keys.remainingAllowance(2, bob), 3);
         assertEq(keys.remainingAllowance(2, alice), 0);
         _mintListed(bob, 4, "Max mint amount reached for address");

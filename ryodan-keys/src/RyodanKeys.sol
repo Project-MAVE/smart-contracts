@@ -36,7 +36,6 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         uint256 walletLimit;
         uint256 minted;
         uint256 members;
-        uint256 reserved;
         uint256 maxWalletMinted;
     }
 
@@ -48,8 +47,12 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
     mapping(uint8 => uint256) public registeredMembers;
     mapping(address => uint8) public walletTier;
     mapping(uint8 => mapping(address => uint256)) public mintedInPhase;
+    /// Guaranteed keys a wallet has minted across PIONEER and OPERATIVE together.
+    mapping(address => uint256) public gtdMinted;
     uint8 public currentPhase;
     bool public mintPaused = true;
+    /// The single reservation for every guaranteed key still unminted: Pioneers and Operatives share it, it is not
+    /// split by phase, and it is released only when RECRUIT opens.
     uint256 public totalGtdReserved;
     /// Fixed at deploy: no function can move it, so refunds always open right after it.
     uint256 public immutable mintEndTime;
@@ -102,10 +105,10 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         require(endTime > block.timestamp, "Deadline must be in the future");
         require(_isBase(sbtBase) && _isBase(nftBase), "Base URI must end with slash");
         require(admin != address(0) && treasury != address(0), "Zero role address");
-        phases[PIONEER] = PhaseConfig(0.0075 ether, 4, 0, 0, 0, 0);
-        phases[OPERATIVE] = PhaseConfig(0.012 ether, 4, 0, 0, 0, 0);
-        phases[RECRUIT] = PhaseConfig(0.0135 ether, 10, 0, 0, 0, 0);
-        phases[CIVILIAN] = PhaseConfig(0.015 ether, 20, 0, 0, 0, 0);
+        phases[PIONEER] = PhaseConfig(0.0075 ether, 4, 0, 0, 0);
+        phases[OPERATIVE] = PhaseConfig(0.012 ether, 4, 0, 0, 0);
+        phases[RECRUIT] = PhaseConfig(0.0135 ether, 10, 0, 0, 0);
+        phases[CIVILIAN] = PhaseConfig(0.015 ether, 20, 0, 0, 0);
         mintEndTime = endTime;
         sbtBaseURI = sbtBase;
         nftBaseURI = nftBase;
@@ -139,15 +142,15 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         return _remaining(phaseId, account, walletTier[account]);
     }
 
-    /// Limits restart in every phase, except that a Pioneer mints at most the Pioneer limit across PIONEER and
-    /// OPERATIVE together: the guaranteed reservation counts each Pioneer once.
+    /// Limits restart in every phase. PIONEER and OPERATIVE also share one guaranteed allocation per wallet: the
+    /// limit of the wallet's own tier, counted once across both phases by gtdMinted.
     function _remaining(uint8 phaseId, address account, uint8 tier) private view returns (uint256) {
         uint256 limit = phases[phaseId].walletLimit;
         uint256 used = mintedInPhase[phaseId][account];
         uint256 left = used < limit ? limit - used : 0;
-        if (phaseId == OPERATIVE && tier == PIONEER) {
-            uint256 gtdLimit = phases[PIONEER].walletLimit;
-            uint256 gtdUsed = mintedInPhase[PIONEER][account] + used;
+        if (phaseId <= OPERATIVE) {
+            uint256 gtdLimit = phases[tier].walletLimit;
+            uint256 gtdUsed = gtdMinted[account];
             uint256 gtdLeft = gtdUsed < gtdLimit ? gtdLimit - gtdUsed : 0;
             if (gtdLeft < left) left = gtdLeft;
         }
@@ -218,9 +221,8 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         );
         uint256 walletMinted = mintedInPhase[phaseId][msg.sender] + amount;
         if (phaseId <= OPERATIVE) {
-            // A Pioneer minting in OPERATIVE draws on the Pioneer reservation, kept open for exactly this.
-            uint8 reservePhase = walletTier[msg.sender] == PIONEER ? PIONEER : phaseId;
-            phases[reservePhase].reserved -= amount;
+            // Every guaranteed mint draws on the wallet's own allocation inside the single reservation.
+            gtdMinted[msg.sender] += amount;
             totalGtdReserved -= amount;
         } else {
             require(amount <= MAX_PUBLIC_SUPPLY - mintedByUsers - totalGtdReserved, "Supply reserved for GTD");
@@ -327,11 +329,9 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         uint8 previous = currentPhase;
         require(allowlistConfigured, "Configure allowlist first");
         require(previous < CIVILIAN, "Final phase reached");
-        // Unused Pioneer keys stay guaranteed through OPERATIVE; both GTD reservations end when RECRUIT opens.
+        // Unused guarantees stay reserved through OPERATIVE; the reservation ends when RECRUIT opens.
         uint256 released = previous == OPERATIVE ? totalGtdReserved : 0;
         if (previous == OPERATIVE) {
-            phases[PIONEER].reserved = 0;
-            phases[OPERATIVE].reserved = 0;
             totalGtdReserved = 0;
         }
         currentPhase = previous + 1;
@@ -350,12 +350,9 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
 
     /// Guaranteed keys: each Pioneer once (Pioneer limit, shared by PIONEER and OPERATIVE), each Operative once.
     function _reserveGtd(uint256 pioneer, uint256 operative) private {
-        uint256 pioneerReserved = pioneer * phases[PIONEER].walletLimit;
-        uint256 operativeReserved = operative * phases[OPERATIVE].walletLimit;
-        require(pioneerReserved + operativeReserved <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
-        phases[PIONEER].reserved = pioneerReserved;
-        phases[OPERATIVE].reserved = operativeReserved;
-        totalGtdReserved = pioneerReserved + operativeReserved;
+        uint256 reserved = pioneer * phases[PIONEER].walletLimit + operative * phases[OPERATIVE].walletLimit;
+        require(reserved <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
+        totalGtdReserved = reserved;
     }
 
     // Only authorized treasury callers receive successful sale proceeds.

@@ -90,7 +90,7 @@ contract SaleHandler is Test {
         uint8 phaseId = uint8(bound(phaseSeed, keys.currentPhase(), 4));
         uint256 limit = bound(limitSeed, 1, 50);
         uint256 price = bound(priceSeed, 1, 0.1 ether);
-        (,,,,, uint256 maximumMinted) = keys.phases(phaseId);
+        (,,,, uint256 maximumMinted) = keys.phases(phaseId);
         maximumMinted;
         (bool ok,) = address(keys).call(abi.encodeCall(keys.configurePhase, (phaseId, price, limit)));
         // Prices and limits are frozen once the first phase opened in initialize().
@@ -225,7 +225,7 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
         assertLe(keys.mintedByTreasury(), 500);
         uint256 phaseTotal;
         for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
-            (,, uint256 minted,,,) = keys.phases(phaseId);
+            (,, uint256 minted,,) = keys.phases(phaseId);
             phaseTotal += minted;
         }
         assertEq(phaseTotal, keys.mintedByUsers());
@@ -265,18 +265,14 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
 
     function invariant_GtdReservationsEqualUnclaimedAllocations() public view {
         // Every actor is a Pioneer: one shared guarantee of the Pioneer limit across PIONEER and OPERATIVE.
-        (, uint256 pioneerLimit,,, uint256 pioneerReserved,) = keys.phases(1);
-        (,,,, uint256 operativeReserved,) = keys.phases(2);
+        (, uint256 pioneerLimit,,,) = keys.phases(1);
         uint256 expected;
-        if (keys.currentPhase() <= 2) {
-            for (uint256 i; i < 4; i++) {
-                address actor = handler.actors(i);
-                expected += pioneerLimit - keys.mintedInPhase(1, actor) - keys.mintedInPhase(2, actor);
-            }
+        for (uint256 i; i < 4; i++) {
+            address actor = handler.actors(i);
+            assertEq(keys.gtdMinted(actor), keys.mintedInPhase(1, actor) + keys.mintedInPhase(2, actor));
+            if (keys.currentPhase() <= 2) expected += pioneerLimit - keys.gtdMinted(actor);
         }
-        assertEq(pioneerReserved, expected);
-        assertEq(operativeReserved, 0);
-        assertEq(pioneerReserved + operativeReserved, keys.totalGtdReserved());
+        assertEq(keys.totalGtdReserved(), expected);
         assertLe(keys.totalGtdReserved() + keys.mintedByUsers(), keys.MAX_PUBLIC_SUPPLY());
     }
 

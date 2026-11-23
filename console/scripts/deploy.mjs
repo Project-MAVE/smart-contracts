@@ -1,4 +1,5 @@
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import { buildSnapshot, proofFor, checkerScript } from '../src/allowlist.js';
@@ -17,6 +18,10 @@ const nftBase = option('--nft-base', local ? 'ipfs://ryodan-nft-local/' : null);
 const chainId = local ? 31337 : 11155111;
 const fixedDeadline = option('--deadline', null);
 const pioneerWallets = (option('--pioneers', '') || '').split(',').map(value => value.trim()).filter(Boolean);
+// --lists DIR: the client's three CSVs; the deployer and --pioneers are added to Pioneer (an address keeps its highest list).
+const listsDir = option('--lists', null);
+// --treasury-first: mint the whole treasury allocation before Pioneer opens, as at launch.
+const treasuryFirst = args.includes('--treasury-first');
 const rpc = option('--rpc', local ? 'http://127.0.0.1:8547' : 'https://ethereum-sepolia-rpc.publicnode.com');
 const provider = new JsonRpcProvider(rpc, chainId, { cacheTimeout: -1, pollingInterval: 1500 });
 if (Number(await provider.send('eth_chainId', [])) !== chainId) throw new Error('Wrong chain');
@@ -127,21 +132,34 @@ if (refund) {
   await transact('Burn treasury key 3', 'burnTreasuryKeys', [[3]]);
   await check('Only the kept key remains', await keys.totalSupply() === 1n && await keys.totalBurned() === 1n && await keys.ownerOf(1) === deployer);
 } else if (!verifyOnly) {
-  manifest.allowlist ||= buildSnapshot({ 'pioneer.csv': `address\n${[deployer, ...pioneerWallets].join('\n')}\n`, 'operative.csv': 'address\n', 'recruit.csv': 'address\n' }, new Date().toISOString()).snapshot;
+  if (!manifest.allowlist) {
+    const testPioneers = [deployer, ...pioneerWallets].join('\n');
+    const read = async name => (await readFile(join(listsDir, name), 'utf8')).replace(/^\s*address\s*\n/i, '');
+    const sources = listsDir
+      ? { 'pioneer.csv': `address\n${testPioneers}\n${await read('pioneer.csv')}`, 'operative.csv': `address\n${await read('operative.csv')}`, 'recruit.csv': `address\n${await read('recruit.csv')}` }
+      : { 'pioneer.csv': `address\n${testPioneers}\n`, 'operative.csv': 'address\n', 'recruit.csv': 'address\n' };
+    manifest.allowlist = buildSnapshot(sources, new Date().toISOString()).snapshot;
+  }
   const snapshot = manifest.allowlist;
   await save();
-  await transact('Load test-wallet Merkle snapshot', 'configureAllowlist', [snapshot.root, snapshot.snapshotHash, snapshot.counts.pioneer, 0, 0]);
+  await transact(listsDir ? 'Load client lists plus test wallets' : 'Load test-wallet Merkle snapshot', 'configureAllowlist', [snapshot.root, snapshot.snapshotHash, snapshot.counts.pioneer, snapshot.counts.operative, snapshot.counts.recruit]);
   const eligibility = proofFor(snapshot, deployer);
+  if (treasuryFirst) {
+    const total = Number(await keys.MAX_TREASURY_SUPPLY());
+    for (let from = 0; from < total; from += 100) await transact(`Treasury mint ${from + 1}-${Math.min(from + 100, total)} before Pioneer`, 'treasuryMint', [Math.min(100, total - from), deployer]);
+    await check('Treasury allocation minted before Pioneer', await keys.mintedByTreasury() === BigInt(total) && await keys.currentPhase() === 0n);
+  }
   await transact('Start Pioneer', 'advancePhase');
   await transact('Resume Pioneer', 'setMintPaused', [false]);
   await transact('Mint two Pioneer test keys', 'mintWithProof', [2, 1, 75n * 10n ** 14n, eligibility.tier, eligibility.proof], 15n * 10n ** 15n);
   await check('Pioneer accepts a single key (no pairs)', await keys.mintWithProof.staticCall(1, 1, 75n * 10n ** 14n, eligibility.tier, eligibility.proof, { value: 75n * 10n ** 14n }).then(() => true));
-  await transact('Mint treasury test key', 'treasuryMint', [1, deployer]);
+  if (!treasuryFirst) await transact('Mint treasury test key', 'treasuryMint', [1, deployer]);
   for (const [index, wallet] of [deployer, ...pioneerWallets].entries()) {
     const entry = proofFor(snapshot, wallet);
     await check(`Pioneer proof accepted on-chain for snapshot wallet ${index + 1} of ${pioneerWallets.length + 1}`, entry?.tier === 1 && await keys.verifyEligibility(wallet, 1, entry.proof));
   }
-  await check('Token IDs start at 1 and record the original payment', await keys.mintPayment(1) === 75n * 10n ** 14n && await keys.ownerOf(1) === deployer && await keys.tokenURI(1) === `${manifest.sbtBaseURI}1.json`);
+  const firstPaid = treasuryFirst ? await keys.MAX_TREASURY_SUPPLY() + 1n : 1n;
+  await check('Paid token IDs follow the treasury keys and record the original payment', await keys.mintPayment(firstPaid) === 75n * 10n ** 14n && await keys.ownerOf(firstPaid) === deployer && await keys.tokenURI(firstPaid) === `${manifest.sbtBaseURI}${firstPaid}.json`);
   if (qa) {
     for (const [phaseId, name, price] of [[2, 'Operative', 12n * 10n ** 15n], [3, 'Recruit', 135n * 10n ** 14n], [4, 'Civilian', 15n * 10n ** 15n]]) {
       await transact(`Advance to ${name}`, 'advancePhase');
@@ -154,7 +172,7 @@ if (refund) {
     await expectRevert('Prices and limits are locked once Pioneer opens', 'configurePhase', [4, 5n * 10n ** 15n, 4]);
     await expectRevert('Cannot choose another mint phase', 'mint', [1, 1, 5n * 10n ** 15n]);
   }
-  await check('Paid and treasury mint counters', await keys.mintedByUsers() === (qa ? 5n : 2n) && await keys.mintedByTreasury() === 1n);
+  await check('Paid and treasury mint counters', await keys.mintedByUsers() === (qa ? 5n : 2n) && await keys.mintedByTreasury() === (treasuryFirst ? await keys.MAX_TREASURY_SUPPLY() : 1n));
 }
 for (const [label, record] of Object.entries(manifest.transactions)) {
   const receipt = await confirm(record.hash);

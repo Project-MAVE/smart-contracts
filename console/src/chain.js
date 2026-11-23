@@ -51,7 +51,7 @@ export async function snapshot(provider, contractAddress, account, chainId, allo
       keys.mintedInPhase(id, account, options), state.proof ? keys.remainingAllowanceWithProof(id, account, state.proof.tier, state.proof.proof, options) : keys.remainingAllowance(id, account, options),
       id === 4 ? true : state.proof ? state.proof.tier <= id : keys.allowlisted(id, account, options),
     ]) : [0n, 0n, false];
-    return { id, price: config.price, limit: config.walletLimit, minted: config.minted, members: config.members, reserved: config.reserved, walletMinted, allowance, allowed };
+    return { id, price: config.price, limit: config.walletLimit, minted: config.minted, members: config.members, walletMinted, allowance, allowed };
   }));
   const active = state.phases[Number(state.currentPhase) - 1];
   state.limit = active?.limit || 0n;
