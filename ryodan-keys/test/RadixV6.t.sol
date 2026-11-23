@@ -38,14 +38,14 @@ contract RadixV6Test is RyodanKeysFixture {
 
     function test_IdsRunFromOneTo6666TreasuryFirst() public {
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
         assertEq(keys.ownerOf(1), treasury);
-        assertEq(keys.ownerOf(666), treasury);
-        _open(6000);
+        assertEq(keys.ownerOf(500), treasury);
+        _open(6166);
         _buy(bob, 1);
-        assertEq(keys.ownerOf(667), bob);
-        assertEq(keys.originalMinter(667), bob);
-        _buy(bob, 5999);
+        assertEq(keys.ownerOf(501), bob);
+        assertEq(keys.originalMinter(501), bob);
+        _buy(bob, 6165);
         assertEq(keys.ownerOf(6666), bob);
         assertTrue(keys.soldOut());
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 0));
@@ -55,11 +55,11 @@ contract RadixV6Test is RyodanKeysFixture {
     }
 
     function test_SelloutEmitsBatchUpdateOneTo6666() public {
-        _open(6000);
-        _buy(bob, 6000);
+        _open(6166);
+        _buy(bob, 6166);
         vm.recordLogs();
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         bytes32 sig = keccak256("BatchMetadataUpdate(uint256,uint256)");
         uint256 found;
@@ -107,7 +107,7 @@ contract RadixV6Test is RyodanKeysFixture {
     function test_IdZeroAndOutOfRangeNeverRefundOrBurn() public {
         _open(10);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Token not eligible for refund");
         keys.refundBatch(one(0));
         vm.expectRevert("Token not eligible for refund");
@@ -127,7 +127,7 @@ contract RadixV6Test is RyodanKeysFixture {
         uint8 phaseId = keys.currentPhase();
         vm.prank(address(w));
         keys.mint{value: price}(1, phaseId, price);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         Griefer6 g = new Griefer6();
         uint256 deferrals;
         uint256 paid;

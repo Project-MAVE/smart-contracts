@@ -104,15 +104,19 @@ contract C_Price is Fixture {
         keys.configurePhase(4, 0, 10);
     }
 
-    function test_C03_PriceChangeCannotOverchargeAPendingBuyer() public {
+    function test_C03_PriceIsFrozenOnceTheSaleOpensAndStaleQuotesRevert() public {
         _openCivilian(10, 0.01 ether);
         address bob = makeAddr("bob");
         vm.deal(bob, 1 ether);
         uint256 before = bob.balance;
-        keys.configurePhase(4, 0.02 ether, 10);
+        vm.expectRevert("Phases locked");
+        keys.configurePhase(4, 0.0001 ether, 10);
+        vm.expectRevert("Phases locked");
+        keys.configurePhase(4, 0.01 ether, 6166);
+        assertEq(keys.mintPrice(), 0.01 ether);
         vm.prank(bob);
         vm.expectRevert("Mint quote changed");
-        keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
+        keys.mint{value: 0.02 ether}(1, 4, 0.02 ether);
         assertEq(bob.balance, before);
         assertEq(keys.totalSupply(), 0);
         assertEq(address(keys).balance, 0);
@@ -120,16 +124,17 @@ contract C_Price is Fixture {
 
     function test_C04_HugePriceOverflowGuarded() public {
         vm.expectRevert("Invalid price");
-        keys.configurePhase(4, type(uint256).max / 6000 + 1, 10);
+        keys.configurePhase(4, type(uint256).max / 6166 + 1, 10);
     }
 
     function test_C05_PaymentSnapshotPerKey() public {
         _openCivilian(10, 0.01 ether);
         _buy(address(0xAA), 1);
+        vm.expectRevert("Phases locked");
         keys.configurePhase(4, 0.5 ether, 10);
         _buy(address(0xAA), 1);
         assertEq(keys.mintPayment(1), 0.01 ether);
-        assertEq(keys.mintPayment(2), 0.5 ether);
+        assertEq(keys.mintPayment(2), 0.01 ether);
         _toEnd();
         vm.prank(address(0xAA));
         keys.refund(1);
@@ -139,24 +144,24 @@ contract C_Price is Fixture {
 
 contract D_Supply is Fixture {
     function test_D01_PublicSupplyHardCap() public {
-        _openCivilian(6000, 0.01 ether);
-        _buy(address(0xAA), 6000);
+        _openCivilian(6166, 0.01 ether);
+        _buy(address(0xAA), 6166);
         vm.deal(address(0xAA), 1 ether);
         vm.prank(address(0xAA));
         vm.expectRevert("Max supply reached");
         keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
-        assertEq(keys.mintedByUsers(), 6000);
+        assertEq(keys.mintedByUsers(), 6166);
     }
 
     function test_D02_TreasurySupplyHardCap() public {
         _openCivilian(10, 0.01 ether);
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
         vm.prank(treasury);
         vm.expectRevert("Max supply reached while minting to treasury");
         keys.treasuryMint(1, treasury);
-        assertEq(keys.mintedByTreasury(), 666);
-        assertEq(keys.totalSupply(), 666);
+        assertEq(keys.mintedByTreasury(), 500);
+        assertEq(keys.totalSupply(), 500);
     }
 
     function test_D03_TotalCapEquals6000Plus666() public view {
@@ -171,7 +176,7 @@ contract D_Supply is Fixture {
         _toEnd();
         vm.prank(address(0xAA));
         keys.refund(2);
-        vm.expectRevert("Mint ended");
+        vm.expectRevert("Phases locked");
         keys.configurePhase(4, 0.01 ether, 10);
         assertEq(keys.ownerOf(1), address(0xAA));
         assertEq(keys.totalSupply(), 1);
@@ -252,7 +257,7 @@ contract D_Supply is Fixture {
         vm.deal(address(0xAA), 1 ether);
         vm.prank(address(0xAA));
         vm.expectRevert("Not allowlisted");
-        keys.mint{value: 0.05 ether}(2, 1, 0.025 ether);
+        keys.mint{value: 0.015 ether}(2, 1, 0.0075 ether);
     }
 
     function test_D08_AllowlistFrozenAfterStart() public {
@@ -261,7 +266,7 @@ contract D_Supply is Fixture {
         keys.configureAllowlist(bytes32(uint256(1)), keccak256("snap"), 1, 0, 0);
     }
 
-    function test_D09_PairRuleInPioneer() public {
+    function test_D09_PioneerMintsSingleKeysUpToItsLimit() public {
         address bob = makeAddr("bob");
         bytes32 l = _leaf(bob, 1);
         keys.configureAllowlist(l, keccak256("snap"), 1, 0, 0);
@@ -270,7 +275,12 @@ contract D_Supply is Fixture {
         keys.setMintPaused(false);
         vm.deal(bob, 1 ether);
         vm.prank(bob);
-        vm.expectRevert("Pioneer requires pairs");
         keys.mintWithProof{value: 0.015 ether}(1, 1, 0.015 ether, 1, new bytes32[](0));
+        vm.prank(bob);
+        keys.mint{value: 0.045 ether}(3, 1, 0.015 ether);
+        assertEq(keys.balanceOf(bob), 4);
+        vm.prank(bob);
+        vm.expectRevert("Max mint amount reached for address");
+        keys.mint{value: 0.015 ether}(1, 1, 0.015 ether);
     }
 }

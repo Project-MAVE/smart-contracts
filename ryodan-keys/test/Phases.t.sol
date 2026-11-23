@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {RyodanKeysFixture, CallbackWallet} from "./RyodanKeys.t.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {RyodanKeys} from "../src/RyodanKeys.sol";
 
 abstract contract ListedFixture is RyodanKeysFixture {
     address[] internal listedAccounts;
@@ -107,38 +108,73 @@ abstract contract ListedFixture is RyodanKeysFixture {
 
 contract PhasesTest is ListedFixture {
     function test_ClientDefaultsAndSupply() public view {
-        uint256[4] memory prices = [uint256(0.025 ether), 0.04 ether, 0.045 ether, 0.05 ether];
-        uint256[4] memory limits = [uint256(4), 10, 10, 10];
+        uint256[4] memory prices = [uint256(0.0075 ether), 0.012 ether, 0.0135 ether, 0.015 ether];
+        uint256[4] memory limits = [uint256(4), 4, 10, 20];
         for (uint8 id = 1; id <= 4; id++) {
-            (uint256 price, uint256 limit,,,,) = keys.phases(id);
+            (uint256 price, uint256 limit,,,) = keys.phases(id);
             assertEq(price, prices[id - 1]);
             assertEq(limit, limits[id - 1]);
         }
-        assertEq(keys.CONTRACT_VERSION(), 6);
+        assertEq(keys.CONTRACT_VERSION(), 7);
         assertEq(keys.MAX_SUPPLY(), 6666);
-        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6000);
-        assertEq(keys.MAX_TREASURY_SUPPLY(), 666);
+        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6166);
+        assertEq(keys.MAX_TREASURY_SUPPLY(), 500);
+        assertEq(keys.CHOICE_WINDOW(), 4 days);
     }
 
     function test_PioneerInheritsLaterListsAndCanMint34WithoutDuplicateEntries() public {
         _one(bob, 1);
-        assertEq(keys.totalGtdReserved(), 14);
-        uint256[4] memory amounts = [uint256(4), 10, 10, 10];
+        assertEq(keys.totalGtdReserved(), 4);
+        uint256[4] memory amounts = [uint256(4), 0, 10, 20];
         for (uint8 id = 1; id <= 4; id++) {
             _next();
-            _mintListed(bob, amounts[id - 1]);
+            if (amounts[id - 1] > 0) _mintListed(bob, amounts[id - 1]);
+            else _mintListed(bob, 1, "Max mint amount reached for address");
             assertEq(keys.remainingAllowance(id, bob), 0);
             assertEq(keys.mintedInPhase(id, bob), amounts[id - 1]);
         }
         assertEq(keys.balanceOf(bob), 34);
         assertEq(keys.ownerOf(34), bob);
-        assertEq(address(keys).balance, 1.45 ether);
+        assertEq(address(keys).balance, 0.465 ether);
         assertEq(keys.registeredMembers(1), 1);
+    }
+
+    function test_PioneerSharesFourGuaranteedKeysAcrossPioneerAndOperative() public {
+        _three();
+        assertEq(keys.totalGtdReserved(), 8);
+        _next();
+        _mintListed(bob, 1);
+        assertEq(keys.totalGtdReserved(), 7);
+        _next();
+        // The three unused Pioneer keys stay reserved in OPERATIVE and only bob can draw on them.
+        assertEq(keys.totalGtdReserved(), 7);
+        (uint256 pioneerPrice,,,,) = keys.phases(1);
+        assertEq(pioneerPrice, 0.0075 ether);
+        assertEq(keys.gtdMinted(bob), 1);
+        assertEq(keys.remainingAllowance(2, bob), 3);
+        assertEq(keys.remainingAllowance(2, alice), 0);
+        _mintListed(bob, 4, "Max mint amount reached for address");
+        _mintListed(bob, 3);
+        assertEq(keys.remainingAllowance(2, bob), 0);
+        _mintListed(alice, 4);
+        assertEq(keys.totalGtdReserved(), 0);
+        assertEq(keys.mintPayment(1), 0.0075 ether);
+        assertEq(keys.mintPayment(2), 0.012 ether);
+        _next();
+        assertEq(keys.remainingAllowance(3, bob), 10);
+    }
+
+    function test_ClientListsFitTheGuaranteedSupply() public {
+        keys.configureAllowlist(bytes32(uint256(1)), keccak256("23-nov"), 100, 1403, 5705);
+        assertEq(keys.totalGtdReserved(), 6012);
+        RyodanKeys other = new RyodanKeys(end, HIDDEN, NFT, address(this), treasury);
+        vm.expectRevert("Insufficient GTD supply");
+        other.configureAllowlist(bytes32(uint256(1)), keccak256("too-many"), 100, 1442, 0);
     }
 
     function test_ThreeExclusiveTiersEnforceHierarchyAndProofsBeforeFirstMint() public {
         _three();
-        assertEq(keys.totalGtdReserved(), 24);
+        assertEq(keys.totalGtdReserved(), 8);
         (uint8 tier, bytes32[] memory proof) = _proof(bob);
         assertEq(keys.remainingAllowance(1, bob), 0);
         assertEq(keys.remainingAllowanceWithProof(1, bob, tier, proof), 4);
@@ -149,8 +185,8 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.walletTier(alice), 0);
         _mintListed(bob, 2);
         _next();
-        _mintListed(alice, 10);
-        _buy(bob, 10);
+        _mintListed(alice, 4);
+        _buy(bob, 2);
         _mintListed(treasury, 1, "Not allowlisted");
         _next();
         _mintListed(treasury, 10);
@@ -161,18 +197,16 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.registeredMembers(3), 1);
     }
 
-    function test_PioneerRejectsOddQuantitiesAndOddWalletLimits() public {
+    function test_PioneerAcceptsAnyQuantityUpToItsLimit() public {
+        keys.configurePhase(1, 0.0075 ether, 5);
+        keys.configurePhase(1, 0.0075 ether, 4);
         _one(bob, 1);
         _next();
-        _mintListed(bob, 1, "Pioneer requires pairs");
-        _mintListed(bob, 3, "Pioneer requires pairs");
-        vm.expectRevert("Pioneer limit must be even");
-        keys.configurePhase(1, 0.025 ether, 5);
-        _mintListed(bob, 2);
-        _buy(bob, 2);
-        _mintListed(bob, 2, "Max mint amount reached for address");
-        assertEq(keys.mintPayment(1), 0.025 ether);
-        assertEq(address(keys).balance, 0.1 ether);
+        _mintListed(bob, 1);
+        _mintListed(bob, 3);
+        _mintListed(bob, 1, "Max mint amount reached for address");
+        assertEq(keys.mintPayment(1), 0.0075 ether);
+        assertEq(address(keys).balance, 0.03 ether);
     }
 
     function test_InvalidProofCannotConsumeFundsOrRegisterTier() public {
@@ -183,10 +217,10 @@ contract PhasesTest is ListedFixture {
         vm.deal(bob, 1 ether);
         vm.prank(bob);
         vm.expectRevert("Invalid allowlist proof");
-        keys.mintWithProof{value: 0.05 ether}(2, 1, 0.025 ether, 1, proof);
+        keys.mintWithProof{value: 0.015 ether}(2, 1, 0.0075 ether, 1, proof);
         assertEq(keys.walletTier(bob), 0);
         assertEq(keys.registeredMembers(1), 0);
-        assertEq(keys.totalGtdReserved(), 24);
+        assertEq(keys.totalGtdReserved(), 8);
         assertEq(address(keys).balance, 0);
         assertFalse(keys.verifyEligibility(address(0), 1, proof));
         assertFalse(keys.verifyEligibility(bob, 0, proof));
@@ -198,7 +232,7 @@ contract PhasesTest is ListedFixture {
         bytes32 previous = keys.allowlistRoot();
         _one(alice, 2);
         assertNotEq(previous, keys.allowlistRoot());
-        assertEq(keys.totalGtdReserved(), 10);
+        assertEq(keys.totalGtdReserved(), 4);
         _next();
         vm.expectRevert("Allowlist frozen");
         keys.configureAllowlist(previous, keccak256("changed"), 1, 0, 0);
@@ -216,8 +250,8 @@ contract PhasesTest is ListedFixture {
         }
         vm.expectRevert("Final phase reached");
         keys.advancePhase();
-        vm.expectRevert("Phase closed");
-        keys.configurePhase(1, 1, 4);
+        vm.expectRevert("Phases locked");
+        keys.configurePhase(4, 1, 4);
     }
 
     function test_CannotSelectAnotherPhaseEvenWithIdenticalPrice() public {
@@ -239,13 +273,15 @@ contract PhasesTest is ListedFixture {
         _one(bob, 1);
         _next();
         _mintListed(bob, 2);
+        vm.expectRevert("Phases locked");
         keys.configurePhase(1, 0.03 ether, 4);
         vm.deal(bob, 1 ether);
         vm.prank(bob);
         vm.expectRevert("Mint quote changed");
-        keys.mint{value: 0.05 ether}(2, 1, 0.025 ether);
+        keys.mint{value: 0.06 ether}(2, 1, 0.03 ether);
+        _next();
         _buy(bob, 2);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256 beforeBalance = bob.balance;
         uint256[] memory ids = new uint256[](4);
         for (uint256 i; i < 4; i++) {
@@ -253,35 +289,39 @@ contract PhasesTest is ListedFixture {
         }
         vm.prank(alice);
         keys.refundBatch(ids);
-        assertEq(bob.balance - beforeBalance, 0.11 ether);
+        assertEq(bob.balance - beforeBalance, 0.039 ether);
         assertEq(address(keys).balance, 0);
     }
 
     function test_GtdLimitsResizeBothInheritedAllocationsWithoutResettingUsage() public {
-        _one(bob, 1);
+        _three();
+        keys.configurePhase(1, 0.0075 ether, 6);
+        assertEq(keys.totalGtdReserved(), 10);
+        keys.configurePhase(2, 0.012 ether, 12);
+        assertEq(keys.totalGtdReserved(), 18);
         _next();
+        vm.expectRevert("Phases locked");
+        keys.configurePhase(2, 0.012 ether, 4);
         _mintListed(bob, 2);
-        keys.configurePhase(1, 0.025 ether, 6);
-        assertEq(keys.totalGtdReserved(), 14);
-        keys.configurePhase(2, 0.04 ether, 12);
         assertEq(keys.totalGtdReserved(), 16);
-        _buy(bob, 4);
-        vm.expectRevert("Limit below minted allocation");
-        keys.configurePhase(1, 1, 4);
         _next();
-        assertEq(keys.totalGtdReserved(), 12);
-        _buy(bob, 12);
+        assertEq(keys.totalGtdReserved(), 16);
+        assertEq(keys.remainingAllowance(2, bob), 4);
+        _buy(bob, 4);
+        _mintListed(alice, 12);
+        assertEq(keys.totalGtdReserved(), 0);
+        _next();
         assertEq(keys.totalGtdReserved(), 0);
     }
 
     function test_GtdOverbookingRejectedAtSnapshotAndQuotaUpdate() public {
         vm.expectRevert("Insufficient GTD supply");
-        keys.configureAllowlist(bytes32(uint256(1)), keccak256("large"), 441, 0, 0);
+        keys.configureAllowlist(bytes32(uint256(1)), keccak256("large"), 1542, 0, 0);
         assertFalse(keys.allowlistConfigured());
-        _one(bob, 1);
+        _three();
         vm.expectRevert("Insufficient GTD supply");
-        keys.configurePhase(1, 1, 6000);
-        assertEq(keys.totalGtdReserved(), 14);
+        keys.configurePhase(1, 1, 6166);
+        assertEq(keys.totalGtdReserved(), 8);
     }
 
     function test_ExactGtdCapacityIsUsableAcrossInheritedTiers() public {
@@ -291,44 +331,45 @@ contract PhasesTest is ListedFixture {
         accounts[1] = alice;
         tiers[0] = 1;
         tiers[1] = 2;
-        keys.configurePhase(1, 1, 2000);
-        keys.configurePhase(2, 1, 2000);
+        keys.configurePhase(1, 1, 3083);
+        keys.configurePhase(2, 1, 3083);
         _lists(accounts, tiers);
-        assertEq(keys.totalGtdReserved(), 6000);
+        assertEq(keys.totalGtdReserved(), 6166);
         _next();
         _mintListed(bob, 2000);
         _next();
-        _buy(bob, 2000);
-        _mintListed(alice, 2000);
-        assertEq(keys.mintedByUsers(), 6000);
+        assertEq(keys.totalGtdReserved(), 4166);
+        _buy(bob, 1083);
+        _mintListed(alice, 3083);
+        assertEq(keys.mintedByUsers(), 6166);
         assertEq(keys.totalGtdReserved(), 0);
     }
 
     function test_UnusedGuaranteesReleaseAndCivilianReceivesRemainder() public {
+        keys.configurePhase(4, 1, 6166);
         _three();
         _next();
         _mintListed(bob, 2);
         _next();
-        assertEq(keys.totalGtdReserved(), 20);
+        assertEq(keys.totalGtdReserved(), 6);
         _mintListed(alice, 3);
         _next();
         assertEq(keys.totalGtdReserved(), 0);
         _mintListed(treasury, 4);
         _next();
-        keys.configurePhase(4, 1, 6000);
-        _buy(bob, 5991);
-        assertEq(keys.mintedByUsers(), 6000);
+        _buy(bob, 6157);
+        assertEq(keys.mintedByUsers(), 6166);
         assertEq(keys.remainingAllowance(1, bob), 0);
     }
 
     function test_RecruitIsFcfsAndCannotExceedRemainingSupply() public {
         _one(bob, 3);
         assertEq(keys.totalGtdReserved(), 0);
-        keys.configurePhase(3, 1, 6000);
+        keys.configurePhase(3, 1, 6166);
         _next();
         _next();
         _next();
-        _mintListed(bob, 6000);
+        _mintListed(bob, 6166);
         vm.deal(alice, 1);
         vm.prank(alice);
         vm.expectRevert("Max supply reached");
@@ -356,13 +397,14 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.remainingAllowance(5, bob), 0);
     }
 
-    function test_FcfsLimitMayDropBelowUsedWithoutReset() public {
+    function test_LimitsAndPricesAreLockedOnceTheSaleOpens() public {
         _open(10);
         _buy(bob, 5);
+        vm.expectRevert("Phases locked");
         keys.configurePhase(4, 1, 2);
-        assertEq(keys.remainingAllowance(4, bob), 0);
-        keys.configurePhase(4, 1, 6);
-        assertEq(keys.remainingAllowance(4, bob), 1);
+        vm.expectRevert("Phases locked");
+        keys.configurePhase(4, 1, 6166);
+        assertEq(keys.remainingAllowance(4, bob), 5);
     }
 
     function test_ReceiverRejectionRollsBackProofRegistrationAndGuarantees() public {
@@ -372,19 +414,23 @@ contract PhasesTest is ListedFixture {
         wallet.configure("", false, true);
         vm.deal(address(this), 1 ether);
         vm.expectRevert("NFT rejected");
-        wallet.buyWithProof{value: 0.05 ether}(2, 1, new bytes32[](0));
+        wallet.buyWithProof{value: 0.015 ether}(2, 1, new bytes32[](0));
         assertEq(keys.walletTier(address(wallet)), 0);
         assertEq(keys.registeredMembers(1), 0);
-        assertEq(keys.totalGtdReserved(), 14);
+        assertEq(keys.totalGtdReserved(), 4);
         assertEq(address(keys).balance, 0);
     }
 
     function test_AdminReceiverCannotReenterSaleMutators() public {
         CallbackWallet wallet = new CallbackWallet(keys);
         _one(address(wallet), 1);
-        keys.configurePhase(1, 0.025 ether, 8);
-        keys.grantRole(keys.DEFAULT_ADMIN_ROLE(), address(wallet));
+        keys.configurePhase(1, 0.0075 ether, 8);
         _next();
+        keys.beginDefaultAdminTransfer(address(wallet));
+        vm.warp(block.timestamp + 1);
+        vm.prank(address(wallet));
+        keys.acceptDefaultAdminTransfer();
+        assertTrue(keys.hasRole(keys.DEFAULT_ADMIN_ROLE(), address(wallet)));
         bytes[4] memory calls = [
             abi.encodeCall(keys.configurePhase, (1, 1, 100)),
             abi.encodeCall(keys.advancePhase, ()),
@@ -394,59 +440,62 @@ contract PhasesTest is ListedFixture {
         vm.deal(address(this), 1 ether);
         for (uint256 i; i < 4; i++) {
             wallet.configure(calls[i], false, false);
-            wallet.buyWithProof{value: 0.05 ether}(2, 1, new bytes32[](0));
+            wallet.buyWithProof{value: 0.015 ether}(2, 1, new bytes32[](0));
             assertFalse(wallet.reentered());
             assertEq(wallet.result(), abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
         }
         assertEq(keys.currentPhase(), 1);
-        assertEq(keys.totalGtdReserved(), 10);
+        assertEq(keys.totalGtdReserved(), 0);
     }
 
     function test_ExpiryAndSelloutKeepConfigurationLocked() public {
         _next();
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Mint ended");
         keys.advancePhase();
         vm.expectRevert("Mint ended");
         keys.setMintPaused(false);
-        vm.expectRevert("Mint ended");
+        vm.expectRevert("Phases locked");
         keys.configurePhase(2, 1, 10);
         vm.expectRevert("Mint ended");
         keys.configureAllowlist(bytes32(0), keccak256("x"), 0, 0, 0);
     }
 
-    function testFuzz_PioneerAlwaysUsesPairs(uint256 amountSeed, uint256 limitSeed) public {
-        uint256 cap = bound(limitSeed, 1, 30) * 2;
+    function testFuzz_PioneerMintsAnyQuantityUpToItsLimit(uint256 amountSeed, uint256 limitSeed) public {
+        uint256 cap = bound(limitSeed, 1, 60);
         keys.configurePhase(1, 7, cap);
         _one(bob, 1);
         _next();
         uint256 amount = bound(amountSeed, 1, cap);
-        if (amount % 2 == 1) {
-            _mintListed(bob, amount, "Pioneer requires pairs");
-            assertEq(keys.mintedByUsers(), 0);
-        } else {
-            _mintListed(bob, amount);
-            assertEq(keys.mintedByUsers(), amount);
-            assertEq(keys.totalGtdReserved(), cap - amount + 10);
-        }
+        _mintListed(bob, amount);
+        assertEq(keys.mintedByUsers(), amount);
+        assertEq(keys.totalGtdReserved(), cap - amount);
+        _next();
+        assertEq(keys.remainingAllowance(2, bob), cap - amount < 4 ? cap - amount : 4);
     }
 
     function testFuzz_IndependentLimitsAndOriginalRefunds(uint256 seed, uint256 priceSeed) public {
+        uint256[5] memory caps;
+        uint256[5] memory prices;
+        for (uint8 id = 1; id <= 4; id++) {
+            caps[id] = 1 + uint256(keccak256(abi.encode(seed, id))) % 10;
+            prices[id] = 1 + uint256(keccak256(abi.encode(priceSeed, id))) % 0.1 ether;
+            keys.configurePhase(id, prices[id], caps[id]);
+        }
         _one(bob, 1);
         uint256 paid;
         uint256 minted;
         for (uint8 id = 1; id <= 4; id++) {
-            uint256 cap = 1 + uint256(keccak256(abi.encode(seed, id))) % 10;
-            if (id == 1) cap *= 2;
-            uint256 price = 1 + uint256(keccak256(abi.encode(priceSeed, id))) % 0.1 ether;
-            keys.configurePhase(id, price, cap);
             _next();
-            _mintListed(bob, cap);
-            paid += price * cap;
-            minted += cap;
+            uint256 amount = id == 2 ? 0 : caps[id];
+            if (id > 1) assertEq(keys.remainingAllowance(id, bob), amount);
+            if (amount > 0) _mintListed(bob, amount);
+            else _mintListed(bob, 1, "Max mint amount reached for address");
+            paid += prices[id] * amount;
+            minted += amount;
             assertEq(keys.remainingAllowance(id, bob), 0);
         }
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256 beforeBalance = bob.balance;
         uint256[] memory ids = new uint256[](minted);
         for (uint256 id; id < minted; id++) {
@@ -462,7 +511,8 @@ contract PhasesTest is ListedFixture {
     function test_ProofViewsHandleClosedInvalidAndExhaustedWallets() public {
         _one(bob, 1);
         bytes32[] memory proof = new bytes32[](0);
-        assertEq(keys.remainingAllowanceWithProof(4, bob, 1, proof), 10);
+        assertEq(keys.remainingAllowanceWithProof(4, bob, 1, proof), 20);
+        assertEq(keys.remainingAllowanceWithProof(2, bob, 1, proof), 4);
         assertEq(keys.remainingAllowanceWithProof(0, bob, 1, proof), 0);
         assertEq(keys.remainingAllowanceWithProof(5, bob, 1, proof), 0);
         assertEq(keys.remainingAllowanceWithProof(1, alice, 1, proof), 0);
@@ -500,7 +550,7 @@ contract PhasesTest is ListedFixture {
         _mintListed(alice, 4, "Tier member count exceeded");
         assertEq(keys.walletTier(alice), 0);
         assertEq(keys.registeredMembers(1), 1);
-        assertEq(keys.totalGtdReserved(), 10);
+        assertEq(keys.totalGtdReserved(), 0);
         assertEq(keys.mintedByUsers(), 4);
     }
 
@@ -528,7 +578,26 @@ contract PhasesTest is ListedFixture {
         _sellOut();
         vm.expectRevert("All tokens minted");
         keys.advancePhase();
-        vm.expectRevert("All tokens minted");
+        vm.expectRevert("Phases locked");
         keys.configurePhase(4, 1, 10);
+    }
+
+    function test_AdminRoleMovesOnlyInTwoStepsAndNeverThroughGrantRole() public {
+        bytes32 adminRole = keys.DEFAULT_ADMIN_ROLE();
+        vm.expectRevert(abi.encodeWithSignature("AccessControlEnforcedDefaultAdminRules()"));
+        keys.grantRole(adminRole, alice);
+        keys.beginDefaultAdminTransfer(alice);
+        assertTrue(keys.hasRole(adminRole, address(this)));
+        assertFalse(keys.hasRole(adminRole, alice));
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSignature("AccessControlInvalidDefaultAdmin(address)", bob));
+        keys.acceptDefaultAdminTransfer();
+        vm.warp(block.timestamp + 1);
+        vm.prank(alice);
+        keys.acceptDefaultAdminTransfer();
+        assertTrue(keys.hasRole(adminRole, alice));
+        assertFalse(keys.hasRole(adminRole, address(this)));
+        assertEq(keys.defaultAdmin(), alice);
+        assertTrue(keys.hasRole(keys.TREASURY_ROLE(), treasury));
     }
 }

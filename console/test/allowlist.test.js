@@ -48,11 +48,13 @@ test('snapshot detects modified counts, source digests, proof nodes, leaves and 
     const copy = structuredClone(snapshot); mutate(copy); assert.throws(() => validateSnapshot(copy));
   }
 });
-test('GTD includes both inherited allocations and rejects overbooking and odd caps', () => {
-  assert.equal(capacity({ pioneer: 428, operative: 0 }).total, 5992n);
-  assert.throws(() => capacity({ pioneer: 429, operative: 0 }), /6000 paid/);
-  assert.equal(capacity({ pioneer: 1, operative: 1 }, 2000n, 2000n).total, 6000n);
-  assert.throws(() => capacity({ pioneer: 1, operative: 0 }, 3n, 10n));
+test('GTD counts each Pioneer once across PIONEER and OPERATIVE and rejects overbooking', () => {
+  assert.deepEqual(capacity({ pioneer: 100, operative: 1403 }), { pioneer: 400n, operative: 5612n, total: 6012n, unreserved: 154n });
+  assert.equal(capacity({ pioneer: 1541, operative: 0 }).total, 6164n);
+  assert.throws(() => capacity({ pioneer: 100, operative: 1442 }), /6166 paid/);
+  assert.throws(() => capacity({ pioneer: 100, operative: 1403 }, 4n, 4n, 6000n), /6012 keys; only 6000/);
+  assert.equal(capacity({ pioneer: 1, operative: 0 }, 3n, 10n).total, 3n);
+  assert.throws(() => capacity({ pioneer: 1, operative: 0 }, 0n, 10n));
   assert.throws(() => buildSnapshot({ 'pioneer.csv': csvTemplate }, frozen), /Missing operative/);
   assert.throws(() => buildSnapshot(sources(), '2026-10-30'), /UTC/);
 });

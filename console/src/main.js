@@ -133,10 +133,7 @@ function render() {
   renderV6(s);
   for (const id of ['#mint-amount', '#wallet-limit']) $(id).max = String(s.maxPaid);
   $('#paid-progress').max = Number(s.maxPaid);
-  const step = s.currentPhase === 1n ? 2 : 1;
-  $('#mint-amount').step = String(step); $('#mint-amount').min = String(step);
-  if (Number($('#mint-amount').value) < step) $('#mint-amount').value = String(step);
-  text('#mint-unit-note', step === 2 ? `Pioneer mints pairs: ${formatEther(s.price * 2n)} ETH per pair. Quantity is the number of keys (2, 4, …).` : 'Mint in the active phase. Token IDs are assigned in sequence.');
+  text('#mint-unit-note', s.currentPhase === 2n && s.proof?.tier === 1 ? 'Pioneers mint up to the Pioneer limit across Pioneer and Operative together.' : 'Mint in the active phase. Token IDs are assigned in sequence.');
   $('#batch-refund-panel').hidden = location.hash !== '#refund';
   text('#paid-count', `${s.paid.toLocaleString('en-US')} / ${s.maxPaid.toLocaleString('en-US')}`);
   text('#treasury-count', `${s.treasuryMinted} / ${s.maxTreasury}`);
@@ -251,7 +248,7 @@ async function refresh({ force = false, quiet = false } = {}) {
 }
 
 function updateTotal() {
-  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, state?.maxPaid || 6000n, 1n))} ETH + gas` : 'Awaiting active phase'); }
+  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, state?.maxPaid || 6166n, 1n))} ETH + gas` : 'Awaiting active phase'); }
   catch { text('#mint-total', 'Enter a valid quantity'); }
 }
 
@@ -446,8 +443,7 @@ function onForm(id, callback) {
 }
 
 onForm('#mint-form', data => {
-  const amount = unsigned(data.get('amount'), state?.maxPaid || 6000n, 1n);
-  if (state?.currentPhase === 1n && amount % 2n !== 0n) throw new Error('Pioneer mints pairs: choose an even quantity.');
+  const amount = unsigned(data.get('amount'), state?.maxPaid || 6166n, 1n);
   const proof = state?.currentPhase < 4n ? state.proof : null;
   return review({ kind: 'mint', label: 'Mint Ryodan Keys', method: proof ? 'mintWithProof' : 'mint', args: [amount, state?.currentPhase, state?.price, ...(proof ? [proof.tier, proof.proof] : [])] });
 });
@@ -458,14 +454,21 @@ onForm('#phase-form', data => {
   const price = parseEther(data.get('price').trim());
   if (price <= 0n) throw new Error('The price must be greater than zero.');
   const id = unsigned(data.get('phase'), 4n, 1n);
-  if (id === 1n && unsigned(data.get('limit')) % 2n !== 0n) throw new Error('The Pioneer wallet limit must be even.');
-  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), state?.maxPaid || 6000n, 1n)], warning: 'Price and per-wallet allowance apply to this phase. Existing mints still count; refunds preserve each token’s original payment. Guaranteed allocations must fit the remaining paid supply.' });
+  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), state?.maxPaid || 6166n, 1n)], warning: 'Set every phase before Pioneer opens: from then on prices and per-wallet limits cannot change. Guaranteed allocations are recalculated and must fit the paid supply.' });
 });
 onForm('#treasury-form', data => review({ kind: 'treasuryMint', label: 'Mint treasury allocation', method: 'treasuryMint', args: [unsigned(data.get('amount'), 50n, 1n), address(data.get('recipient'))] }));
 onForm('#withdraw-form', () => review({ kind: 'withdraw', label: 'Withdraw sale proceeds', method: 'withdraw', args: [], warning: 'The full contract balance is sent to your connected treasury wallet.' }));
 onForm('#role-form', data => {
   const target = address(data.get('account'));
   const revoke = data.get('operation') === 'revoke';
+  if (data.get('operation') === 'accept') {
+    if (target.toLowerCase() !== account?.toLowerCase()) throw new Error('Only the pending administrator accepts the transfer: connect that wallet and enter its address.');
+    return review({ kind: 'acceptAdmin', label: 'Accept administrator role', method: 'acceptDefaultAdminTransfer', args: [], warning: 'The previous administrator loses the role in this same transaction.' });
+  }
+  if (data.get('role') === 'admin') {
+    if (revoke) throw new Error('The administrator role moves only in two steps: start a transfer to the new address, which then accepts it.');
+    return review({ kind: 'admin', label: 'Start administrator transfer', method: 'beginDefaultAdminTransfer', args: [target], warning: 'Step 1 of 2. The role moves only when this address accepts with its own signature; until then you stay administrator and can start a new transfer to replace a wrong address.' });
+  }
   if (revoke && target === account) throw new Error('Self-revocation is disabled in the console. Verify another administrator before using a separate administration tool.');
   return review({ kind: 'admin', label: `${revoke ? 'Revoke' : 'Grant'} ${data.get('role')} role`, method: revoke ? 'revokeRole' : 'grantRole', args: [data.get('role') === 'admin' ? ZeroHash : state.treasuryRoleId, target], warning: data.get('role') === 'admin' ? 'Administrators can grant roles, change sale settings and select final metadata. Verify the recipient carefully.' : 'Treasury role holders can mint reserved tokens and withdraw all successful-sale proceeds.' });
 });
@@ -525,8 +528,7 @@ $('#mint-amount').addEventListener('input', updateTotal);
 $('#phase').addEventListener('change', fillPhaseConfiguration);
 for (const id of ['#phase-price', '#wallet-limit']) $(id).addEventListener('input', () => { $('#phase-form').dataset.dirty = 'true'; });
 for (const [selector, change] of [['#decrement', -1], ['#increment', 1]]) $(selector).addEventListener('click', () => {
-  const step = state?.currentPhase === 1n ? 2 : 1;
-  $('#mint-amount').value = Math.max(step, Math.min(Number(state?.maxPaid || 6000n), (Number($('#mint-amount').value) || step) + change * step)); updateTotal();
+  $('#mint-amount').value = Math.max(1, Math.min(Number(state?.maxPaid || 6166n), (Number($('#mint-amount').value) || 1) + change)); updateTotal();
 });
 
 function route() {
@@ -540,10 +542,10 @@ function route() {
 function selectDeployment() {
   if (!selected) {
     $('#deployment').disabled = true;
-    text('#contract-link', 'No v6 contract deployed');
-    text('#deadline-remaining', 'No v6 contract deployed');
+    text('#contract-link', 'No v7 contract deployed');
+    text('#deadline-remaining', 'No v7 contract deployed');
     text('#sync-status', 'NO V6 CONTRACT');
-    notice('No Ryodan Keys v6 contract is deployed on this network yet. This console manages only v6.');
+    notice('No Ryodan Keys v7 contract is deployed on this network yet. This console manages only v7.');
     renderControls();
     return;
   }

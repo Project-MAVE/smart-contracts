@@ -5,7 +5,7 @@ import { address, assertSupported, deadlineUTC, gate, phase, remaining, refundId
 const account = '0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc';
 const context = { account, correctChain: true, busy: false, pending: null, stale: false };
 const v6 = {
-  version: 6n, deadline: 200n, timestamp: 100n, maxPaid: 6000n, maxTreasury: 666n, firstTokenId: 1n, choiceWindow: 259200n,
+  version: 7n, deadline: 200n, timestamp: 100n, maxPaid: 6166n, maxTreasury: 500n, firstTokenId: 1n, choiceWindow: 345600n,
   paid: 1n, treasuryMinted: 0n, walletMinted: 10n, limit: 4n, balance: 10n ** 16n, admin: true, treasuryRole: true,
   currentPhase: 1n, paused: false, reserved: 16n, phaseAllowance: 4n, phaseWalletMinted: 0n, allowlistConfigured: true,
   publicActive: false, whitelistActive: true, whitelisted: true, soldOut: false, refundsAvailable: false,
@@ -14,15 +14,15 @@ const v6 = {
 const expired = { ...v6, timestamp: 201n, refundsAvailable: true, choiceWindowOpen: true };
 const writes = ['mint', 'treasuryMint', 'withdraw', 'admin', 'phaseAdmin', 'allowlist', 'advance', 'pause', 'refund', 'settle', 'claimPending', 'withdrawKept', 'burnTreasury'];
 
-test('only contract version 6 is accepted; v1 (no CONTRACT_VERSION) through v5 and later versions are refused', () => {
-  assert.doesNotThrow(() => assertSupported(6n));
-  assert.throws(() => assertSupported(null), /without CONTRACT_VERSION \(v1\)\. This console manages only Ryodan Keys v6/);
-  for (const version of [2n, 3n, 4n, 5n, 7n]) assert.throws(() => assertSupported(version), new RegExp(`version ${version}\\. This console manages only Ryodan Keys v6`));
+test('only contract version 7 is accepted; v1 (no CONTRACT_VERSION) through v6 and later versions are refused', () => {
+  assert.doesNotThrow(() => assertSupported(7n));
+  assert.throws(() => assertSupported(null), /without CONTRACT_VERSION \(v1\)\. This console manages only Ryodan Keys v7/);
+  for (const version of [2n, 3n, 4n, 5n, 6n, 8n]) assert.throws(() => assertSupported(version), new RegExp(`version ${version}\\. This console manages only Ryodan Keys v7`));
   assert.throws(() => assertSupported(4n), error => error.code === 'UNSUPPORTED_CONTRACT');
 });
-test('every write is blocked when the loaded state is not v6', () => {
-  for (const version of [1n, 2n, 3n, 4n, 5n, 7n]) {
-    for (const kind of writes) assert.equal(gate(kind, { ...expired, version, soldOut: false }, context), 'This console manages only Ryodan Keys v6.');
+test('every write is blocked when the loaded state is not v7', () => {
+  for (const version of [1n, 2n, 3n, 4n, 5n, 6n, 8n]) {
+    for (const kind of writes) assert.equal(gate(kind, { ...expired, version, soldOut: false }, context), 'This console manages only Ryodan Keys v7.');
   }
 });
 test('exact integer validation rejects unsafe amount syntax and bounds', () => {
@@ -48,14 +48,14 @@ test('all writes stop on stale data, wrong chain, pending transaction or disconn
 test('allowances are per phase, independent of lifetime purchases', () => {
   assert.equal(remaining(v6), 4n);
   assert.equal(remaining({ ...v6, phaseAllowance: 0n }), 0n);
-  assert.equal(remaining({ ...v6, currentPhase: 3n, paid: 5990n, reserved: 8n }), 2n);
+  assert.equal(remaining({ ...v6, currentPhase: 3n, paid: 6156n, reserved: 8n }), 2n);
   assert.equal(phase(v6), 'PIONEER');
   assert.equal(phase({ ...v6, currentPhase: 2n }), 'OPERATIVE');
   assert.equal(phase({ ...v6, currentPhase: 3n }), 'RECRUIT');
   assert.equal(phase({ ...v6, currentPhase: 4n }), 'CIVILIAN');
   assert.equal(phase({ ...v6, paused: true }), 'PAUSED');
   assert.equal(phase({ ...v6, currentPhase: 0n }), 'NOT STARTED');
-  assert.equal(phase({ ...v6, paid: 6000n }), 'PAID CAP');
+  assert.equal(phase({ ...v6, paid: 6166n }), 'PAID CAP');
   assert.equal(phase({ ...v6, timestamp: 201n }), 'EXPIRED');
 });
 test('mint requires an allowlisted wallet in allowlist phases and an open sale', () => {
@@ -66,11 +66,15 @@ test('mint requires an allowlisted wallet in allowlist phases and an open sale',
 });
 test('phase controls require admin, open sale and a sequential transition', () => {
   for (const kind of ['phaseAdmin', 'advance', 'pause']) {
-    assert.equal(gate(kind, v6, context), '');
-    for (const patch of [{ admin: false }, { timestamp: 201n }, { soldOut: true }]) assert.notEqual(gate(kind, { ...v6, ...patch }, context), '');
+    const base = kind === 'phaseAdmin' ? { ...v6, currentPhase: 0n } : v6;
+    assert.equal(gate(kind, base, context), '');
+    for (const patch of [{ admin: false }, { timestamp: 201n }, { soldOut: true }]) assert.notEqual(gate(kind, { ...base, ...patch }, context), '');
   }
   assert.notEqual(gate('advance', { ...v6, currentPhase: 4n }, context), '');
   assert.notEqual(gate('pause', { ...v6, currentPhase: 0n }, context), '');
+});
+test('prices and limits lock when Pioneer opens', () => {
+  for (const currentPhase of [1n, 2n, 3n, 4n]) assert.match(gate('phaseAdmin', { ...v6, currentPhase }, context), /locked/);
 });
 test('the snapshot must load before Pioneer and freezes at the first phase', () => {
   const fresh = { ...v6, currentPhase: 0n, allowlistConfigured: false };
@@ -80,10 +84,12 @@ test('the snapshot must load before Pioneer and freezes at the first phase', () 
   assert.equal(gate('advance', { ...fresh, allowlistConfigured: true }, context), '');
 });
 test('treasury withdrawal requires sellout, treasury role and a balance', () => {
+  const after = { ...v6, soldOut: true, timestamp: 201n };
   assert.match(gate('withdraw', v6, context), /6,666/);
-  assert.equal(gate('withdraw', { ...v6, soldOut: true }, context), '');
-  assert.notEqual(gate('withdraw', { ...v6, soldOut: true, treasuryRole: false }, context), '');
-  assert.notEqual(gate('withdraw', { ...v6, soldOut: true, balance: 0n }, context), '');
+  assert.match(gate('withdraw', { ...v6, soldOut: true }, context), /after the mint deadline/);
+  assert.equal(gate('withdraw', after, context), '');
+  assert.notEqual(gate('withdraw', { ...after, treasuryRole: false }, context), '');
+  assert.notEqual(gate('withdraw', { ...after, balance: 0n }, context), '');
 });
 test('token IDs run from 1 to 6666 in every ID input', () => {
   assert.deepEqual(tokenRange(v6), [1n, 6666n]);
@@ -96,12 +102,12 @@ test('keep-or-refund lists are unique across both lists and capped at 50', () =>
   assert.deepEqual(settleIds('', '4'), [[], [4n]]);
   for (const [keep, refund] of [['', ''], ['1', '1'], ['0', ''], [Array.from({ length: 51 }, (_, i) => i + 1).join(','), '']]) assert.throws(() => settleIds(keep, refund));
 });
-test('refund and keep-or-refund open only after an unsuccessful expiry, within the 72 h window', () => {
+test('refund and keep-or-refund open only after an unsuccessful expiry, within the 96 h window', () => {
   assert.match(gate('refund', v6, context), /unsuccessful expiry/);
   assert.equal(gate('refund', expired, context), '');
   assert.match(gate('settle', v6, context), /unsuccessful expiry/);
   assert.equal(gate('settle', expired, context), '');
-  assert.match(gate('settle', { ...expired, choiceWindowOpen: false }, context), /72-hour/);
+  assert.match(gate('settle', { ...expired, choiceWindowOpen: false }, context), /96-hour/);
   assert.equal(phase(expired), 'KEEP OR REFUND');
   assert.equal(phase({ ...expired, choiceWindowOpen: false }), 'EXPIRED');
 });

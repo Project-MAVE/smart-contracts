@@ -23,10 +23,10 @@ export function deadlineUTC(value) {
   return BigInt(Math.floor(time.getTime() / 1000));
 }
 
-export const SUPPORTED_VERSION = 6n;
+export const SUPPORTED_VERSION = 7n;
 
 export function assertSupported(version) {
-  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v6.`), { code: 'UNSUPPORTED_CONTRACT' });
+  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v7.`), { code: 'UNSUPPORTED_CONTRACT' });
 }
 
 export const phaseNames = ['Not started', 'Pioneer', 'Operative', 'Recruit', 'Civilian'];
@@ -56,12 +56,13 @@ export function gate(kind, s, context) {
   if (!s || context.stale) return 'Refresh contract state before submitting.';
   if (!context.account) return 'Connect a wallet to continue.';
   if (!context.correctChain) return 'Switch your wallet to the displayed network.';
-  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v6.';
+  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v7.';
   if (['admin', 'phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
   if (['treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury'].includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
   if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {
     if (s.timestamp > s.deadline || s.soldOut) return 'Sale configuration is closed after expiry or sellout.';
     if (kind === 'allowlist' && s.currentPhase !== 0n) return 'The snapshot is frozen: Pioneer has already started.';
+    if (kind === 'phaseAdmin' && s.currentPhase !== 0n) return 'Prices and limits are locked: Pioneer has already started.';
     if (kind === 'advance' && !s.allowlistConfigured) return 'Load the allowlist snapshot before starting Pioneer.';
     if (kind === 'advance' && s.currentPhase === 4n) return 'Civilian is the final phase.';
     if (kind === 'pause' && s.currentPhase === 0n) return 'Start Pioneer before resuming minting.';
@@ -74,6 +75,7 @@ export function gate(kind, s, context) {
   }
   if (kind === 'treasuryMint' && s.treasuryMinted === s.maxTreasury) return 'All treasury keys have been minted.';
   if (kind === 'withdraw' && !s.soldOut) return `All ${(s.maxPaid + s.maxTreasury).toLocaleString('en-US')} keys must mint before this operation unlocks.`;
+  if (kind === 'withdraw' && s.timestamp <= s.deadline) return 'Sellout proceeds can be withdrawn only after the mint deadline.';
   if (kind === 'withdraw' && s.balance === 0n) return 'There is no balance to withdraw.';
   if (['refund', 'settle', 'withdrawKept', 'burnTreasury'].includes(kind) && !s.refundsAvailable) return 'This opens only after an unsuccessful expiry.';
   if (kind === 'settle' && !s.choiceWindowOpen) return `The ${s.choiceWindow / 3600n}-hour keep-or-refund window has closed. Remaining paid keys can only be refunded.`;

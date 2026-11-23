@@ -120,10 +120,10 @@ abstract contract RyodanKeysFixture is Test {
     }
 
     function _sellOut() internal {
-        _open(6000);
-        _buy(bob, 6000);
+        _open(6166);
+        _buy(bob, 6166);
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
     }
 }
 
@@ -157,7 +157,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_ConstructorRejectsZeroRoles() public {
-        vm.expectRevert("Zero role address");
+        vm.expectRevert(abi.encodeWithSignature("AccessControlInvalidDefaultAdmin(address)", address(0)));
         new RyodanKeys(end, HIDDEN, NFT, address(0), treasury);
         vm.expectRevert("Zero role address");
         new RyodanKeys(end, HIDDEN, NFT, bob, address(0));
@@ -225,7 +225,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.prank(bob);
         vm.expectRevert("Mint not ended");
         keys.refund(1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.deal(bob, 0.01 ether);
         vm.prank(bob);
         vm.expectRevert("Mint ended");
@@ -234,7 +234,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_MintCannotOverflowAmount() public {
-        _open(6000);
+        _open(6166);
         vm.expectRevert("Max supply reached");
         keys.mint(type(uint256).max, 4, 0.01 ether);
     }
@@ -259,14 +259,14 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function test_TreasuryCapAndDeadline() public {
         vm.startPrank(treasury);
-        keys.treasuryMint(666, bob);
+        keys.treasuryMint(500, bob);
         vm.expectRevert("Max supply reached while minting to treasury");
         keys.treasuryMint(1, bob);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Mint ended");
         keys.treasuryMint(1, bob);
         vm.stopPrank();
-        assertEq(keys.mintedByTreasury(), 666);
+        assertEq(keys.mintedByTreasury(), 500);
     }
 
     function test_TreasuryRejectsZeroAmountAndRecipient() public {
@@ -339,21 +339,21 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.prank(alice);
         vm.expectRevert("RyodanKeys is not transferable since not all tokens have been minted");
         keys.safeTransferFrom(bob, alice, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.prank(bob);
         vm.expectRevert("RyodanKeys is not transferable since not all tokens have been minted");
         keys.transferFrom(bob, alice, 1);
     }
 
     function test_PaidSelloutWithoutTreasuryIsNotSuccessful() public {
-        _open(6000);
-        _buy(bob, 6000);
+        _open(6166);
+        _buy(bob, 6166);
         assertFalse(keys.soldOut());
         vm.prank(treasury);
         vm.expectRevert("Not all tokens minted");
         keys.withdraw();
         assertEq(keys.tokenURI(1), "ipfs://sbt/1.json");
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         assertTrue(keys.refundsAvailable());
         vm.prank(bob);
         keys.refund(1);
@@ -365,8 +365,12 @@ contract RyodanKeysTest is RyodanKeysFixture {
         assertEq(keys.totalSupply(), 6666);
         uint256 beforeBalance = treasury.balance;
         vm.prank(treasury);
+        vm.expectRevert("Mint not ended");
         keys.withdraw();
-        assertEq(treasury.balance - beforeBalance, 60 ether);
+        vm.warp(end + 1);
+        vm.prank(treasury);
+        keys.withdraw();
+        assertEq(treasury.balance - beforeBalance, 61.66 ether);
         assertEq(address(keys).balance, 0);
         vm.prank(treasury);
         vm.expectRevert("No balance to withdraw");
@@ -375,7 +379,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         keys.transferFrom(bob, alice, 1);
         assertEq(keys.ownerOf(1), alice);
         assertEq(keys.originalMinter(1), bob);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         assertFalse(keys.refundsAvailable());
         vm.prank(bob);
         vm.expectRevert("All tokens minted");
@@ -383,8 +387,8 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_PublicSupplyCapCannotBeExceeded() public {
-        _open(6000);
-        _buy(bob, 6000);
+        _open(6166);
+        _buy(bob, 6166);
         vm.deal(alice, 1 ether);
         vm.prank(alice);
         vm.expectRevert("Max supply reached");
@@ -403,10 +407,10 @@ contract RyodanKeysTest is RyodanKeysFixture {
     event BatchMetadataUpdate(uint256 fromId, uint256 toId);
 
     function test_SelloutSwitchesEveryKeyToNftMetadataAutomatically() public {
-        _open(6000);
-        _buy(bob, 6000);
+        _open(6166);
+        _buy(bob, 6166);
         vm.prank(treasury);
-        keys.treasuryMint(665, treasury);
+        keys.treasuryMint(499, treasury);
         assertEq(keys.tokenURI(6665), "ipfs://sbt/6665.json");
         vm.expectEmit(false, false, false, true);
         emit BatchMetadataUpdate(1, 6666);
@@ -418,7 +422,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function test_BurnOnlyUnlockedKeysByOwnerOrApproved() public {
-        _open(2);
+        _open(6166);
         _buy(bob, 2);
         vm.prank(bob);
         vm.expectRevert("Key is locked");
@@ -442,16 +446,15 @@ contract RyodanKeysTest is RyodanKeysFixture {
     }
 
     function _sellOutFrom(uint256 already) internal {
-        keys.configurePhase(4, 0.01 ether, 6000);
-        _buy(bob, 6000 - already);
+        _buy(bob, 6166 - already);
         vm.prank(treasury);
-        keys.treasuryMint(666, treasury);
+        keys.treasuryMint(500, treasury);
     }
 
     function test_RefundBurnsTokenAndPaysOnlyOnce() public {
         _open(2);
         _buy(bob, 2);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256 beforeBalance = bob.balance;
         vm.prank(bob);
         keys.refund(1);
@@ -478,7 +481,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_RefundRejectsNonexistentIdsWithoutDestroyingReserves() public {
         _open(2);
         _buy(bob, 2);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.startPrank(alice);
         vm.expectRevert("Token not eligible for refund");
         keys.refund(100_000);
@@ -497,7 +500,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         _buy(bob, 1);
         vm.prank(treasury);
         keys.treasuryMint(1, alice);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.prank(alice);
         vm.expectRevert("Token not eligible for refund");
         keys.refund(2);
@@ -508,7 +511,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_ThirdPartyCanTriggerButCannotRedirectRefund() public {
         _open(1);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.startPrank(alice);
         vm.expectRevert("Not original minter");
         keys.refundTo(1, payable(alice));
@@ -523,7 +526,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_RefundToRecipientAndZeroRecipientRejection() public {
         _open(1);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.startPrank(bob);
         vm.expectRevert("Zero refund recipient");
         keys.refundTo(1, payable(address(0)));
@@ -536,7 +539,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_WithdrawCannotTakeRefundReserves() public {
         _open(1);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.prank(treasury);
         vm.expectRevert("Not all tokens minted");
         keys.withdraw();
@@ -595,7 +598,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.deal(address(this), 1 ether);
         wallet.buy{value: 0.02 ether}(2);
         wallet.configure(abi.encodeCall(keys.refund, (1)), false, false);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         wallet.claim(1);
         assertFalse(wallet.reentered());
         assertEq(wallet.result(), abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
@@ -612,7 +615,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.deal(address(this), 1 ether);
         wallet.buy{value: 0.01 ether}(1);
         wallet.configure("", true, false);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Failed to send Ether");
         wallet.claim(1);
         assertFalse(keys.refunded(1));
@@ -625,12 +628,13 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function test_RejectingTreasuryCannotLoseProceeds() public {
         _sellOut();
+        vm.warp(end + 1);
         CallbackWallet wallet = new CallbackWallet(keys);
         keys.grantRole(keys.TREASURY_ROLE(), address(wallet));
         wallet.configure("", true, false);
         vm.expectRevert("Failed to send Ether");
         wallet.takeProceeds();
-        assertEq(address(keys).balance, 60 ether);
+        assertEq(address(keys).balance, 61.66 ether);
         vm.prank(treasury);
         keys.withdraw();
         assertEq(address(keys).balance, 0);
@@ -638,13 +642,14 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function test_WithdrawCallbackCannotReenter() public {
         _sellOut();
+        vm.warp(end + 1);
         CallbackWallet wallet = new CallbackWallet(keys);
         keys.grantRole(keys.TREASURY_ROLE(), address(wallet));
         wallet.configure(abi.encodeCall(keys.withdraw, ()), false, false);
         wallet.takeProceeds();
         assertFalse(wallet.reentered());
         assertEq(wallet.result(), abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
-        assertEq(address(wallet).balance, 60 ether);
+        assertEq(address(wallet).balance, 61.66 ether);
     }
 
     function testFuzz_MintAccountingAndWalletLimit(uint256 rawAmount) public {
@@ -666,7 +671,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         if (id == 1) id = 0; // token IDs start at 1: 0 and everything above the minted range are invalid
         _open(1);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Token not eligible for refund");
         keys.refund(id);
         assertEq(address(keys).balance, 0.01 ether);
@@ -677,7 +682,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         first = bound(first, 0, 7);
         _open(8);
         _buy(bob, 8);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256 beforeBalance = bob.balance;
         vm.startPrank(bob);
         for (uint256 i; i < 8; i++) {
@@ -707,7 +712,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         vm.assume(thief != bob);
         _open(1);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.prank(thief);
         vm.expectRevert("Not original minter");
         keys.refundTo(1, payable(thief));
@@ -735,7 +740,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
 
     function testFuzz_UnauthorizedSaleAdministration(address account, bool active, uint256 limitSeed) public {
         vm.assume(account != address(this));
-        uint256 limit = bound(limitSeed, 1, 6000);
+        uint256 limit = bound(limitSeed, 1, 6166);
         vm.prank(account);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, bytes32(0))
@@ -749,7 +754,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         _buy(bob, 1);
         vm.prank(bob);
         keys.approve(alice, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.prank(bob);
         keys.refund(1);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 1));
@@ -764,7 +769,7 @@ contract RyodanKeysTest is RyodanKeysFixture {
         _buy(bob, 1);
         vm.deal(address(keys), 1 ether);
         assertFalse(keys.soldOut());
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         uint256 balanceBefore = bob.balance;
         vm.prank(bob);
         keys.refund(1);
@@ -776,10 +781,10 @@ contract RyodanKeysTest is RyodanKeysFixture {
     function test_PausingOrChangingLimitsAfterExpiryCannotBlockRefunds() public {
         _open(1);
         _buy(bob, 1);
-        vm.warp(end + 72 hours + 1);
+        vm.warp(end + 4 days + 1);
         vm.expectRevert("Mint ended");
         keys.setMintPaused(true);
-        vm.expectRevert("Mint ended");
+        vm.expectRevert("Phases locked");
         keys.configurePhase(4, 0.01 ether, 100);
         assertTrue(keys.refundsAvailable());
         vm.prank(bob);

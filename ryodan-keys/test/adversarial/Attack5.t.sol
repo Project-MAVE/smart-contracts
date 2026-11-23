@@ -75,7 +75,7 @@ contract K_Allowlist is Fixture {
         keys.mintWithProof{value: 0.03 ether}(2, 1, 0.015 ether, 1, _arr2(pr[0]));
         assertEq(keys.registeredMembers(1), 1);
         assertEq(keys.mintedByUsers(), 4);
-        assertEq(keys.totalGtdReserved(), 10);
+        assertEq(keys.totalGtdReserved(), 0);
     }
 
     function test_K05_ProofMintBeforeTheSaleOpensReverts() public {
@@ -92,7 +92,7 @@ contract K_Hostage is Fixture {
     address internal buyer = makeAddr("buyer");
 
     function test_K06_AdminPausingForeverCannotTrapBuyerFunds() public {
-        _openCivilian(6000, 0.01 ether);
+        _openCivilian(6166, 0.01 ether);
         _buy(buyer, 3);
         keys.setMintPaused(true);
         _toEnd();
@@ -106,9 +106,9 @@ contract K_Hostage is Fixture {
     }
 
     function test_K07_TreasuryThatNeverMintsCannotBlockRefundsOrTakeTheProceeds() public {
-        _openCivilian(6000, 0.01 ether);
-        _buy(buyer, 6000);
-        vm.warp(end + 72 hours + 1);
+        _openCivilian(6166, 0.01 ether);
+        _buy(buyer, 6166);
+        vm.warp(end + 4 days + 1);
         assertFalse(keys.soldOut());
         assertTrue(keys.refundsAvailable());
         assertFalse(keys.choiceWindowOpen());
@@ -118,14 +118,14 @@ contract K_Hostage is Fixture {
         uint256[] memory ids = new uint256[](3);
         ids[0] = 1;
         ids[1] = 2;
-        ids[2] = 6000;
+        ids[2] = 6166;
         keys.refundBatch(ids);
         assertEq(buyer.balance, 0.03 ether);
         assertTrue(_solvent());
     }
 
     function test_K08_KeptKeysAloneFundTheTreasuryWithdrawal() public {
-        _openCivilian(6000, 0.01 ether);
+        _openCivilian(6166, 0.01 ether);
         _buy(buyer, 4);
         _toEnd();
         uint256[] memory keep = new uint256[](2);

@@ -1,8 +1,8 @@
-# Ryodan Control — v6 operator guide
+# Ryodan Control — v7 operator guide
 
 Open [ryodan.grooooog.space](https://ryodan.grooooog.space). The console uses Ethereum Sepolia, shows the selected contract's full address and links directly to Sepolia Etherscan. It manages **only Ryodan Keys v6**: it reads `CONTRACT_VERSION` first and refuses any other version (UNSUPPORTED CONTRACT, every action disabled). It manages the v6 test deployment [`0xd069E170ECD211ca09157Afe6E9110E322BC30f8`](https://sepolia.etherscan.io/address/0xd069E170ECD211ca09157Afe6E9110E322BC30f8); with no v6 deployment configured it shows NO V6 CONTRACT. This is testnet, not a mainnet launch.
 
-Supply: **6,666 keys = 6,000 paid + 666 treasury**, token IDs 1–6666.
+Supply: **6,666 keys = 6,166 paid + 500 treasury**, token IDs 1–6666.
 
 Read-only operation requires no wallet. To sign, import/use the dedicated test wallet in an Ethereum wallet and connect it on Sepolia. Its public address is `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`; it holds admin and treasury roles in test deployments. The private key is stored in hush under `YOMI_RYODAN_SEPOLIA_DEPLOYER`; never enter it in this webpage. The frontend has no signing server and stores no key.
 
@@ -12,9 +12,9 @@ In **Sale controls → Prepare the three lists**, download the complete template
 
 Select all three completed files and a UTC freeze timestamp. Generate, inspect counts/hashes/capacity, and download `allowlist.json` plus `check-data.js`. A previous JSON snapshot can also be imported. Both outputs must be published by the frontend team from the same build. Downloads and browser processing do not change the chain. Imported/generated data is session-only; download before reloading.
 
-Before starting Pioneer, sign **Review snapshot on chain**. Root/counts can be corrected while phase is 0. Once Pioneer starts, membership is permanently frozen; prices and per-wallet limits remain editable under their respective guards. The final campaign needs its own fresh v6 deployment and completed lists.
+Before starting Pioneer, sign **Review snapshot on chain**. Root/counts can be corrected while phase is 0. Once Pioneer starts, membership is permanently frozen; prices and per-wallet limits are locked too. The final campaign needs its own fresh v7 deployment.
 
-At default caps the guaranteed budget is `14 × Pioneer count + 10 × Operative count`, at most 6,000 paid keys. The panel shows full-list budget at current caps separately from actual remaining on-chain guarantees. Recruit adds no guaranteed reserve. Never invent counts to make an oversized list fit; adjust caps or list membership before committing.
+At default caps the guaranteed budget is `4 × Pioneer count + 4 × Operative count` (each Pioneer once: 4 keys across Pioneer and Operative), at most 6,166 paid keys. The panel shows full-list budget at current caps separately from actual remaining on-chain guarantees. Recruit adds no guaranteed reserve. Never invent counts to make an oversized list fit; adjust caps or list membership before committing.
 
 ## Mint
 
@@ -22,18 +22,18 @@ The mint page has no phase picker. It reads the active phase, price and remainin
 
 | Phase | Price/key | Cap per wallet |
 | --- | ---: | ---: |
-| Pioneer | 0.0075 ETH | 4, in pairs |
-| Operative | 0.012 ETH | 10 |
+| Pioneer | 0.0075 ETH | 4, any quantity; 4 in total with Operative |
+| Operative | 0.012 ETH | 4 |
 | Recruit | 0.0135 ETH | 10 |
-| Civilian | 0.015 ETH | 10 |
+| Civilian | 0.015 ETH | 20 |
 
-These are the approved prices (2026-11-18). The contract starts with 0.025/0.040/0.045/0.050: set each phase with **Phase price & wallet limit** before resuming it, because advancing does not check it. Pioneer buys 2 or 4 keys under the initial cap, at 0.015 ETH per pair. The other phases buy individual keys. Wallet caps are independent between phases; repeat transactions in the same phase consume the same allowance. Existing test purchases count toward their caps.
+These are the approved prices (2026-11-18) and caps (2026-11-22); the v7 constructor sets them. Prices are per key in every phase and any quantity is allowed. Caps restart in every phase, except that a Pioneer mints at most 4 across Pioneer and Operative together. Nothing can change once Pioneer opens.
 
 Review shows chain, contract, signer, function, arguments, exact payment and gas estimate. Sign in the wallet. Confirmation shows actual minted token IDs and transaction links. If the quoted price or phase changes, review a new transaction. A missing proof snapshot cannot grant first-time list access; import the file matching the on-chain root or use the deployed frontend's matching data.
 
 ## Sale controls
 
-- **Phase price & wallet limit:** change the current or a future phase. Price is ETH per key, including Pioneer. Pioneer cap must be even. GTD caps cannot go below the maximum already minted by one wallet in that phase, and increases must fit remaining paid supply. FCFS cap reductions do not erase earlier mints.
+- **Phase price & wallet limit:** change the current or a future phase. Price is ETH per key, including Pioneer. Only before Pioneer opens: afterwards the form is disabled and the contract refuses it. GTD caps cannot go below the maximum already minted by one wallet in that phase, and increases must fit remaining paid supply. FCFS cap reductions do not erase earlier mints.
 - **Advance:** permanently closes the current phase, releases its unused guarantees and opens the next phase paused. Progress is Pioneer → Operative → Recruit → Civilian. Review the next phase's settings, then resume. Closed phases cannot reopen.
 - **Pause/resume:** stops/starts the active phase without moving its deadline.
 - **Deadline:** displayed in UTC and fixed at deploy. No function moves it. An expired sale cannot reopen.
@@ -42,7 +42,7 @@ There is one shared mint deadline and manual phase advancement, not four automat
 
 ## Treasury, metadata and access
 
-**Treasury:** mint the 666 treasury keys to a validated recipient, up to 50 per UI transaction, for gas only. The treasury can mint in any phase, also before Pioneer opens; its keys take IDs 1–666 only if all are minted before the first paid mint. Finish all 666 treasury mints before expiry: success needs all 6,000 paid **and** 666 treasury keys. If the treasury is incomplete, even a paid sellout cannot unlock transfers or withdrawal. After complete sellout the connected treasury-role wallet withdraws the full ETH balance (**Review withdrawal**). After an unsuccessful sale it withdraws only what kept keys paid (**Review kept-key withdrawal**) and, once the 72-hour window has closed, burns treasury keys by ID (**Review treasury burn**, up to 50 IDs; paid keys are refused).
+**Treasury:** mint the 500 treasury keys to a validated recipient, up to 50 per UI transaction, for gas only. The treasury can mint in any phase, also before Pioneer opens; its keys take IDs 1–666 only if all are minted before the first paid mint. Finish all 666 treasury mints before expiry: success needs all 6,000 paid **and** 666 treasury keys. If the treasury is incomplete, even a paid sellout cannot unlock transfers or withdrawal. After complete sellout the connected treasury-role wallet withdraws the full ETH balance (**Review withdrawal**). After an unsuccessful sale it withdraws only what kept keys paid (**Review kept-key withdrawal**) and, once the 72-hour window has closed, burns treasury keys by ID (**Review treasury burn**, up to 50 IDs; paid keys are refused).
 
 **Metadata:** read-only. The page shows the SBT and NFT base URIs read from the contract and inspects a token ID (1–6666): owner, whether the key is locked, kept or unlocked by sellout, whether it is a treasury key, and its URI. There is no reveal: locked keys read the SBT set and switch to the NFT set by themselves. See [metadata](METADATA.md).
 
@@ -52,7 +52,7 @@ There is one shared mint deadline and manual phase advancement, not four automat
 
 After an unsuccessful expiry, **Refunds** supports:
 
-1. **Keep or refund** (first 72 hours): the original minter lists the keys to keep as NFTs and the keys to refund, and signs once (`settle`). In this window the console blocks, before signing, any refund of keys that belong to another minter.
+1. **Keep or refund** (first 4 days): the original minter lists the keys to keep as NFTs and the keys to refund, and signs once (`settle`). In this window the console blocks, before signing, any refund of keys that belong to another minter.
 2. Single ID: default payment to its original minter. After the window anyone may trigger it.
 3. Optional recipient: only the original minter can use this to redirect their own refund.
 4. Batch: 1–50 unique paid IDs separated by commas/newlines. One signature, potentially multiple minters; each receives their original token payment. The caller does not collect other people's funds.

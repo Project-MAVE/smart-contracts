@@ -2,6 +2,9 @@
 pragma solidity 0.8.37;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {
+    AccessControlDefaultAdminRules
+} from "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
@@ -9,15 +12,15 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
-    uint256 public constant MAX_PUBLIC_SUPPLY = 6000;
-    uint256 public constant MAX_TREASURY_SUPPLY = 666;
+contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, ReentrancyGuard {
+    uint256 public constant MAX_PUBLIC_SUPPLY = 6166;
+    uint256 public constant MAX_TREASURY_SUPPLY = 500;
     uint256 public constant MAX_SUPPLY = MAX_PUBLIC_SUPPLY + MAX_TREASURY_SUPPLY;
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
 
-    uint256 public constant CONTRACT_VERSION = 6;
+    uint256 public constant CONTRACT_VERSION = 7;
     /// After an unsuccessful expiry, only original minters may keep or refund their keys during this window.
-    uint256 public constant CHOICE_WINDOW = 72 hours;
+    uint256 public constant CHOICE_WINDOW = 4 days;
     /// Gas given to each recipient inside refundBatch: enough for wallets and multisigs, too little to stall a batch.
     uint256 public constant BATCH_REFUND_GAS = 50_000;
     uint256 public constant MAX_REFUND_BATCH = 50;
@@ -33,7 +36,6 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         uint256 walletLimit;
         uint256 minted;
         uint256 members;
-        uint256 reserved;
         uint256 maxWalletMinted;
     }
 
@@ -45,8 +47,12 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
     mapping(uint8 => uint256) public registeredMembers;
     mapping(address => uint8) public walletTier;
     mapping(uint8 => mapping(address => uint256)) public mintedInPhase;
+    /// Guaranteed keys a wallet has minted across PIONEER and OPERATIVE together.
+    mapping(address => uint256) public gtdMinted;
     uint8 public currentPhase;
     bool public mintPaused = true;
+    /// The single reservation for every guaranteed key still unminted: Pioneers and Operatives share it, it is not
+    /// split by phase, and it is released only when RECRUIT opens.
     uint256 public totalGtdReserved;
     /// Fixed at deploy: no function can move it, so refunds always open right after it.
     uint256 public immutable mintEndTime;
@@ -94,22 +100,27 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
 
     constructor(uint256 endTime, string memory sbtBase, string memory nftBase, address admin, address treasury)
         ERC721("RyodanKeys", "RK")
+        AccessControlDefaultAdminRules(0, admin)
     {
         require(endTime > block.timestamp, "Deadline must be in the future");
         require(_isBase(sbtBase) && _isBase(nftBase), "Base URI must end with slash");
         require(admin != address(0) && treasury != address(0), "Zero role address");
-        phases[PIONEER] = PhaseConfig(0.025 ether, 4, 0, 0, 0, 0);
-        phases[OPERATIVE] = PhaseConfig(0.04 ether, 10, 0, 0, 0, 0);
-        phases[RECRUIT] = PhaseConfig(0.045 ether, 10, 0, 0, 0, 0);
-        phases[CIVILIAN] = PhaseConfig(0.05 ether, 10, 0, 0, 0, 0);
+        phases[PIONEER] = PhaseConfig(0.0075 ether, 4, 0, 0, 0);
+        phases[OPERATIVE] = PhaseConfig(0.012 ether, 4, 0, 0, 0);
+        phases[RECRUIT] = PhaseConfig(0.0135 ether, 10, 0, 0, 0);
+        phases[CIVILIAN] = PhaseConfig(0.015 ether, 20, 0, 0, 0);
         mintEndTime = endTime;
         sbtBaseURI = sbtBase;
         nftBaseURI = nftBase;
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(TREASURY_ROLE, treasury);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, AccessControl, IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, AccessControlDefaultAdminRules, IERC165)
+        returns (bool)
+    {
         return interfaceId == 0x49064906 || super.supportsInterface(interfaceId);
     }
 
@@ -128,9 +139,22 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
     function remainingAllowance(uint8 phaseId, address account) public view returns (uint256) {
         if (phaseId < PIONEER || phaseId > CIVILIAN || phaseId < currentPhase) return 0;
         if (phaseId != CIVILIAN && !allowlisted(phaseId, account)) return 0;
+        return _remaining(phaseId, account, walletTier[account]);
+    }
+
+    /// Limits restart in every phase. PIONEER and OPERATIVE also share one guaranteed allocation per wallet: the
+    /// limit of the wallet's own tier, counted once across both phases by gtdMinted.
+    function _remaining(uint8 phaseId, address account, uint8 tier) private view returns (uint256) {
         uint256 limit = phases[phaseId].walletLimit;
         uint256 used = mintedInPhase[phaseId][account];
-        return used < limit ? limit - used : 0;
+        uint256 left = used < limit ? limit - used : 0;
+        if (phaseId <= OPERATIVE) {
+            uint256 gtdLimit = phases[tier].walletLimit;
+            uint256 gtdUsed = gtdMinted[account];
+            uint256 gtdLeft = gtdUsed < gtdLimit ? gtdLimit - gtdUsed : 0;
+            if (gtdLeft < left) left = gtdLeft;
+        }
+        return left;
     }
 
     function mint(uint256 amount, uint8 expectedPhase, uint256 expectedUnitPrice) external payable nonReentrant {
@@ -178,9 +202,7 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
             phaseId < currentPhase || phaseId < PIONEER || phaseId > RECRUIT || tier > phaseId
                 || !verifyEligibility(account, tier, proof)
         ) return 0;
-        uint256 used = mintedInPhase[phaseId][account];
-        uint256 limit = phases[phaseId].walletLimit;
-        return used < limit ? limit - used : 0;
+        return _remaining(phaseId, account, tier);
     }
 
     function _mintPaid(uint256 amount, uint8 expectedPhase, uint256 expectedUnitPrice) private {
@@ -191,14 +213,16 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         uint256 price = config.price;
         require(expectedPhase == phaseId && expectedUnitPrice == price, "Mint quote changed");
         require(amount > 0, "Zero mint amount");
-        require(phaseId != PIONEER || amount % 2 == 0, "Pioneer requires pairs");
         require(amount <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Max supply reached");
         require(msg.value == price * amount, "Incorrect payment");
         require(phaseId == CIVILIAN || allowlisted(phaseId, msg.sender), "Not allowlisted");
+        require(
+            amount <= _remaining(phaseId, msg.sender, walletTier[msg.sender]), "Max mint amount reached for address"
+        );
         uint256 walletMinted = mintedInPhase[phaseId][msg.sender] + amount;
-        require(walletMinted <= config.walletLimit, "Max mint amount reached for address");
         if (phaseId <= OPERATIVE) {
-            config.reserved -= amount;
+            // Every guaranteed mint draws on the wallet's own allocation inside the single reservation.
+            gtdMinted[msg.sender] += amount;
             totalGtdReserved -= amount;
         } else {
             require(amount <= MAX_PUBLIC_SUPPLY - mintedByUsers - totalGtdReserved, "Supply reserved for GTD");
@@ -263,18 +287,16 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         onlyRole(DEFAULT_ADMIN_ROLE)
         nonReentrant
     {
-        _requireEditablePhase(phaseId);
+        // Prices and limits are final once the first phase opens: no role can reprice or resize a running sale.
+        require(currentPhase == 0, "Phases locked");
+        require(block.timestamp <= mintEndTime, "Mint ended");
+        require(phaseId >= PIONEER && phaseId <= CIVILIAN, "Invalid phase");
         require(price > 0 && price <= type(uint256).max / MAX_PUBLIC_SUPPLY, "Invalid price");
         require(walletLimit > 0 && walletLimit <= MAX_PUBLIC_SUPPLY, "Invalid wallet limit");
-        require(phaseId != PIONEER || walletLimit % 2 == 0, "Pioneer limit must be even");
         PhaseConfig storage config = phases[phaseId];
-        if (phaseId <= OPERATIVE) {
-            require(walletLimit >= config.maxWalletMinted, "Limit below minted allocation");
-            uint256 nextReserved = config.reserved + config.members * walletLimit - config.members * config.walletLimit;
-            _setReservation(config, nextReserved);
-        }
         config.price = price;
         config.walletLimit = walletLimit;
+        if (allowlistConfigured) _reserveGtd(tierMembers[PIONEER], tierMembers[OPERATIVE]);
         emit PhaseConfigured(phaseId, price, walletLimit);
     }
 
@@ -288,18 +310,13 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         uint256 members = pioneer + operative + recruit;
         require((root == bytes32(0)) == (members == 0), "Root and counts mismatch");
         require(snapshotHash != bytes32(0), "Empty snapshot hash");
-        uint256 pioneerReserved = pioneer * phases[PIONEER].walletLimit;
-        uint256 operativeReserved = (pioneer + operative) * phases[OPERATIVE].walletLimit;
-        require(pioneerReserved + operativeReserved <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
+        _reserveGtd(pioneer, operative);
         tierMembers[PIONEER] = pioneer;
         tierMembers[OPERATIVE] = operative;
         tierMembers[RECRUIT] = recruit;
         phases[PIONEER].members = pioneer;
         phases[OPERATIVE].members = pioneer + operative;
         phases[RECRUIT].members = members;
-        phases[PIONEER].reserved = pioneerReserved;
-        phases[OPERATIVE].reserved = operativeReserved;
-        totalGtdReserved = pioneerReserved + operativeReserved;
         allowlistRoot = root;
         allowlistSnapshotHash = snapshotHash;
         allowlistConfigured = true;
@@ -312,8 +329,11 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         uint8 previous = currentPhase;
         require(allowlistConfigured, "Configure allowlist first");
         require(previous < CIVILIAN, "Final phase reached");
-        uint256 released = phases[previous].reserved;
-        if (released > 0) _setReservation(phases[previous], 0);
+        // Unused guarantees stay reserved through OPERATIVE; the reservation ends when RECRUIT opens.
+        uint256 released = previous == OPERATIVE ? totalGtdReserved : 0;
+        if (previous == OPERATIVE) {
+            totalGtdReserved = 0;
+        }
         currentPhase = previous + 1;
         // Every transition requires a separate resume after reviewing the new phase.
         mintPaused = true;
@@ -328,24 +348,20 @@ contract RyodanKeys is AccessControl, ERC721, IERC4906, ReentrancyGuard {
         emit MintPausedUpdated(paused);
     }
 
-    function _requireEditablePhase(uint8 phaseId) private view {
-        require(block.timestamp <= mintEndTime, "Mint ended");
-        require(!soldOut(), "All tokens minted");
-        require(phaseId >= PIONEER && phaseId <= CIVILIAN, "Invalid phase");
-        require(phaseId >= currentPhase, "Phase closed");
-    }
-
-    function _setReservation(PhaseConfig storage config, uint256 nextReserved) private {
-        uint256 nextTotal = totalGtdReserved - config.reserved + nextReserved;
-        require(nextTotal <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
-        config.reserved = nextReserved;
-        totalGtdReserved = nextTotal;
+    /// Guaranteed keys: each Pioneer once (Pioneer limit, shared by PIONEER and OPERATIVE), each Operative once.
+    function _reserveGtd(uint256 pioneer, uint256 operative) private {
+        uint256 reserved = pioneer * phases[PIONEER].walletLimit + operative * phases[OPERATIVE].walletLimit;
+        require(reserved <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
+        totalGtdReserved = reserved;
     }
 
     // Only authorized treasury callers receive successful sale proceeds.
     // slither-disable-next-line arbitrary-send-eth
     function withdraw() external onlyRole(TREASURY_ROLE) nonReentrant {
         require(soldOut(), "Not all tokens minted");
+        // Proceeds of a sellout leave only after the deadline: a sellout cannot be bought with borrowed funds and
+        // repaid from the same withdrawal.
+        require(block.timestamp > mintEndTime, "Mint not ended");
         uint256 amount = address(this).balance;
         require(amount > 0, "No balance to withdraw");
         (bool sent,) = payable(msg.sender).call{value: amount}("");
