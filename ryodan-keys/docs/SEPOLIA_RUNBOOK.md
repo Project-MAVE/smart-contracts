@@ -15,13 +15,14 @@ Deployed 2026-11-23 on Ethereum Sepolia **11155111**, in launch order: client li
 | Admin and treasury | dedicated test wallet `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc` (no Safe on Sepolia) |
 | `sbtBaseURI` / `nftBaseURI` | `https://ryodan-meta.grooooog.space/sbt/` / `https://ryodan-meta.grooooog.space/nft/` |
 | Runtime code hash | `0xd8fa2ce7c0d3a4927b0ed3b61125bd7c3b9f5983c11ceb5add86320a7cb41d32` |
+| Etherscan | [**Exact Match**](https://sepolia.etherscan.io/address/0xd84bEbd8C2ED11546578962ebfD07FC56b79f07b#code), verified 2026-11-23: 28 source files, compiler `v0.8.37+commit.f401782d`, optimizer 200, EVM `cancun`, constructor arguments, creation and runtime bytecode match |
 | Allowlist | the client's 2026-11-23 CSVs plus the six team test wallets in Pioneer: 105 Pioneer, 1,403 Operative, 5,705 Recruit; root `0x684eef196d6778d493101719a1baa468b9bad7e8cfb647aec304c535626c0273`, snapshotHash `0x4340544089b569df44f052e55b46721daaa5c1c717169631e82803d98698ae1d`; 6,032 guaranteed keys reserved |
 
 State after deploy: 500 treasury keys (IDs 1–500) minted in five transactions of 100 before Pioneer; Pioneer started and resumed; the test wallet minted two Pioneer keys (IDs 501–502) at 0.0075 ETH each, and a single-key Pioneer mint passes a static call. Every test wallet's Pioneer proof is accepted on-chain.
 
 Gas on Sepolia is not representative of mainnet: Sepolia prices new storage about 4.7 times higher (10 new slots: 1,320,222 gas on Sepolia, 278,217 on mainnet, `eth_estimateGas` 2026-11-23). Here a 100-key treasury mint used 11.43 million gas and the two-key Pioneer mint 1.64 million.
 
-Evidence: [management receipts and checks](../deployments/sepolia-v7.json).
+Evidence: [management receipts and checks](../deployments/sepolia-v7.json), [Etherscan verification](../deployments/sepolia-v7-etherscan.json).
 
 ## V6 test deployment (superseded 2026-11-23)
 
