@@ -24,6 +24,36 @@ Gas on Sepolia is not representative of mainnet: Sepolia prices new storage abou
 
 Evidence: [management receipts and checks](../deployments/sepolia-v7.json), [Etherscan verification](../deployments/sepolia-v7-etherscan.json).
 
+### Allowlist fork run (2026-11-23)
+
+`test/fork/AllowlistFork.t.sol` runs every wallet of an allowlist snapshot against a fork of a live network, with the proofs the console serves. It reads a binary fixture built from the three CSVs and the snapshot, and skips itself when `ALLOWLIST_FIXTURE` is unset, so the normal suite and CI are unaffected. With `RYODAN_KEYS` it targets a deployed contract and advances phases as its on-chain administrator; without it the contract is deployed inside the fork. The listed wallets' transactions are impersonated by Foundry, not signed by their owners.
+
+```sh
+cd console
+node scripts/allowlist-fixture.mjs --csv-dir <csv folder> --snapshot <allowlist.json> --out ../ryodan-keys/fixtures/<name>.bin
+cd ../ryodan-keys
+FOUNDRY_PROFILE=fork ALLOWLIST_FIXTURE=fixtures/<name>.bin RYODAN_KEYS=<address> \
+  forge test --match-path test/fork/AllowlistFork.t.sol --fork-url <archive RPC> --fork-block-number <block>
+```
+
+Pin a block after the allowlist is loaded and before the first paid mint or the opening of Operative, and use an RPC that serves that block's state.
+
+| Run | Result |
+| --- | --- |
+| Deployed v7 contract above, Sepolia block 12195121 (Pioneer open, 500 treasury keys minted, no paid mint), 7,213 wallets | 20 of 20 tests pass |
+| Client lists only (100 / 1,403 / 5,705, root `0x40c8b370…ac5f`, 6,012 guaranteed keys), contract deployed inside a Sepolia fork at block 12195083 | scenario tests pass |
+| Client lists only, contract deployed inside a mainnet fork at block 26477520, receiver census | 7,203 of 7,208 wallets receive a key |
+
+What the tests establish:
+
+- **Every guaranteed wallet claims everything.** All Pioneers and Operatives mint their full allocation across Pioneer and Operative, in one to four transactions. A Pioneer asking for a fifth key in either phase is refused, the single reservation goes from 6,032 to 0 without ever being released early, the Recruits take the unreserved keys first come, first served, and the sale sells out; proceeds leave only after the deadline.
+- **Guaranteed wallets barely show up.** The unused guarantees are released when Recruit opens, every Recruit mints with its own proof, limits restart per phase and Civilian sells the remainder.
+- **Eligibility.** Every wallet proves only its own tier and reads the allowance the rules give it in each phase.
+- **Forced mints.** Every wallet, in Pioneer, Operative and Recruit, is refused when it quotes another phase, pays another phase's price, claims a tier it does not hold, borrows a neighbour's proof or mints without a proof. No refused attempt registers a wallet or moves a counter.
+- **Limits.** A Pioneer can never hold more than 4 + 10 + 20 keys from the sale, an Operative 4 + 10 + 20, a Recruit 10 + 20 and a public wallet 20. Keys cannot be transferred before sellout, so limits cannot be reset by moving keys; only the roles move the sale; nothing mints after the deadline.
+
+**Wallets with code on mainnet.** Keys are minted with `_safeMint`, so a wallet that has code must accept an ERC-721. On mainnet 1,749 of the 7,208 listed wallets have code: 1,725 EIP-7702 delegations and 24 contract wallets. On Sepolia these addresses are empty, so only a mainnet fork shows the difference. Five Recruit wallets (three delegations, two contracts) refuse the transfer and cannot mint to themselves with their current code; no Pioneer or Operative is affected, and a refused wallet does not block anyone else.
+
 ## V6 test deployment (superseded 2026-11-23)
 
 Deployed 2026-11-20 on Ethereum Sepolia **11155111**.

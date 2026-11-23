@@ -15,3 +15,6 @@ broadcast/
 
 # Python generated files
 __pycache__/
+
+# Allowlist fixtures for the fork tests hold wallet lists
+fixtures/
