@@ -106,7 +106,7 @@ try {
   assert.deepEqual(await steps(), ['01 / NEXT Accept the administrator role', '02 / DONE Load the allowlist', '03 / DONE Mint the 666 treasury keys', '04 / WAITING Open Pioneer']);
   assert.ok((await page.textContent('#safe-steps')).includes(`${deployer.address} deployed this contract and hands it over.`));
   assert.equal(await page.locator('[data-safe-step=accept]').isDisabled(), true);
-  assert.equal(await hint('accept'), 'Connect the individual wallet of a Safe owner.');
+  assert.match(await hint('accept'), /Connect your own signer wallet: 0x/);
   assert.equal(await page.locator('#download-batch, #safe-builder').count(), 0);
   await provider.send('evm_mine', []);
   await refresh();

@@ -103,7 +103,7 @@ function operationGate(kind, options = context()) {
   const asSafe = account?.toLowerCase() === state.safe.address.toLowerCase();
   const privileged = ['acceptAdmin', 'admin', 'phaseAdmin', 'allowlist', 'advance', 'pause', 'treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury'].includes(kind);
   if (viaSafe(kind, state, account) || (asSafe && privileged)) {
-    if (!state.safe.owner) return 'Connect the individual wallet of a Safe owner.';
+    if (!state.safe.owner) return `Connect your own signer wallet: ${state.safe.owners.map(short).join(' / ')}.`;
     if (walletChain !== chainId) return 'Switch your wallet to the displayed network.';
   }
   return reason;
@@ -239,6 +239,16 @@ async function stepApprovals(s, target) {
   return { step: step.id, ...await confirmations(provider, s.safe, safeTransaction(s.safe, calls), { blockTag: s.block }) };
 }
 
+function signerGuide(safe, approved, signer) {
+  const remaining = safe.owners.filter(owner => !approved.some(address => address.toLowerCase() === owner.toLowerCase()));
+  const current = remaining.find(owner => owner.toLowerCase() === signer?.toLowerCase());
+  const candidates = remaining.map(short).join(' / ');
+  const step = Math.min(approved.length + 1, Number(safe.threshold));
+  const final = step === Number(safe.threshold);
+  const who = current ? `Your wallet ${short(current)}` : `One of these wallets (${candidates || safe.owners.map(short).join(' / ')})`;
+  return `Step ${step} of ${safe.threshold}. ${who} ${final ? 'executes' : 'approves'} this transaction. Each owner uses their own browser and wallet.`;
+}
+
 function renderSafe(s) {
   $('#safe-section').hidden = !s.safe;
   if (!s.safe) { safeSignature = ''; return; }
@@ -254,6 +264,14 @@ function renderSafe(s) {
   if (safeUrl) $('#safe-address').href = safeUrl;
   else $('#safe-address').removeAttribute('href');
   text('#safe-owners', `${safe.owners.join('\n')}\n${!account ? 'Connect the wallet of one of these owners to approve or execute a step.' : account === safe.address ? 'The connected wallet is this Safe.' : safe.owner ? 'The connected wallet is one of the owners.' : 'The connected wallet is not an owner.'}`);
+  const instructions = [
+    `Each signer opens this console on their own device and connects their personal wallet. Eligible wallets: ${safe.owners.map(short).join(' / ')}.`,
+    ...(safe.threshold > 1n ? ['The first signer reviews the operation, approves it and shares the operation details and Safe transaction hash with the next signer.'] : []),
+    `The final signer opens the same operation with the same inputs, checks the Safe transaction hash and selects “Execute from the Safe”. The Safe requires ${safe.threshold} of ${safe.owners.length} owners.`,
+  ];
+  $('#owner-guide').replaceChildren(...instructions.map(instruction => {
+    const item = document.createElement('li'); item.textContent = instruction; return item;
+  }));
   text('#safe-kicker', safe.incoming ? 'THIS CONTRACT IS BEING HANDED TO A SAFE' : 'THIS CONTRACT IS RUN BY A SAFE');
   text('#safe-roles', [safe.incoming ? 'Administrator once it accepts' : 'Administrator', safe.treasury && 'Treasury', `holds ${safe.keys} key${safe.keys === 1n ? '' : 's'}`, `Safe ${safe.version}`].filter(Boolean).join(' · '));
   const direct = account && account !== safe.address && walletChain === chainId;
@@ -263,7 +281,7 @@ function renderSafe(s) {
     item.className = `safe-step ${step.status.toLowerCase()}`;
     const approved = safe.pending?.step === step.id ? safe.pending.approved : [];
     const approvals = approved.length ? ` Approved by ${approved.map(short).join(', ')}: ${approved.length} of ${safe.threshold}.` : '';
-    for (const [tag, value, className] of [['span', `0${index + 1} / ${step.status}`, 'phase-state'], ['strong', step.title, ''], ['p', step.detail + approvals, 'form-note']]) {
+    for (const [tag, value, className] of [['span', `0${index + 1} / ${step.status}`, 'phase-state'], ['strong', step.title, ''], ['p', [step.detail + approvals, step.status === 'NEXT' && signerGuide(safe, approved, account)].filter(Boolean).join(' '), 'form-note']]) {
       const node = document.createElement(tag); node.textContent = value; node.className = className; item.append(node);
     }
     if (!step.done) {
@@ -510,11 +528,7 @@ async function review(action) {
       const dd = document.createElement('dd'); dd.textContent = value;
       $('#review-details').append(dt, dd);
     }
-    text('#review-note', !safe ? 'Verify these details before opening your wallet.' : {
-      approve: 'Verify the call. Your wallet then approves this exact Safe transaction; another owner executes it.',
-      execute: 'Verify the call. The approvals are complete with your wallet: it executes the Safe transaction now.',
-      wait: 'You have already approved this Safe transaction. Another owner opens this step and executes it.',
-    }[owner.step] || 'Connect the individual wallet of a Safe owner.');
+    text('#review-note', !safe ? 'Verify these details before opening your wallet.' : signerGuide(safe, owner.approved, account) + (owner.step === 'execute' ? ' Check the hash below against the one shared by the first signer.' : ''));
     text('#confirm-transaction', !safe ? 'Sign in wallet ↗' : { approve: `Approve as owner (${owner.approved.length + 1} of ${safe.threshold}) ↗`, execute: 'Execute from the Safe ↗', wait: 'Waiting for another owner' }[owner.step] || 'Connect an owner wallet');
     text('#review-warning', safe ? `${(action.warning || '').replaceAll('your connected treasury wallet', 'the Safe')} The call succeeds when simulated from the Safe now.`.trim()
       : action.warning || 'The wallet displays the final network fee. State may change before this transaction is mined.');
@@ -575,7 +589,9 @@ async function submit() {
     notice('Awaiting your wallet signature…');
     const transaction = await signer.sendTransaction({ ...request, chainId });
     submitted = true;
-    setPending({ hash: transaction.hash, from: transaction.from, to: request.to, contract: action.address, data: transaction.data, value: request.value.toString(), nonce: transaction.nonce, label, chainId });
+    setPending({ hash: transaction.hash, from: transaction.from, to: request.to, contract: action.address, data: transaction.data, value: request.value.toString(), nonce: transaction.nonce, label, chainId, ...(action.owner?.step === 'approve' ? { handoff: {
+      hash: action.owner.hash, action: action.label, inputs: [action, ...(action.followUp ? [action.followUp] : [])].map(call => `${call.method}(${call.args.map(String).join(', ')})`).join(' → '), next: action.safe.owners.filter(owner => ![...action.owner.approved, account].some(approved => approved.toLowerCase() === owner.toLowerCase())).map(short),
+    } } : {}) });
     log('SUBMITTED', label, transaction.hash);
     notice('Transaction submitted. Waiting for confirmation…');
     let receipt;
@@ -615,7 +631,12 @@ function finishReceipt(receipt) {
     });
     const ids = minted.length > 12 ? `${minted[0]}-${minted.at(-1)} (${minted.length} keys)` : minted.join(', ');
     log('CONFIRMED', label + (minted.length ? ` · Token IDs: ${ids}` : ''), receipt.hash);
-    notice(`${label} confirmed${minted.length ? ` · Token IDs: ${ids}` : ''}.`);
+    if (pending.handoff) {
+      const { hash, action, inputs, next } = pending.handoff;
+      const message = `${label} confirmed. Next signer: ${next.join(' / ')}. Open “${action}” on your own device. Match the call ${inputs}. Verify Safe transaction hash ${hash} before signing.`;
+      log('NEXT SIGNER', message);
+      notice(message);
+    } else notice(`${label} confirmed${minted.length ? ` · Token IDs: ${ids}` : ''}.`);
   } else { log('REVERTED', label, receipt.hash); notice('The transaction reverted. Its state changes were rolled back.', 'error'); }
   setPending(null);
 }

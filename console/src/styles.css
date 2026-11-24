@@ -34,3 +34,6 @@ input[type="file"]::file-selector-button { background: var(--raised, #231919); c
 
 #phase-final-dialog .dialog-actions { flex-wrap: wrap; }
 #phase-final-dialog .button { white-space: normal; }
+
+.owner-guide { margin: 0; padding-inline-start: 1.5em; }
+.owner-guide li + li { margin-top: 8px; }
