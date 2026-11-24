@@ -134,7 +134,7 @@ try {
   assert.equal(await page.textContent('#safe-address'), safeAddress);
   for (const owner of owners) assert.ok((await page.textContent('#safe-owners')).includes(owner));
   assert.match(await page.textContent('#safe-roles'), /^Administrator · Treasury · holds 0 keys · Safe 1\.5\.0$/);
-  assert.deepEqual(await steps(), ['01 / NEXT Load the allowlist', '02 / WAITING Mint the 500 treasury keys', '03 / WAITING Open Pioneer']);
+  assert.deepEqual(await steps(), ['01 / NEXT Load the allowlist', '02 / WAITING Mint the 666 treasury keys', '03 / WAITING Open Pioneer']);
   assert.equal(await page.locator('[data-safe-step=open]').isDisabled(), true);
   assert.equal(await page.textContent('[data-safe-step=open] + .action-hint'), 'Load the allowlist snapshot before starting Pioneer.');
   assert.equal(await page.textContent('[data-hint=mint]'), 'Connect a wallet to continue.');
@@ -148,7 +148,7 @@ try {
   assert.equal(await keys.allowlistConfigured(), false, 'downloading a batch changes nothing on chain');
   await executeFromSafe(list);
   await refresh();
-  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / NEXT Mint the 500 treasury keys', '03 / WAITING Open Pioneer']);
+  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / NEXT Mint the 666 treasury keys', '03 / WAITING Open Pioneer']);
   assert.equal(await keys.totalGtdReserved(), BigInt(snapshot.counts.pioneer * 4 + snapshot.counts.operative * 4));
   report('Allowlist batch: exact calldata, executed by the Safe with two owners, step marked done');
 
@@ -174,7 +174,7 @@ try {
   assert.equal(await stepButton('treasury'), 'Execute as owner · next 100 keys ↗');
   await sign('[data-safe-step=treasury]', 'Mint treasury keys 1-100', 'Execute from the Safe ↗', 'Safe execution: Mint treasury keys 1-100 confirmed');
   assert.deepEqual([await keys.mintedByTreasury(), await keys.balanceOf(safeAddress)], [100n, 100n]);
-  assert.equal(await page.textContent('#treasury-count'), '100 / 500');
+  assert.equal(await page.textContent('#treasury-count'), '100 / 666');
   assert.equal(await stepButton('treasury'), 'Approve as owner · next 100 keys ↗');
   report('Second owner executes the approved step from the console: 100 keys minted to the Safe');
 
@@ -184,18 +184,19 @@ try {
   assert.equal(await keys.mintedByTreasury(), 200n);
   report('The roles swap: any two owners complete a step');
 
-  for (let block = 2; block < 5; block++) {
-    const file = await prepare('[data-safe-step=treasury]', `Mint treasury keys ${block * 100 + 1}-${block * 100 + 100}`, '#download-batch');
-    assert.equal(batchCalldata(file.transactions[0]), iface.encodeFunctionData('treasuryMint', [100, safeAddress]));
+  for (let block = 2; block < 7; block++) {
+    const size = Math.min(100, 666 - block * 100);
+    const file = await prepare('[data-safe-step=treasury]', `Mint treasury keys ${block * 100 + 1}-${block * 100 + size}`, '#download-batch');
+    assert.equal(batchCalldata(file.transactions[0]), iface.encodeFunctionData('treasuryMint', [size, safeAddress]));
     await executeFromSafe(file);
     await refresh();
-    assert.equal(await page.textContent('#treasury-count'), `${block * 100 + 100} / 500`);
+    assert.equal(await page.textContent('#treasury-count'), `${block * 100 + size} / 666`);
   }
-  assert.deepEqual([await keys.mintedByTreasury(), await keys.balanceOf(safeAddress), await keys.ownerOf(1), await keys.ownerOf(500)], [500n, 500n, safeAddress, safeAddress]);
-  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 500 treasury keys', '03 / NEXT Open Pioneer']);
-  assert.match(await page.textContent('#safe-roles'), /holds 500 keys/);
+  assert.deepEqual([await keys.mintedByTreasury(), await keys.balanceOf(safeAddress), await keys.ownerOf(1), await keys.ownerOf(666)], [666n, 666n, safeAddress, safeAddress]);
+  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 666 treasury keys', '03 / NEXT Open Pioneer']);
+  assert.match(await page.textContent('#safe-roles'), /holds 666 keys/);
   await shot('02-treasury-minted');
-  report('Treasury: the batch file stays available to a connected owner; all 500 keys are owned by the Safe');
+  report('Treasury: the batch file stays available to a connected owner; all 666 keys are owned by the Safe');
 
   const open = await prepare('[data-safe-step=open]', 'Open Pioneer', '#download-batch');
   assert.deepEqual(open.transactions.map(batchCalldata), [iface.encodeFunctionData('advancePhase'), iface.encodeFunctionData('setMintPaused', [false])]);
@@ -206,7 +207,7 @@ try {
   await sign('[data-safe-step=open]', 'Open Pioneer', 'Execute from the Safe ↗', 'Safe execution: Open Pioneer confirmed');
   assert.deepEqual([await keys.currentPhase(), await keys.mintPaused()], [1n, false]);
   assert.equal(await page.textContent('#metric-phase'), 'PIONEER');
-  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 500 treasury keys', '03 / NEXT Open Operative']);
+  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 666 treasury keys', '03 / NEXT Open Operative']);
   assert.match(await page.textContent('#safe-steps'), /Pioneer is open and minting\./);
   await shot('03-pioneer-open');
   report('Opening: two owners approve and execute advancePhase then setMintPaused(false) as one Safe transaction; Pioneer is minting');
@@ -235,7 +236,7 @@ try {
   assert.equal(await keys.mintPaused(), true);
   await page.goto(`${url}/#mint`);
   await synced();
-  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 500 treasury keys', '03 / NEXT Resume Pioneer']);
+  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 666 treasury keys', '03 / NEXT Resume Pioneer']);
   report('A wallet that connects as the Safe itself signs in the wallet, as any administrator');
 
   await page.setViewportSize({ width: 390, height: 844 });

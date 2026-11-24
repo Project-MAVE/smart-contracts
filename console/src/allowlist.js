@@ -57,14 +57,15 @@ function manifest(snapshot) {
 }
 export const snapshotDigest = snapshot => keccak256(toUtf8Bytes(JSON.stringify(manifest(snapshot))));
 
-// Each Pioneer is reserved once: the Pioneer cap is shared by PIONEER and OPERATIVE, as in the v7 contract.
-export function capacity(counts, pioneerLimit = 4n, operativeLimit = 4n, paidSupply = 6166n) {
+// Each Pioneer is reserved once: the Pioneer cap is shared by PIONEER and OPERATIVE, as in the v8 contract.
+// Lists may ask for more keys than the paid supply: the contract reserves at most the paid supply and the keys go to the wallets that mint first.
+export function capacity(counts, pioneerLimit = 4n, operativeLimit = 4n, paidSupply = 6000n) {
   requireValid(pioneerLimit > 0n && operativeLimit > 0n, 'Pioneer and Operative require a positive cap.');
   const pioneer = BigInt(counts.pioneer) * pioneerLimit;
   const operative = BigInt(counts.operative) * operativeLimit;
   const total = pioneer + operative;
-  requireValid(total <= paidSupply, `GTD allocations need ${total} keys; only ${paidSupply} paid keys are available.`);
-  return { pioneer, operative, total, unreserved: paidSupply - total };
+  const reserved = total < paidSupply ? total : paidSupply;
+  return { pioneer, operative, total, reserved, unreserved: paidSupply - reserved, oversubscribed: total - reserved };
 }
 
 export function buildSnapshot(sources, frozenAt, limits = {}) {

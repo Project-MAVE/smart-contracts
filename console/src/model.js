@@ -23,10 +23,10 @@ export function deadlineUTC(value) {
   return BigInt(Math.floor(time.getTime() / 1000));
 }
 
-export const SUPPORTED_VERSION = 7n;
+export const SUPPORTED_VERSION = 8n;
 
 export function assertSupported(version) {
-  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v7.`), { code: 'UNSUPPORTED_CONTRACT' });
+  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v8.`), { code: 'UNSUPPORTED_CONTRACT' });
 }
 
 export const phaseNames = ['Not started', 'Pioneer', 'Operative', 'Recruit', 'Civilian'];
@@ -67,7 +67,7 @@ export function gate(kind, s, context) {
   const safe = viaSafe(kind, s, context.account);
   if (!safe && !context.account) return 'Connect a wallet to continue.';
   if (!safe && !context.correctChain) return 'Switch your wallet to the displayed network.';
-  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v7.';
+  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v8.';
   if (!safe && adminKinds.includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
   if (!safe && treasuryKinds.includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
   if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {

@@ -8,7 +8,7 @@ const url = process.argv[2] || 'https://ryodan.grooooog.space';
 const destination = new URL('../test-results/', import.meta.url);
 await mkdir(destination, { recursive: true });
 const deployment = JSON.parse(await readFile(new URL('../src/deployment.json', import.meta.url), 'utf8'));
-if (!deployment.address) throw new Error('No v7 deployment in src/deployment.json: deploy the v7 contract before checking the live site.');
+if (!deployment.address) throw new Error('No v8 deployment in src/deployment.json: deploy the v8 contract before checking the live site.');
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
 let page;
@@ -68,7 +68,7 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: fileURLToPath(new URL('sepolia-mobile.png', destination)), fullPage: true, animations: 'disabled' });
   assert.deepEqual(errors, []);
-  const result = { url, checkedAt: new Date().toISOString(), address: deployment.address, metrics, checks: ['HTTP 200', 'Live Sepolia state', 'v7 contract only', 'Etherscan address links', 'Matching live snapshot and downloadable CSV/ZIP templates', 'Read-only without wallet', 'Six mobile views without overflow', 'Primary RPC failure recovers through live ethPandaOps fallback', 'No unexpected browser or network errors'] };
+  const result = { url, checkedAt: new Date().toISOString(), address: deployment.address, metrics, checks: ['HTTP 200', 'Live Sepolia state', 'v8 contract only', 'Etherscan address links', 'Matching live snapshot and downloadable CSV/ZIP templates', 'Read-only without wallet', 'Six mobile views without overflow', 'Primary RPC failure recovers through live ethPandaOps fallback', 'No unexpected browser or network errors'] };
   await writeFile(new URL('site-verification.json', destination), JSON.stringify(result, null, 2) + '\n');
   console.log(JSON.stringify(result, null, 2));
 } catch (error) {

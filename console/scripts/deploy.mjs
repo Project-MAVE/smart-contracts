@@ -25,11 +25,11 @@ const treasuryFirst = args.includes('--treasury-first');
 // --admin ADDRESS: that address (the client's Safe) is admin and treasury from the constructor; the deploy wallet gets no role and sends nothing else.
 const roleHolder = option('--admin', null);
 // --allowlist-from FILE: with --admin, the console gets the Merkle snapshot of that manifest for the Safe to load.
-const allowlistFrom = option('--allowlist-from', 'ryodan-keys/deployments/sepolia-v7.json');
+const allowlistFrom = option('--allowlist-from', 'ryodan-keys/deployments/sepolia-v8.json');
 const rpc = option('--rpc', local ? 'http://127.0.0.1:8547' : 'https://ethereum-sepolia-rpc.publicnode.com');
 const provider = new JsonRpcProvider(rpc, chainId, { cacheTimeout: -1, pollingInterval: 1500 });
 if (Number(await provider.send('eth_chainId', [])) !== chainId) throw new Error('Wrong chain');
-const manifestPath = resolve(root, option('--manifest', local ? 'console/test-results/local-deployment.json' : `ryodan-keys/deployments/sepolia-v7${qa ? '-refund' : roleHolder ? '-safe' : ''}.json`));
+const manifestPath = resolve(root, option('--manifest', local ? 'console/test-results/local-deployment.json' : `ryodan-keys/deployments/sepolia-v8${qa ? '-refund' : roleHolder ? '-safe' : ''}.json`));
 await mkdir(dirname(manifestPath), { recursive: true });
 const artifact = JSON.parse(await readFile(resolve(root, 'ryodan-keys/out/RyodanKeys.sol/RyodanKeys.json'), 'utf8'));
 const expectedWallet = '0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc';
@@ -49,8 +49,8 @@ if (safeManaged && (qa || treasuryFirst || listsDir || pioneerWallets.length)) t
 let manifest;
 try { manifest = JSON.parse(await readFile(manifestPath, 'utf8')); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
-manifest ||= { chainId, deployer, admin, version: 7, purpose: qa ? 'refund' : safeManaged ? 'safe-managed' : 'management', transactions: {}, checks: [] };
-if (manifest.chainId !== chainId || manifest.deployer !== deployer || (manifest.admin || deployer) !== admin || manifest.version !== 7) throw new Error('Manifest context mismatch');
+manifest ||= { chainId, deployer, admin, version: 8, purpose: qa ? 'refund' : safeManaged ? 'safe-managed' : 'management', transactions: {}, checks: [] };
+if (manifest.chainId !== chainId || manifest.deployer !== deployer || (manifest.admin || deployer) !== admin || manifest.version !== 8) throw new Error('Manifest context mismatch');
 async function save() {
   await writeFile(`${manifestPath}.tmp`, JSON.stringify(manifest, null, 2) + '\n');
   await rename(`${manifestPath}.tmp`, manifestPath);
@@ -95,7 +95,7 @@ const blank = code => immutables.reduce((hex, { start, length }) => hex.slice(0,
 await check('Exact runtime bytecode matches current compiler artifact', blank(runtime) === blank(artifact.deployedBytecode.object));
 await check('Immutable deadline in the runtime code equals the deploy deadline', immutables.length > 0 && immutables.every(({ start, length }) => BigInt('0x' + runtime.slice(2 + start * 2, 2 + (start + length) * 2)) === BigInt(manifest.deadline)));
 manifest.runtimeCodeHash = keccak256(runtime);
-await check('Contract version 7', await keys.CONTRACT_VERSION() === 7n);
+await check('Contract version 8', await keys.CONTRACT_VERSION() === 8n);
 await check('Deadline and metadata folders are the ones fixed at deploy', await keys.mintEndTime() === BigInt(manifest.deadline) && await keys.sbtBaseURI() === manifest.sbtBaseURI && await keys.nftBaseURI() === manifest.nftBaseURI);
 await check('No function can move the deadline', !artifact.abi.some(item => item.name === 'setMintEndTime'));
 if (safeManaged) {
@@ -205,7 +205,7 @@ await save();
 if (!local && !qa && !verifyOnly) {
   await writeFile(resolve(root, 'console/src/allowlist.json'), JSON.stringify(manifest.allowlist, null, 2) + '\n');
   await writeFile(resolve(root, 'console/public/testnet-check-data.js'), checkerScript(manifest.allowlist));
-  await writeFile(resolve(root, 'console/src/deployment.json'), JSON.stringify({ chainId, address: manifest.address, label: safeManaged ? 'v7 / Safe-managed' : 'v7 / client-aligned management', admin, deploymentBlock: manifest.deploymentBlock, runtimeCodeHash: manifest.runtimeCodeHash }, null, 2) + '\n');
+  await writeFile(resolve(root, 'console/src/deployment.json'), JSON.stringify({ chainId, address: manifest.address, label: safeManaged ? 'v8 / Safe-managed' : 'v8 / client-aligned management', admin, deploymentBlock: manifest.deploymentBlock, runtimeCodeHash: manifest.runtimeCodeHash }, null, 2) + '\n');
 }
 console.log(JSON.stringify({ address: manifest.address, chainId, deadline: manifest.deadline, manifest: manifestPath }));
 provider.destroy();

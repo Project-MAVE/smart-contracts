@@ -14,7 +14,7 @@ const snapshotHash = '0x4340544089b569df44f052e55b46721daaa5c1c717169631e82803d9
 const iface = new Interface(abi);
 const safe = { address: safeAddress, owners, threshold: 2n, nonce: 0n, version: '1.5.0', treasury: true, keys: 0n, owner: false };
 const fresh = {
-  version: 7n, deadline: 200n, timestamp: 100n, maxPaid: 6166n, maxTreasury: 500n, firstTokenId: 1n, paid: 0n, treasuryMinted: 0n, balance: 0n,
+  version: 8n, deadline: 200n, timestamp: 100n, maxPaid: 6000n, maxTreasury: 666n, firstTokenId: 1n, paid: 0n, treasuryMinted: 0n, balance: 0n,
   admin: false, treasuryRole: false, currentPhase: 0n, paused: true, allowlistConfigured: false, snapshotMatches: false, allowlistRoot: `0x${'0'.repeat(64)}`,
   tierCounts: [0n, 0n, 0n], soldOut: false, refundsAvailable: false, choiceWindowOpen: false, keptFunds: 0n, keptWithdrawn: 0n, safe,
 };
@@ -67,7 +67,7 @@ test('with a Safe as administrator the privileged calls are prepared without a w
   assert.equal(gate('mint', fresh, nobody), 'Connect a wallet to continue.');
   assert.equal(gate('withdraw', fresh, nobody), 'All 6,666 keys must mint before this operation unlocks.');
   assert.equal(viaSafe('mint', fresh, null), false);
-  assert.equal(gate('allowlist', { ...fresh, version: 6n }, nobody), 'This console manages only Ryodan Keys v7.');
+  assert.equal(gate('allowlist', { ...fresh, version: 7n }, nobody), 'This console manages only Ryodan Keys v8.');
   assert.equal(gate('allowlist', fresh, { ...nobody, stale: true }), 'Refresh contract state before submitting.');
   const withoutTreasury = { ...fresh, safe: { ...safe, treasury: false } };
   assert.equal(viaSafe('treasuryMint', withoutTreasury, null), false);
@@ -94,13 +94,13 @@ test('the launch sequence follows chain state: list, treasury in blocks of 100, 
   assert.deepEqual(steps.map(step => step.id), ['allowlist', 'treasury', 'open']);
   assert.equal(status(fresh), 'NEXT WAITING WAITING');
   assert.match(steps[0].detail, /105 Pioneer \/ 1403 Operative \/ 5705 Recruit/);
-  assert.match(steps[1].detail, /^0 \/ 500 minted\. 5 Safe transaction\(s\) of up to 100 keys left/);
+  assert.match(steps[1].detail, /^0 \/ 666 minted\. 7 Safe transaction\(s\) of up to 100 keys left/);
   assert.equal(steps[2].title, 'Open Pioneer');
   const listed = { ...fresh, allowlistConfigured: true, snapshotMatches: true, allowlistRoot: root, tierCounts: [105n, 1403n, 5705n] };
   assert.equal(status(listed), 'DONE NEXT WAITING');
-  assert.match(launchSteps({ ...listed, treasuryMinted: 250n }, snapshot)[1].detail, /^250 \/ 500 minted\. 3 Safe transaction/);
+  assert.match(launchSteps({ ...listed, treasuryMinted: 250n }, snapshot)[1].detail, /^250 \/ 666 minted\. 5 Safe transaction/);
   assert.match(launchSteps({ ...fresh, allowlistConfigured: true }, snapshot)[0].detail, /A different snapshot is on chain/);
-  const minted = { ...listed, treasuryMinted: 500n };
+  const minted = { ...listed, treasuryMinted: 666n };
   assert.equal(status(minted), 'DONE DONE NEXT');
   const pioneer = launchSteps({ ...minted, currentPhase: 1n, paused: false }, snapshot)[2];
   assert.deepEqual([pioneer.title, pioneer.status], ['Open Operative', 'NEXT']);

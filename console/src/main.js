@@ -343,7 +343,7 @@ async function refresh({ force = false, quiet = false } = {}) {
 }
 
 function updateTotal() {
-  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, state?.maxPaid || 6166n, 1n))} ETH + gas` : 'Awaiting active phase'); }
+  try { text('#mint-total', state?.price ? `${formatEther(state.price * unsigned($('#mint-amount').value, state?.maxPaid || 6000n, 1n))} ETH + gas` : 'Awaiting active phase'); }
   catch { text('#mint-total', 'Enter a valid quantity'); }
 }
 
@@ -605,7 +605,7 @@ function onForm(id, callback) {
 }
 
 onForm('#mint-form', data => {
-  const amount = unsigned(data.get('amount'), state?.maxPaid || 6166n, 1n);
+  const amount = unsigned(data.get('amount'), state?.maxPaid || 6000n, 1n);
   const proof = state?.currentPhase < 4n ? state.proof : null;
   return review({ kind: 'mint', label: 'Mint Ryodan Keys', method: proof ? 'mintWithProof' : 'mint', args: [amount, state?.currentPhase, state?.price, ...(proof ? [proof.tier, proof.proof] : [])] });
 });
@@ -616,7 +616,7 @@ onForm('#phase-form', data => {
   const price = parseEther(data.get('price').trim());
   if (price <= 0n) throw new Error('The price must be greater than zero.');
   const id = unsigned(data.get('phase'), 4n, 1n);
-  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), state?.maxPaid || 6166n, 1n)], warning: 'Set every phase before Pioneer opens: from then on prices and per-wallet limits cannot change. Guaranteed allocations are recalculated and must fit the paid supply.' });
+  return review({ kind: 'phaseAdmin', label: `Configure ${phaseNames[Number(id)]}`, method: 'configurePhase', args: [id, price, unsigned(data.get('limit'), state?.maxPaid || 6000n, 1n)], warning: 'Set every phase before Pioneer opens: from then on prices and per-wallet limits cannot change. Guaranteed allocations are recalculated and capped at the paid supply.' });
 });
 onForm('#treasury-form', data => review({ kind: 'treasuryMint', label: 'Mint treasury allocation', method: 'treasuryMint', args: [unsigned(data.get('amount'), viaSafe('treasuryMint', state, account) ? TREASURY_BLOCK : 50n, 1n), address(data.get('recipient'))] }));
 onForm('#withdraw-form', () => review({ kind: 'withdraw', label: 'Withdraw sale proceeds', method: 'withdraw', args: [], warning: 'The full contract balance is sent to your connected treasury wallet.' }));
@@ -695,7 +695,7 @@ $('#mint-amount').addEventListener('input', updateTotal);
 $('#phase').addEventListener('change', fillPhaseConfiguration);
 for (const id of ['#phase-price', '#wallet-limit']) $(id).addEventListener('input', () => { $('#phase-form').dataset.dirty = 'true'; });
 for (const [selector, change] of [['#decrement', -1], ['#increment', 1]]) $(selector).addEventListener('click', () => {
-  $('#mint-amount').value = Math.max(1, Math.min(Number(state?.maxPaid || 6166n), (Number($('#mint-amount').value) || 1) + change)); updateTotal();
+  $('#mint-amount').value = Math.max(1, Math.min(Number(state?.maxPaid || 6000n), (Number($('#mint-amount').value) || 1) + change)); updateTotal();
 });
 
 function route() {
@@ -709,10 +709,10 @@ function route() {
 function selectDeployment() {
   if (!selected) {
     $('#deployment').disabled = true;
-    text('#contract-link', 'No v7 contract deployed');
-    text('#deadline-remaining', 'No v7 contract deployed');
+    text('#contract-link', 'No v8 contract deployed');
+    text('#deadline-remaining', 'No v8 contract deployed');
     text('#sync-status', 'NO V6 CONTRACT');
-    notice('No Ryodan Keys v7 contract is deployed on this network yet. This console manages only v7.');
+    notice('No Ryodan Keys v8 contract is deployed on this network yet. This console manages only v8.');
     renderControls();
     return;
   }
