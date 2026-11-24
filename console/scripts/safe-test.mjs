@@ -103,6 +103,10 @@ try {
     await page.locator('#review-dialog[open]').waitFor();
     assert.equal(await page.textContent('#review-title'), title);
     assert.match(await page.textContent('#review-details'), new RegExp(`EXECUTED BYSafe ${safeAddress}\\s*2 of 3 owners sign`));
+    if (await page.locator('#review-confirm').isVisible()) {
+      assert.equal(await page.locator('#confirm-transaction').isDisabled(), true, 'a phase change waits for the explicit confirmation');
+      await page.check('#review-confirm-box');
+    }
   }
   async function prepare(trigger, title, button = '#confirm-transaction') {
     await review(trigger, title);
@@ -149,7 +153,7 @@ try {
   await executeFromSafe(list);
   await refresh();
   assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / NEXT Mint the 666 treasury keys', '03 / WAITING Open Pioneer']);
-  assert.equal(await keys.totalGtdReserved(), BigInt(snapshot.counts.pioneer * 4 + snapshot.counts.operative * 4));
+  assert.equal(await keys.totalGtdReserved(), BigInt(Math.min(snapshot.counts.pioneer * 4 + snapshot.counts.operative * 4, 6000)));
   report('Allowlist batch: exact calldata, executed by the Safe with two owners, step marked done');
 
   // Owners act in the console with their own wallets: the first approves, the second executes.
@@ -198,6 +202,19 @@ try {
   await shot('02-treasury-minted');
   report('Treasury: the batch file stays available to a connected owner; all 666 keys are owned by the Safe');
 
+  await page.goto(`${url}/#sale`);
+  await synced();
+  assert.equal(await page.locator('#advance-form').isHidden(), true);
+  assert.match(await page.textContent('#advance-note'), /^Phases open only from Safe Operations → Open Pioneer: one Safe transaction advances and resumes minting/);
+  await shot('01b-sale-single-way');
+  await page.goto(`${url}/#mint`);
+  await synced();
+  report('A Safe-run contract has a single way to change phase: the Sequential mint panel offers no lone advance');
+
+  await page.click('[data-safe-step=open]');
+  await page.locator('#review-dialog[open]').waitFor();
+  assert.equal(await page.textContent('#review-confirm-text'), 'So far 0 of 6,000 paid keys have been minted. Opening Pioneer freezes the allowlist, prices and limits for good. Are you sure you want to proceed?');
+  await page.click('#review-dialog button[value=cancel]');
   const open = await prepare('[data-safe-step=open]', 'Open Pioneer', '#download-batch');
   assert.deepEqual(open.transactions.map(batchCalldata), [iface.encodeFunctionData('advancePhase'), iface.encodeFunctionData('setMintPaused', [false])]);
   assert.match(await page.textContent('#activity-log'), /PREPARED.*Open Pioneer · batch for Safe/);
@@ -225,7 +242,22 @@ try {
   assert.match(await page.textContent('#safe-owners'), /The connected wallet is not an owner\./);
   report('Every administrator form follows the same two-owner route; a wallet that is not an owner can only download the batch');
 
+  await page.goto(`${url}/#mint`);
+  await synced();
+  await page.click('[data-safe-step=open]');
+  await page.locator('#review-dialog[open]').waitFor();
+  assert.equal(await page.textContent('#review-confirm-text'), 'Only 0 keys minted in Pioneer (0 of 6,000 paid keys overall). Pioneer closes for good and cannot reopen. Are you sure you want to open Operative?');
+  await page.locator('#review-confirm').scrollIntoViewIfNeeded();
+  await page.locator('#review-dialog').screenshot({ path: fileURLToPath(new URL('safe-03b-open-operative-confirm.png', output)), animations: 'disabled' });
+  await page.click('#review-dialog button[value=cancel]');
   await use(safeAddress);
+  assert.equal(await stepButton('open'), 'Download batch for the Safe app ↗');
+  const operative = await prepare('[data-safe-step=open]', 'Open Operative');
+  assert.deepEqual(operative.transactions.map(batchCalldata), [iface.encodeFunctionData('advancePhase'), iface.encodeFunctionData('setMintPaused', [false])]);
+  assert.deepEqual([await keys.currentPhase(), await keys.mintPaused()], [1n, false]);
+  report('Opening the next phase asks to confirm how many keys the current one minted; a wallet connected as the Safe gets the two-call batch, never a lone advance');
+  await page.goto(`${url}/#sale`);
+  await synced();
   await page.waitForFunction(() => document.querySelector('[data-hint=pause]').textContent === 'Ready. Review the transaction before signing.');
   await page.click('#pause-form button');
   await page.locator('#review-dialog[open]').waitFor();

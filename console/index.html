@@ -54,7 +54,7 @@
             <div class="section-heading"><h2><span>02 /</span> SALE CONTROLS</h2><span class="section-tag">ADMIN ROLE</span></div>
             <div class="phase-track" aria-label="Mint phase sequence"></div>
             <article class="panel phase-command">
-              <div><div class="panel-kicker">SEQUENTIAL MINT</div><h3 id="phase-command-title">Not started</h3><p class="form-note">Advance closes the previous phase permanently and releases its unused guarantees. Review the next phase, then resume minting.</p><p class="form-note" id="gtd-reserve">Reading guaranteed allocations…</p></div>
+              <div><div class="panel-kicker">SEQUENTIAL MINT</div><h3 id="phase-command-title">Not started</h3><p class="form-note" id="advance-note">Advance closes the previous phase permanently and releases its unused guarantees. Review the next phase, then resume minting.</p><p class="form-note" id="gtd-reserve">Reading guaranteed allocations…</p></div>
               <div><form id="advance-form"><button class="button primary wide" type="submit" data-action="advance" id="advance-label">Review next phase ↗</button><p class="action-hint" data-hint="advance"></p></form><form id="pause-form"><button class="button wide" type="submit" data-action="pause" id="pause-label">Review resume ↗</button><p class="action-hint" data-hint="pause"></p></form></div>
             </article>
             <div class="work-grid below">
@@ -100,7 +100,7 @@
         </main>
       </div>
     </div>
-    <dialog id="review-dialog"><form method="dialog"><div class="panel-kicker">TRANSACTION REVIEW <button class="icon-button" value="cancel" aria-label="Close transaction review">×</button></div><h2 id="review-title">Review transaction</h2><p class="form-note" id="review-note">Verify these details before opening your wallet.</p><dl id="review-details"></dl><p id="review-warning" class="form-note"></p><div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button id="download-batch" class="button" type="button" hidden>Download batch file ↓</button><button id="confirm-transaction" class="button primary" type="button">Sign in wallet ↗</button></div></form></dialog>
+    <dialog id="review-dialog"><form method="dialog"><div class="panel-kicker">TRANSACTION REVIEW <button class="icon-button" value="cancel" aria-label="Close transaction review">×</button></div><h2 id="review-title">Review transaction</h2><p class="form-note" id="review-note">Verify these details before opening your wallet.</p><dl id="review-details"></dl><p id="review-warning" class="form-note"></p><label id="review-confirm" class="checkbox-label rule-note amber" hidden><input id="review-confirm-box" type="checkbox" /><span id="review-confirm-text"></span></label><div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button id="download-batch" class="button" type="button" hidden>Download batch file ↓</button><button id="confirm-transaction" class="button primary" type="button">Sign in wallet ↗</button></div></form></dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
