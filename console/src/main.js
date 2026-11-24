@@ -2,7 +2,7 @@ import './styles.css';
 import { BrowserProvider, Contract, formatEther, parseEther, getAddress, ZeroHash } from 'ethers';
 import { abi, reader, snapshot } from './chain.js';
 import { address, friendlyError, gate, phase, phaseNames, remaining, refundIds, settleIds, tokenRange, unsigned, viaSafe } from './model.js';
-import { approveCall, batchCall, batchCalldata, batchFile, confirmations, executeCall, executionSignatures, launchSteps, ownerStep, safeGasNeeded, safeLinks, safeTransaction, TRANSACTION_GAS_CAP, TREASURY_BLOCK } from './safe.js';
+import { approveCall, batchCall, batchCalldata, confirmations, executeCall, executionSignatures, launchSteps, ownerStep, safeGasNeeded, safeTransaction, TRANSACTION_GAS_CAP, TREASURY_BLOCK } from './safe.js';
 import { currentSnapshot, mountAllowlist, renderAllowlist } from './allowlist-ui.js';
 import deployment from './deployment.json';
 
@@ -39,12 +39,6 @@ const short = value => `${value.slice(0, 6)}…${value.slice(-4)}`;
 const utc = seconds => new Date(Number(seconds) * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC');
 const stale = () => !refreshedAt || performance.now() - refreshedAt > 45000;
 const context = () => ({ busy, pending, account, correctChain: walletChain === chainId, stale: stale() });
-
-function download(name, content) {
-  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
-  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
 
 function notice(message, kind = '') {
   text('#notice', message);
@@ -103,26 +97,36 @@ function renderPending() {
   renderControls();
 }
 
+function operationGate(kind, options = context()) {
+  const reason = gate(kind, state, options);
+  if (!state?.safe) return reason;
+  const asSafe = account?.toLowerCase() === state.safe.address.toLowerCase();
+  const privileged = ['acceptAdmin', 'admin', 'phaseAdmin', 'allowlist', 'advance', 'pause', 'treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury'].includes(kind);
+  if (viaSafe(kind, state, account) || (asSafe && privileged)) {
+    if (!state.safe.owner) return 'Connect the individual wallet of a Safe owner.';
+    if (walletChain !== chainId) return 'Switch your wallet to the displayed network.';
+  }
+  return reason;
+}
+
 function renderControls() {
   all('[data-action]').forEach(button => {
-    const reason = gate(button.dataset.action, state, context());
+    const reason = operationGate(button.dataset.action);
     button.disabled = Boolean(reason);
     button.title = reason;
   });
   all('[data-hint]').forEach(hint => {
-    hint.textContent = gate(hint.dataset.hint, state, context()) || (viaSafe(hint.dataset.hint, state, account) ? 'Ready. Review the call, then download its batch for the Safe.' : 'Ready. Review the transaction before signing.');
+    hint.textContent = operationGate(hint.dataset.hint) || 'Ready. Review the transaction before signing.';
   });
   all('[data-safe-step]').forEach(button => {
-    const reason = gate(button.dataset.kind, state, context());
+    const reason = operationGate(button.dataset.kind);
     button.disabled = Boolean(reason);
     button.title = reason;
     button.nextElementSibling.textContent = reason;
   });
   $('#deployment').disabled = busy || Boolean(pending);
   $('#connect').disabled = busy;
-  const unconfirmed = Boolean(draft?.confirm) && !$('#review-confirm-box').checked;
-  $('#confirm-transaction').disabled = busy || !draft || draft.owner?.step === 'wait' || unconfirmed;
-  $('#download-batch').disabled = busy || !draft || unconfirmed;
+  $('#confirm-transaction').disabled = busy || !draft || draft.owner?.step === 'wait';
 }
 
 function render() {
@@ -176,7 +180,7 @@ function render() {
 }
 
 let safeSignature = '';
-const ownerVerbs = { approve: 'Approve as owner', execute: 'Execute as owner', wait: 'Approved · waiting for another owner', connect: 'Prepare for the Safe', observe: 'Prepare for the Safe' };
+const ownerVerbs = { approve: 'Approve as owner', execute: 'Execute as owner', wait: 'Approved · waiting for another owner', connect: 'Connect an owner wallet', observe: 'Connect an owner wallet' };
 
 const stepKind = (id, s) => ({ accept: 'acceptAdmin', allowlist: 'allowlist', treasury: 'treasuryMint' })[id] || (s.currentPhase > 0n && s.paused ? 'pause' : 'advance');
 
@@ -195,17 +199,29 @@ function stepAction(id, s) {
   const current = Number(s.currentPhase);
   if (current && s.paused) return { kind: 'pause', label: `Resume ${phaseNames[current]}`, method: 'setMintPaused', args: [false], expectedPhase: s.currentPhase };
   return { kind: 'advance', label: `Open ${phaseNames[current + 1]}`, method: 'advancePhase', args: [], expectedPhase: s.currentPhase, followUp: { method: 'setMintPaused', args: [false] },
-    confirm: openConfirmation(s),
     warning: `Irreversible: ${current ? `${phaseNames[current]} closes for good` : 'the allowlist, prices and limits freeze'}. Minting in ${phaseNames[current + 1]} starts as soon as the Safe transaction is executed.` };
 }
 
-function openConfirmation(s) {
-  const current = Number(s.currentPhase);
-  const next = phaseNames[current + 1];
-  const sold = `${s.paid.toLocaleString('en-US')} of ${s.maxPaid.toLocaleString('en-US')} paid keys`;
-  if (!current) return `So far ${sold} have been minted. Opening ${next} freezes the allowlist, prices and limits for good. Are you sure you want to proceed?`;
-  const minted = s.phases[current - 1].minted;
-  return `Only ${minted.toLocaleString('en-US')} key${minted === 1n ? '' : 's'} minted in ${phaseNames[current]} (${sold} overall). ${phaseNames[current]} closes for good and cannot reopen. Are you sure you want to open ${next}?`;
+function confirmDialog(selector) {
+  const dialog = $(selector);
+  dialog.returnValue = 'cancel';
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'continue'), { once: true });
+    dialog.showModal();
+  });
+}
+
+async function confirmPhaseChange(action) {
+  const phaseId = Number(action.expectedPhase);
+  const minted = action.phaseMinted;
+  const scope = phaseId ? `nella fase ${phaseNames[phaseId]}` : 'nella vendita';
+  const count = minted === 1n ? 'È stata mintata 1 chiave' : `Sono state mintate ${minted.toLocaleString('it-IT')} chiavi`;
+  text('#phase-count-question', `${count} ${scope}. Sicuro di voler continuare?`);
+  if (!await confirmDialog('#phase-count-dialog')) return false;
+  text('#phase-final-question', phaseId
+    ? `Aprendo ${phaseNames[phaseId + 1]}, la fase ${phaseNames[phaseId]} si chiude definitivamente.`
+    : 'Aprendo Pioneer, la lista, i prezzi e i limiti diventano definitivi.');
+  return confirmDialog('#phase-final-dialog');
 }
 
 // Owner approvals already on chain for the next open step, so a second owner sees at once that it only has to execute.
@@ -225,19 +241,16 @@ function renderSafe(s) {
   const signature = JSON.stringify([selected.address, safe.address, safe.owners, String(safe.threshold), safe.treasury, String(safe.keys), safe.owner, account, walletChain, safe.pending?.step, safe.pending?.hash, safe.pending?.approved, steps]);
   if (signature === safeSignature) return;
   safeSignature = signature;
-  const links = safeLinks(chainId, safe.address);
   text('#safe-tag', `${safe.threshold} OF ${safe.owners.length} OWNERS SIGN`);
   text('#safe-policy', `${safe.threshold} OWNERS PER ACTION`);
   text('#safe-address', safe.address);
-  for (const [id, href] of [['#safe-address', links?.home], ['#safe-builder', links?.builder], ['#safe-queue', links?.queue]]) {
-    if (href) $(id).href = href; else $(id).removeAttribute('href');
-    if (id !== '#safe-address') $(id).hidden = !href;
-  }
+  const safeUrl = explorer('address', safe.address);
+  if (safeUrl) $('#safe-address').href = safeUrl;
+  else $('#safe-address').removeAttribute('href');
   text('#safe-owners', `${safe.owners.join('\n')}\n${!account ? 'Connect the wallet of one of these owners to approve or execute a step.' : account === safe.address ? 'The connected wallet is this Safe.' : safe.owner ? 'The connected wallet is one of the owners.' : 'The connected wallet is not an owner.'}`);
   text('#safe-kicker', safe.incoming ? 'THIS CONTRACT IS BEING HANDED TO A SAFE' : 'THIS CONTRACT IS RUN BY A SAFE');
   text('#safe-roles', [safe.incoming ? 'Administrator once it accepts' : 'Administrator', safe.treasury && 'Treasury', `holds ${safe.keys} key${safe.keys === 1n ? '' : 's'}`, `Safe ${safe.version}`].filter(Boolean).join(' · '));
   const direct = account && account !== safe.address && walletChain === chainId;
-  const asSafe = account === safe.address && walletChain === chainId;
   $('#safe-steps').style.setProperty('--steps', steps.length);
   $('#safe-steps').replaceChildren(...steps.map((step, index) => {
     const item = document.createElement('li');
@@ -251,7 +264,7 @@ function renderSafe(s) {
       const button = document.createElement('button');
       const left = s.maxTreasury - s.treasuryMinted;
       button.type = 'button'; button.className = `button wide ${step.status === 'NEXT' ? 'primary' : ''}`; button.dataset.safeStep = step.id; button.dataset.kind = stepKind(step.id, s);
-      button.textContent = `${asSafe ? stepKind(step.id, s) === 'advance' ? 'Download batch for the Safe app' : 'Send to the Safe wallet' : ownerVerbs[direct ? ownerStep(safe, approved, account) : 'connect']}${step.id === 'treasury' ? ` · next ${left < TREASURY_BLOCK ? left : TREASURY_BLOCK} keys` : ''} ↗`;
+      button.textContent = `${ownerVerbs[direct ? ownerStep(safe, approved, account) : 'connect']}${step.id === 'treasury' ? ` · next ${left < TREASURY_BLOCK ? left : TREASURY_BLOCK} keys` : ''} ↗`;
       const hint = document.createElement('p'); hint.className = 'action-hint';
       item.append(button, hint);
     }
@@ -413,7 +426,7 @@ async function signerForCurrentWallet() {
 }
 
 function validate(action) {
-  const reason = gate(action.kind, state, { ...context(), busy: false });
+  const reason = operationGate(action.kind, { ...context(), busy: false });
   if (reason) throw new Error(reason);
   if (['mint', 'mintWithProof'].includes(action.method) && (action.args[1] !== state.currentPhase || action.args[2] !== state.price)) throw new Error('Mint phase or price changed. Review a new quote.');
   if (action.expectedPhase !== undefined && action.expectedPhase !== state.currentPhase) throw new Error('Active phase changed. Review the command again.');
@@ -431,9 +444,9 @@ async function review(action) {
     validate(action);
     const reviewAccount = account;
     const reviewAddress = selected.address;
-    const safeWallet = Boolean(state.safe) && account?.toLowerCase() === state.safe.address.toLowerCase();
+    if (action.kind === 'advance') action.phaseMinted = state.phases[Number(state.currentPhase) - 1]?.minted ?? state.paid;
     if (action.kind === 'advance' && state.safe && !action.followUp) throw new Error('Open phases from Safe Operations: one Safe transaction advances and resumes minting.');
-    const safe = viaSafe(action.kind, state, account) || (action.followUp && safeWallet) ? state.safe : null;
+    const safe = action.followUp || viaSafe(action.kind, state, account) ? state.safe : null;
     const keys = new Contract(selected.address, abi, safe ? provider : await signerForCurrentWallet());
     const sender = safe ? { from: safe.address } : {};
     if (action.kind === 'refund' && state.choiceWindowOpen) {
@@ -491,54 +504,47 @@ async function review(action) {
       const dd = document.createElement('dd'); dd.textContent = value;
       $('#review-details').append(dt, dd);
     }
-    const direct = safe && ['approve', 'execute', 'wait'].includes(owner.step);
     text('#review-note', !safe ? 'Verify these details before opening your wallet.' : {
       approve: 'Verify the call. Your wallet then approves this exact Safe transaction; another owner executes it.',
       execute: 'Verify the call. The approvals are complete with your wallet: it executes the Safe transaction now.',
       wait: 'You have already approved this Safe transaction. Another owner opens this step and executes it.',
-    }[owner.step] || 'Verify the call. Connect the wallet of a Safe owner to approve it here, or download its batch for the Safe app.');
-    text('#confirm-transaction', !safe ? 'Sign in wallet ↗' : { approve: `Approve as owner (${owner.approved.length + 1} of ${safe.threshold}) ↗`, execute: 'Execute from the Safe ↗', wait: 'Waiting for another owner' }[owner.step] || 'Download Safe batch ↓');
-    $('#download-batch').hidden = !direct;
-    $('#review-confirm').hidden = !action.confirm;
-    $('#review-confirm-box').checked = false;
-    text('#review-confirm-text', action.confirm || '');
+    }[owner.step] || 'Connect the individual wallet of a Safe owner.');
+    text('#confirm-transaction', !safe ? 'Sign in wallet ↗' : { approve: `Approve as owner (${owner.approved.length + 1} of ${safe.threshold}) ↗`, execute: 'Execute from the Safe ↗', wait: 'Waiting for another owner' }[owner.step] || 'Connect an owner wallet');
     text('#review-warning', safe ? `${(action.warning || '').replaceAll('your connected treasury wallet', 'the Safe')} The call succeeds when simulated from the Safe now.`.trim()
       : action.warning || 'The wallet displays the final network fee. State may change before this transaction is mined.');
     $('#review-dialog').showModal();
   } finally { busy = false; renderControls(); }
 }
 
-async function submit(asFile = false) {
+async function submit() {
   const action = draft;
   if (!action || busy) return;
   busy = true;
   $('#review-dialog').close();
   renderControls();
-  notice('Rechecking the transaction against the latest block…');
   let submitted = false;
   try {
+    if (action.kind === 'advance' && !await confirmPhaseChange(action)) {
+      notice('Cambio di fase annullato.');
+      return;
+    }
+    notice('Rechecking the transaction against the latest block…');
     if (action.account !== account || action.address !== selected.address || action.chainId !== chainId) throw new Error('The transaction context changed. Review it again.');
-    if (action.confirm && !$('#review-confirm-box').checked) throw new Error('Confirm the phase change before signing.');
     if (!await refresh({ force: true, quiet: true })) throw new Error('Cannot confirm fresh state before signing.');
     validate(action);
     let request, label = action.label;
     if (action.safe) await new Contract(selected.address, abi, provider)[action.method].staticCall(...action.args, { from: action.safe.address });
-    if (action.safe && !asFile && ['approve', 'execute'].includes(action.owner.step)) {
+    if (action.safe) {
       const seen = await confirmations(provider, action.safe, action.owner.tx);
       if (seen.hash !== action.owner.hash) throw new Error('The Safe has executed another transaction since this review. Review the step again.');
       const step = ownerStep(action.safe, seen.approved, account);
       if (step !== action.owner.step) throw new Error('Owner approvals changed since this review. Review the step again.');
+      if (step !== 'approve' && step !== 'execute') throw new Error('Another Safe owner must sign this step.');
       const call = step === 'approve' ? approveCall(action.safe, seen.hash) : executeCall(action.safe, action.owner.tx, executionSignatures(action.safe, seen.approved, account));
       await provider.call({ ...call, from: account });
       const needed = await provider.estimateGas({ ...call, from: account });
       request = { ...call, value: 0n, gasLimit: needed * 120n / 100n > TRANSACTION_GAS_CAP ? TRANSACTION_GAS_CAP : needed * 120n / 100n };
       label = `${step === 'approve' ? `Owner approval ${seen.approved.length + 1} of ${action.safe.threshold}` : 'Safe execution'}: ${action.label}`;
-    } else if (action.safe) {
-      const file = batchFile({ chainId, safe: action.safe.address, name: action.label, description: `Ryodan Keys ${selected.address} on chain ${chainId}: ${action.calls.map(call => call.contractMethod.name).join(' then ')}.`, transactions: action.calls });
-      download(`ryodan-safe-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`, JSON.stringify(file, null, 2) + '\n');
-      log('PREPARED', `${action.label} · batch for Safe ${short(action.safe.address)} downloaded`);
-      notice(`Batch downloaded: ${action.label}. Drop it in the Safe Transaction Builder; ${action.safe.threshold} of ${action.safe.owners.length} owners sign and one executes. This page follows the chain and updates when it is mined.`);
-      return;
     }
     const signer = await signerForCurrentWallet();
     if (!request) {
@@ -712,8 +718,6 @@ $('#safe-steps').addEventListener('click', event => {
 $('#refresh').addEventListener('click', () => void refresh({ force: true }));
 $('#reconcile').addEventListener('click', () => reconcile().catch(error));
 $('#confirm-transaction').addEventListener('click', () => void submit());
-$('#review-confirm-box').addEventListener('change', renderControls);
-$('#download-batch').addEventListener('click', () => void submit(true));
 $('#review-dialog').addEventListener('close', () => { if (!busy) { draft = null; renderControls(); } });
 $('#mint-amount').addEventListener('input', updateTotal);
 $('#phase').addEventListener('change', fillPhaseConfiguration);

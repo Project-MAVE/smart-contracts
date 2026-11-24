@@ -1,13 +1,13 @@
-// The Safe launch sequence, end to end: the console prepares each batch, the real client Safe executes it on a fork.
+import { confirmPhase } from './confirm-phase.mjs';
+// The Safe launch sequence, end to end: two owners approve and execute each step from the console on a fork.
 // Needs SAFE_FORK_URL (an Ethereum Sepolia RPC); without it the journey is skipped.
 import { chromium } from 'playwright';
-import { ContractFactory, JsonRpcProvider, Contract, Interface, ZeroAddress, ZeroHash, concat, dataLength, solidityPacked, zeroPadValue } from 'ethers';
+import { ContractFactory, JsonRpcProvider, Contract, ZeroHash } from 'ethers';
 import { spawn } from 'node:child_process';
 import { readFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import assert from 'node:assert/strict';
-import { batchCalldata, batchChecksum } from '../src/safe.js';
 
 if (!process.env.SAFE_FORK_URL) { console.log('SKIP Safe journey: set SAFE_FORK_URL to an Ethereum Sepolia RPC'); process.exit(0); }
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -27,7 +27,6 @@ try {
   for (let attempt = 0; attempt < 300; attempt++) { try { await provider.send('eth_chainId', []); break; } catch { await delay(100); } }
   const artifact = JSON.parse(await readFile(new URL('../../ryodan-keys/out/RyodanKeys.sol/RyodanKeys.json', import.meta.url), 'utf8'));
   const snapshot = JSON.parse(await readFile(new URL('../src/allowlist.json', import.meta.url), 'utf8'));
-  const iface = new Interface(artifact.abi);
   const safe = new Contract(safeAddress, [
     'function getOwners() view returns (address[])', 'function getThreshold() view returns (uint256)', 'function nonce() view returns (uint256)',
     'function getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256) view returns (bytes32)',
@@ -50,23 +49,6 @@ try {
   const target = await keys.getAddress();
   assert.equal(await keys.defaultAdmin(), safeAddress);
   assert.equal(await keys.hasRole(ZeroHash, deployer.address), false);
-
-  // What the Safe app does with a Transaction Builder batch: one call goes straight to its target, several are
-  // packed for MultiSendCallOnly and run by delegatecall. Two owners approve: one on chain, one as the sender.
-  async function executeFromSafe(file) {
-    const calls = file.transactions.map(entry => ({ to: entry.to, value: BigInt(entry.value), data: batchCalldata(entry) }));
-    const single = calls.length === 1;
-    const to = single ? calls[0].to : multiSendCallOnly;
-    const data = single ? calls[0].data : new Interface(['function multiSend(bytes)']).encodeFunctionData('multiSend', [concat(calls.map(call => solidityPacked(['uint8', 'address', 'uint256', 'uint256', 'bytes'], [0, call.to, call.value, dataLength(call.data), call.data])))]);
-    const operation = single ? 0 : 1;
-    const hash = await safe.getTransactionHash(to, 0, data, operation, 0, 0, 0, ZeroAddress, ZeroAddress, await safe.nonce());
-    await (await safe.connect(await provider.getSigner(second)).approveHash(hash)).wait();
-    const signatures = concat([first, second].sort((a, b) => BigInt(a) < BigInt(b) ? -1 : 1).map(owner => concat([zeroPadValue(owner, 32), ZeroHash, '0x01'])));
-    const receipt = await (await safe.connect(await provider.getSigner(first)).execTransaction(to, 0, data, operation, 0, 0, 0, ZeroAddress, ZeroAddress, signatures)).wait();
-    assert.equal(receipt.status, 1);
-    assert.ok(receipt.logs.some(log => log.address === safeAddress && log.topics[0] === safe.interface.getEvent('ExecutionSuccess').topicHash && log.topics[1] === hash), 'the Safe reports the execution');
-    return receipt;
-  }
 
   server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '14174', '--strictPort'], { cwd: root, env: { ...process.env, VITE_CHAIN_ID: '31337', VITE_RPC_URL: rpc, VITE_CONTRACT_ADDRESS: target }, stdio: ['ignore', 'ignore', 'pipe'] });
   for (let attempt = 0; attempt < 100; attempt++) { try { const response = await fetch(url); if (response.ok) break; } catch {} await delay(100); }
@@ -97,34 +79,18 @@ try {
   const refresh = async () => { await page.click('#refresh'); await synced(); };
   const steps = () => page.locator('#safe-steps .safe-step').evaluateAll(nodes => nodes.map(node => `${node.querySelector('.phase-state').textContent} ${node.querySelector('strong').textContent}`));
   const shot = name => page.screenshot({ path: fileURLToPath(new URL(`safe-${name}.png`, output)), fullPage: true, animations: 'disabled' });
-  // Reviews the step, checks the dialog, downloads the batch and returns it parsed; nothing is sent to the chain.
   async function review(trigger, title) {
     await page.click(trigger);
     await page.locator('#review-dialog[open]').waitFor();
     assert.equal(await page.textContent('#review-title'), title);
     assert.match(await page.textContent('#review-details'), new RegExp(`EXECUTED BYSafe ${safeAddress}\\s*2 of 3 owners sign`));
-    if (await page.locator('#review-confirm').isVisible()) {
-      assert.equal(await page.locator('#confirm-transaction').isDisabled(), true, 'a phase change waits for the explicit confirmation');
-      await page.check('#review-confirm-box');
-    }
-  }
-  async function prepare(trigger, title, button = '#confirm-transaction') {
-    await review(trigger, title);
-    assert.equal(await page.textContent(button), button === '#confirm-transaction' ? 'Download Safe batch ↓' : 'Download batch file ↓');
-    const [download] = await Promise.all([page.waitForEvent('download'), page.click(button)]);
-    const file = JSON.parse(await readFile(await download.path(), 'utf8'));
-    const { checksum, ...meta } = file.meta;
-    assert.equal(batchChecksum({ ...file, meta }), checksum);
-    assert.deepEqual([file.version, file.chainId, meta.createdFromSafeAddress, meta.name], ['1.0', '31337', safeAddress, title]);
-    assert.ok(file.transactions.every(entry => entry.to === target && entry.value === '0'));
-    await page.waitForFunction(() => document.querySelector('#notice').textContent.startsWith('Batch downloaded'));
-    return file;
-  }
 
+  }
   async function sign(trigger, title, label, done) {
     await review(trigger, title);
     assert.equal(await page.textContent('#confirm-transaction'), label);
     await page.click('#confirm-transaction');
+    if (title.startsWith('Open ')) await confirmPhase(page);
     await page.waitForFunction(text => document.querySelector('#notice').textContent.startsWith(text), done, { timeout: 60000 });
     await synced();
   }
@@ -140,28 +106,21 @@ try {
   assert.match(await page.textContent('#safe-roles'), /^Administrator · Treasury · holds 0 keys · Safe 1\.5\.0$/);
   assert.deepEqual(await steps(), ['01 / NEXT Load the allowlist', '02 / WAITING Mint the 666 treasury keys', '03 / WAITING Open Pioneer']);
   assert.equal(await page.locator('[data-safe-step=open]').isDisabled(), true);
-  assert.equal(await page.textContent('[data-safe-step=open] + .action-hint'), 'Load the allowlist snapshot before starting Pioneer.');
-  assert.equal(await page.textContent('[data-hint=mint]'), 'Connect a wallet to continue.');
-  assert.equal(await stepButton('allowlist'), 'Prepare for the Safe ↗');
-  assert.equal(await page.locator('#safe-builder').isHidden(), true, 'no Safe app link on a local chain');
-  await shot('01-start');
-  report('A Safe administrator is detected with its owners, threshold and roles; no wallet is needed to prepare a call');
-
-  const list = await prepare('[data-safe-step=allowlist]', 'Load frozen allowlist snapshot');
-  assert.equal(batchCalldata(list.transactions[0]), iface.encodeFunctionData('configureAllowlist', [snapshot.root, snapshot.snapshotHash, snapshot.counts.pioneer, snapshot.counts.operative, snapshot.counts.recruit]));
-  assert.equal(await keys.allowlistConfigured(), false, 'downloading a batch changes nothing on chain');
-  await executeFromSafe(list);
-  await refresh();
-  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / NEXT Mint the 666 treasury keys', '03 / WAITING Open Pioneer']);
-  assert.equal(await keys.totalGtdReserved(), BigInt(Math.min(snapshot.counts.pioneer * 4 + snapshot.counts.operative * 4, 6000)));
-  report('Allowlist batch: exact calldata, executed by the Safe with two owners, step marked done');
-
-  // Owners act in the console with their own wallets: the first approves, the second executes.
-  assert.equal(await stepButton('treasury'), 'Prepare for the Safe · next 100 keys ↗');
+  assert.equal(await page.locator('[data-safe-step=allowlist]').isDisabled(), true);
+  assert.equal(await page.locator('#safe-builder, #download-batch').count(), 0);
   await page.evaluate(owner => window.testWallet.use(owner), first);
   await page.click('#connect');
-  await synced();
   await page.waitForFunction(() => document.querySelector('#safe-owners').textContent.includes('The connected wallet is one of the owners.'));
+  async function runStep(trigger, title) {
+    await use(first);
+    await sign(trigger, title, 'Approve as owner (1 of 2) ↗', 'Owner approval 1 of 2: ' + title + ' confirmed');
+    await use(second);
+    await sign(trigger, title, 'Execute from the Safe ↗', 'Safe execution: ' + title + ' confirmed');
+  }
+  await runStep('[data-safe-step=allowlist]', 'Load frozen allowlist snapshot');
+  assert.equal(await keys.allowlistRoot(), snapshot.root);
+  assert.equal(await keys.allowlistSnapshotHash(), snapshot.snapshotHash);
+  await use(first);
   assert.equal(await stepButton('treasury'), 'Approve as owner · next 100 keys ↗');
   await sign('[data-safe-step=treasury]', 'Mint treasury keys 1-100', 'Approve as owner (1 of 2) ↗', 'Owner approval 1 of 2: Mint treasury keys 1-100 confirmed');
   assert.equal(await keys.mintedByTreasury(), 0n, 'one approval mints nothing');
@@ -190,17 +149,14 @@ try {
 
   for (let block = 2; block < 7; block++) {
     const size = Math.min(100, 666 - block * 100);
-    const file = await prepare('[data-safe-step=treasury]', `Mint treasury keys ${block * 100 + 1}-${block * 100 + size}`, '#download-batch');
-    assert.equal(batchCalldata(file.transactions[0]), iface.encodeFunctionData('treasuryMint', [size, safeAddress]));
-    await executeFromSafe(file);
-    await refresh();
+    await runStep('[data-safe-step=treasury]', `Mint treasury keys ${block * 100 + 1}-${block * 100 + size}`);
     assert.equal(await page.textContent('#treasury-count'), `${block * 100 + size} / 666`);
   }
   assert.deepEqual([await keys.mintedByTreasury(), await keys.balanceOf(safeAddress), await keys.ownerOf(1), await keys.ownerOf(666)], [666n, 666n, safeAddress, safeAddress]);
   assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 666 treasury keys', '03 / NEXT Open Pioneer']);
   assert.match(await page.textContent('#safe-roles'), /holds 666 keys/);
   await shot('02-treasury-minted');
-  report('Treasury: the batch file stays available to a connected owner; all 666 keys are owned by the Safe');
+  report('All 666 keys were minted to the Safe from the console');
 
   await page.goto(`${url}/#sale`);
   await synced();
@@ -213,11 +169,11 @@ try {
 
   await page.click('[data-safe-step=open]');
   await page.locator('#review-dialog[open]').waitFor();
-  assert.equal(await page.textContent('#review-confirm-text'), 'So far 0 of 6,000 paid keys have been minted. Opening Pioneer freezes the allowlist, prices and limits for good. Are you sure you want to proceed?');
-  await page.click('#review-dialog button[value=cancel]');
-  const open = await prepare('[data-safe-step=open]', 'Open Pioneer', '#download-batch');
-  assert.deepEqual(open.transactions.map(batchCalldata), [iface.encodeFunctionData('advancePhase'), iface.encodeFunctionData('setMintPaused', [false])]);
-  assert.match(await page.textContent('#activity-log'), /PREPARED.*Open Pioneer · batch for Safe/);
+  await page.click('#confirm-transaction');
+  assert.match(await page.textContent('#phase-count-question'), /0 chiavi nella vendita/);
+  await page.click('#phase-count-dialog button[value=cancel]');
+  await page.waitForFunction(() => document.querySelector('#notice').textContent === 'Cambio di fase annullato.');
+  await use(first);
   await sign('[data-safe-step=open]', 'Open Pioneer', 'Approve as owner (1 of 2) ↗', 'Owner approval 1 of 2: Open Pioneer confirmed');
   assert.deepEqual([await keys.currentPhase(), await keys.mintPaused()], [0n, true]);
   await use(second);
@@ -237,40 +193,25 @@ try {
   await sign('#pause-form button', 'Pause active phase', 'Approve as owner (1 of 2) ↗', 'Owner approval 1 of 2: Pause active phase confirmed');
   assert.equal(await keys.mintPaused(), false, 'an owner key alone cannot administer the contract');
   await use((await provider.listAccounts())[3].address);
-  const pause = await prepare('#pause-form button', 'Pause active phase');
-  assert.equal(batchCalldata(pause.transactions[0]), iface.encodeFunctionData('setMintPaused', [true]));
-  assert.match(await page.textContent('#safe-owners'), /The connected wallet is not an owner\./);
-  report('Every administrator form follows the same two-owner route; a wallet that is not an owner can only download the batch');
-
+  assert.equal(await page.locator('#pause-form button').isDisabled(), true);
+  assert.match(await page.textContent('#safe-owners'), /The connected wallet is not an owner/);
+  await use(first);
   await page.goto(`${url}/#mint`);
   await synced();
   await page.click('[data-safe-step=open]');
   await page.locator('#review-dialog[open]').waitFor();
-  assert.equal(await page.textContent('#review-confirm-text'), 'Only 0 keys minted in Pioneer (0 of 6,000 paid keys overall). Pioneer closes for good and cannot reopen. Are you sure you want to open Operative?');
-  await page.locator('#review-confirm').scrollIntoViewIfNeeded();
-  await page.locator('#review-dialog').screenshot({ path: fileURLToPath(new URL('safe-03b-open-operative-confirm.png', output)), animations: 'disabled' });
-  await page.click('#review-dialog button[value=cancel]');
-  await use(safeAddress);
-  assert.equal(await stepButton('open'), 'Download batch for the Safe app ↗');
-  const operative = await prepare('[data-safe-step=open]', 'Open Operative');
-  assert.deepEqual(operative.transactions.map(batchCalldata), [iface.encodeFunctionData('advancePhase'), iface.encodeFunctionData('setMintPaused', [false])]);
-  assert.deepEqual([await keys.currentPhase(), await keys.mintPaused()], [1n, false]);
-  report('Opening the next phase asks to confirm how many keys the current one minted; a wallet connected as the Safe gets the two-call batch, never a lone advance');
-  await page.goto(`${url}/#sale`);
-  await synced();
-  await page.waitForFunction(() => document.querySelector('[data-hint=pause]').textContent === 'Ready. Review the transaction before signing.');
-  await page.click('#pause-form button');
-  await page.locator('#review-dialog[open]').waitFor();
-  assert.equal(await page.textContent('#confirm-transaction'), 'Sign in wallet ↗');
-  assert.match(await page.textContent('#review-details'), new RegExp(`SIGNER${safeAddress}`));
   await page.click('#confirm-transaction');
-  await page.waitForFunction(() => document.querySelector('#notice').textContent.includes('confirmed'));
-  assert.equal(await keys.mintPaused(), true);
-  await page.goto(`${url}/#mint`);
-  await synced();
-  assert.deepEqual(await steps(), ['01 / DONE Load the allowlist', '02 / DONE Mint the 666 treasury keys', '03 / NEXT Resume Pioneer']);
-  report('A wallet that connects as the Safe itself signs in the wallet, as any administrator');
-
+  assert.match(await page.textContent('#phase-count-question'), /0 chiavi nella fase Pioneer/);
+  await page.click('#phase-count-dialog button[value=continue]');
+  assert.match(await page.textContent('#phase-final-question'), /Pioneer si chiude definitivamente/);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('#notice').textContent === 'Cambio di fase annullato.');
+  assert.deepEqual([await keys.currentPhase(), await keys.mintPaused()], [1n, false]);
+  await use(safeAddress);
+  assert.equal(await page.locator('[data-safe-step=open]').isDisabled(), true);
+  await runStep('[data-safe-step=open]', 'Open Operative');
+  assert.deepEqual([await keys.currentPhase(), await keys.mintPaused()], [2n, false]);
+  report('Opening Operative executes both calls together from the console');
   await page.setViewportSize({ width: 390, height: 844 });
   await refresh();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0);

@@ -39,8 +39,7 @@
               <div class="section-heading"><h2><span>00 /</span> SAFE OPERATIONS</h2><span class="section-tag" id="safe-tag">SAFE</span></div>
               <article class="panel safe-panel">
                 <div class="panel-kicker"><span id="safe-kicker">THIS CONTRACT IS RUN BY A SAFE</span> <span id="safe-policy">OWNERS SIGN TOGETHER</span></div>
-                <dl class="identity"><dt>SAFE</dt><dd><a id="safe-address" class="address" target="_blank" rel="noopener noreferrer">—</a></dd><dt>OWNERS</dt><dd id="safe-owners" class="multiline">—</dd><dt>ROLES</dt><dd id="safe-roles">—</dd><dt>HOW TO OPERATE</dt><dd>Connect the wallet of a Safe owner and press the next step. The first owner approves it; a second owner opens the same step and executes it. Each of them clicks once here and confirms once in the wallet. This page follows the chain and marks the step as done. Without an owner wallet, each step can be downloaded as a batch file for the Safe app.</dd></dl>
-                <div class="template-downloads"><a class="button" id="safe-builder" target="_blank" rel="noopener noreferrer">Open Transaction Builder ↗</a><a class="button" id="safe-queue" target="_blank" rel="noopener noreferrer">Open the Safe queue ↗</a></div>
+                <dl class="identity"><dt>SAFE</dt><dd><a id="safe-address" class="address" target="_blank" rel="noopener noreferrer">—</a></dd><dt>OWNERS</dt><dd id="safe-owners" class="multiline">—</dd><dt>ROLES</dt><dd id="safe-roles">—</dd><dt>HOW TO OPERATE</dt><dd>Connect the wallet of a Safe owner and press the next step. The first owner approves it; a second owner opens the same step and executes it. Both owners review the operation in this console and confirm in their own wallets. The step updates when the transaction is mined.</dd></dl>
                 <ol class="safe-steps" id="safe-steps" aria-label="Launch sequence"></ol>
               </article>
             </div>
@@ -100,7 +99,27 @@
         </main>
       </div>
     </div>
-    <dialog id="review-dialog"><form method="dialog"><div class="panel-kicker">TRANSACTION REVIEW <button class="icon-button" value="cancel" aria-label="Close transaction review">×</button></div><h2 id="review-title">Review transaction</h2><p class="form-note" id="review-note">Verify these details before opening your wallet.</p><dl id="review-details"></dl><p id="review-warning" class="form-note"></p><label id="review-confirm" class="checkbox-label rule-note amber" hidden><input id="review-confirm-box" type="checkbox" /><span id="review-confirm-text"></span></label><div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button id="download-batch" class="button" type="button" hidden>Download batch file ↓</button><button id="confirm-transaction" class="button primary" type="button">Sign in wallet ↗</button></div></form></dialog>
+    <dialog id="review-dialog"><form method="dialog"><div class="panel-kicker">TRANSACTION REVIEW <button class="icon-button" value="cancel" aria-label="Close transaction review">×</button></div><h2 id="review-title">Review transaction</h2><p class="form-note" id="review-note">Verify these details before opening your wallet.</p><dl id="review-details"></dl><p id="review-warning" class="form-note"></p><div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button id="confirm-transaction" class="button primary" type="button">Sign in wallet ↗</button></div></form></dialog>
+    <dialog id="phase-count-dialog" lang="it" aria-labelledby="phase-count-title" aria-describedby="phase-count-question">
+      <form method="dialog">
+        <h2 id="phase-count-title">Chiavi mintate</h2>
+        <p id="phase-count-question"></p>
+        <div class="dialog-actions">
+          <button class="button" value="cancel" autofocus>Annulla</button>
+          <button class="button primary" value="continue">Continua</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="phase-final-dialog" lang="it" aria-labelledby="phase-final-title" aria-describedby="phase-final-question">
+      <form method="dialog">
+        <h2 id="phase-final-title">Cambio di fase irreversibile</h2>
+        <p id="phase-final-question"></p>
+        <div class="dialog-actions">
+          <button class="button" value="cancel" autofocus>Annulla</button>
+          <button class="button primary" value="continue">Sono consapevole che non posso più tornare indietro</button>
+        </div>
+      </form>
+    </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

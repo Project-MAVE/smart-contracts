@@ -66,7 +66,7 @@ export function gate(kind, s, context) {
   if (context.pending) return 'Reconcile the pending transaction before submitting another.';
   if (!s || context.stale) return 'Refresh contract state before submitting.';
   const safe = viaSafe(kind, s, context.account);
-  if (adminKinds.includes(kind) && s.safe?.incoming && !s.admin) return 'The Safe accepts the administrator role first.';
+  if (adminKinds.includes(kind) && s.safe?.incoming && (!s.admin || kind === 'advance')) return 'The Safe accepts the administrator role first.';
   if (!safe && !context.account) return 'Connect a wallet to continue.';
   if (!safe && !context.correctChain) return 'Switch your wallet to the displayed network.';
   if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v8.';

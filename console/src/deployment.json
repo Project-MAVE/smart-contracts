@@ -1,8 +1,8 @@
 {
   "chainId": 1,
-  "address": "0x85b1024194cFd547Eb81877f8efF77587e7604f9",
-  "label": "v8 / Ethereum mainnet",
-  "admin": "0x31Cd849c982ED10a94A66b4FD7867e97656952Eb",
-  "deploymentBlock": 26484718,
-  "runtimeCodeHash": "0x4209a41e6a9039ed969a8bf3ed358c4e3cc6292406acc0646f90f78544fd5478"
+  "address": "0x8C53E98B6659832f86DEb8Dd5c8FeE21C712D6e7",
+  "label": "TheGatebreaker v8 / Ethereum mainnet",
+  "admin": "0xC30176E42103575E62CEC5Fa10d1Fc14d4A1F78D",
+  "deploymentBlock": 26485073,
+  "runtimeCodeHash": "0x39f3311fe92db15b1d118d83ce4a5adab6ba8f7aa6ff342fea0bc5d523bdf2ec"
 }

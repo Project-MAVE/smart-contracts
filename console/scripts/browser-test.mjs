@@ -1,3 +1,4 @@
+import { confirmPhase } from './confirm-phase.mjs';
 import { chromium } from 'playwright';
 import { ContractFactory, JsonRpcProvider, Contract, ZeroHash } from 'ethers';
 import { spawn } from 'node:child_process';
@@ -83,6 +84,7 @@ try {
     await page.locator('#review-dialog').waitFor({ state: 'visible' });
     assert.match(await page.locator('#review-details').textContent(), new RegExp(target));
     await page.locator('#confirm-transaction').click();
+    if (form === '#advance-form') await confirmPhase(page);
     await page.waitForFunction(previous => [...document.querySelectorAll('#activity-log .log-kind')].filter(node => node.textContent === 'CONFIRMED').length > previous, confirmed, { timeout: 20000 });
     await page.waitForFunction(() => document.querySelector('#sync-status').textContent.includes('SYNCHRONIZED') && ![...document.querySelectorAll('[data-hint]')].some(node => node.textContent.includes('Another transaction')));
     if (predicate) assert.equal(await predicate(), true);

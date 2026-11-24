@@ -1,14 +1,14 @@
+import { confirmPhase } from './confirm-phase.mjs';
 // The handover, end to end: our key deploys and prepares the contract, starts the administrator transfer,
 // and two owners of a real Safe accept it from the console on a fork.
 // Needs SAFE_FORK_URL (an Ethereum Sepolia RPC, optionally pinned with SAFE_FORK_BLOCK); without it the journey is skipped.
 import { chromium } from 'playwright';
-import { ContractFactory, JsonRpcProvider, Contract, Interface, ZeroAddress, ZeroHash } from 'ethers';
+import { ContractFactory, JsonRpcProvider, Contract, ZeroAddress, ZeroHash } from 'ethers';
 import { spawn } from 'node:child_process';
 import { readFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import assert from 'node:assert/strict';
-import { batchCalldata } from '../src/safe.js';
 
 if (!process.env.SAFE_FORK_URL) { console.log('SKIP handover journey: set SAFE_FORK_URL to an Ethereum Sepolia RPC'); process.exit(0); }
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -26,7 +26,6 @@ try {
   for (let attempt = 0; attempt < 300; attempt++) { try { await provider.send('eth_chainId', []); break; } catch { await delay(100); } }
   const artifact = JSON.parse(await readFile(new URL('../../ryodan-keys/out/RyodanKeys.sol/RyodanKeys.json', import.meta.url), 'utf8'));
   const snapshot = JSON.parse(await readFile(new URL('../src/allowlist.json', import.meta.url), 'utf8'));
-  const iface = new Interface(artifact.abi);
   const safe = new Contract(safeAddress, ['function getOwners() view returns (address[])', 'function getThreshold() view returns (uint256)'], provider);
   const owners = [...await safe.getOwners()];
   assert.equal(await safe.getThreshold(), 2n);
@@ -90,6 +89,7 @@ try {
     await review(trigger, title);
     assert.equal(await page.textContent('#confirm-transaction'), label);
     await page.click('#confirm-transaction');
+    if (title.startsWith('Open ')) await confirmPhase(page);
     await page.waitForFunction(text => document.querySelector('#notice').textContent.startsWith(text), done, { timeout: 60000 });
     await synced();
   }
@@ -106,22 +106,14 @@ try {
   assert.deepEqual(await steps(), ['01 / NEXT Accept the administrator role', '02 / DONE Load the allowlist', '03 / DONE Mint the 666 treasury keys', '04 / WAITING Open Pioneer']);
   assert.ok((await page.textContent('#safe-steps')).includes(`${deployer.address} deployed this contract and hands it over.`));
   assert.equal(await page.locator('[data-safe-step=accept]').isDisabled(), true);
-  assert.equal(await hint('accept'), 'The transfer can be accepted from the next block.');
+  assert.equal(await hint('accept'), 'Connect the individual wallet of a Safe owner.');
+  assert.equal(await page.locator('#download-batch, #safe-builder').count(), 0);
   await provider.send('evm_mine', []);
   await refresh();
-  assert.equal(await page.locator('[data-safe-step=accept]').isDisabled(), false);
-  assert.equal(await stepButton('accept'), 'Prepare for the Safe ↗');
+  assert.equal(await page.locator('[data-safe-step=accept]').isDisabled(), true);
   assert.equal(await page.locator('[data-safe-step=open]').isDisabled(), true);
-  assert.equal(await hint('open'), 'The Safe accepts the administrator role first.');
   await shot('01-pending');
-  report('A transfer waiting for a Safe is shown as its first step, from the block after it was started; the launch steps wait behind it');
-
-  await review('[data-safe-step=accept]', 'Accept administrator role');
-  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#confirm-transaction')]);
-  const file = JSON.parse(await readFile(await download.path(), 'utf8'));
-  assert.deepEqual([file.meta.createdFromSafeAddress, file.transactions.length, file.transactions[0].to, batchCalldata(file.transactions[0])], [safeAddress, 1, target, iface.encodeFunctionData('acceptDefaultAdminTransfer')]);
-  report('Without an owner wallet the acceptance is a one-call batch for the Safe app');
-
+  report('The pending Safe is visible in read-only mode and requires an individual owner wallet');
   await page.evaluate(owner => window.testWallet.use(owner), first);
   await page.click('#connect');
   await synced();

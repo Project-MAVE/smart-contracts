@@ -31,3 +31,6 @@ input[type="file"]::file-selector-button { background: var(--raised, #231919); c
 #review-details dd{overflow-wrap:anywhere;white-space:pre-line}
 @media(max-width:800px){.safe-steps{grid-template-columns:1fr}.safe-step{border-right:0;border-bottom:1px solid var(--border)}.safe-step:last-child{border-bottom:0}}
 #metadata-example { overflow-wrap: anywhere; }
+
+#phase-final-dialog .dialog-actions { flex-wrap: wrap; }
+#phase-final-dialog .button { white-space: normal; }
