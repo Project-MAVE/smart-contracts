@@ -112,7 +112,7 @@ contract C_Price is Fixture {
         vm.expectRevert("Phases locked");
         keys.configurePhase(4, 0.0001 ether, 10);
         vm.expectRevert("Phases locked");
-        keys.configurePhase(4, 0.01 ether, 6166);
+        keys.configurePhase(4, 0.01 ether, 6000);
         assertEq(keys.mintPrice(), 0.01 ether);
         vm.prank(bob);
         vm.expectRevert("Mint quote changed");
@@ -124,7 +124,7 @@ contract C_Price is Fixture {
 
     function test_C04_HugePriceOverflowGuarded() public {
         vm.expectRevert("Invalid price");
-        keys.configurePhase(4, type(uint256).max / 6166 + 1, 10);
+        keys.configurePhase(4, type(uint256).max / 6000 + 1, 10);
     }
 
     function test_C05_PaymentSnapshotPerKey() public {
@@ -144,24 +144,24 @@ contract C_Price is Fixture {
 
 contract D_Supply is Fixture {
     function test_D01_PublicSupplyHardCap() public {
-        _openCivilian(6166, 0.01 ether);
-        _buy(address(0xAA), 6166);
+        _openCivilian(6000, 0.01 ether);
+        _buy(address(0xAA), 6000);
         vm.deal(address(0xAA), 1 ether);
         vm.prank(address(0xAA));
         vm.expectRevert("Max supply reached");
         keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
-        assertEq(keys.mintedByUsers(), 6166);
+        assertEq(keys.mintedByUsers(), 6000);
     }
 
     function test_D02_TreasurySupplyHardCap() public {
         _openCivilian(10, 0.01 ether);
         vm.prank(treasury);
-        keys.treasuryMint(500, treasury);
+        keys.treasuryMint(666, treasury);
         vm.prank(treasury);
         vm.expectRevert("Max supply reached while minting to treasury");
         keys.treasuryMint(1, treasury);
-        assertEq(keys.mintedByTreasury(), 500);
-        assertEq(keys.totalSupply(), 500);
+        assertEq(keys.mintedByTreasury(), 666);
+        assertEq(keys.totalSupply(), 666);
     }
 
     function test_D03_TotalCapEquals6000Plus666() public view {

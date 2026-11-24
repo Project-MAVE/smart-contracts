@@ -42,6 +42,7 @@ contract AllowlistForkTest is Test {
     string internal fixturePath;
     uint256 internal paidSupply;
     uint256 internal guaranteed;
+    uint256 internal reservedAtStart;
     uint256 internal proceeds;
     uint256 internal balanceAtStart;
     mapping(uint8 => uint256) internal price;
@@ -69,7 +70,7 @@ contract AllowlistForkTest is Test {
             admin = keys.defaultAdmin();
             treasury = vm.envOr("TREASURY_ADDRESS", admin);
         }
-        assertEq(keys.CONTRACT_VERSION(), 7);
+        assertEq(keys.CONTRACT_VERSION(), 8);
         assertTrue(keys.hasRole(keys.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(keys.hasRole(keys.TREASURY_ROLE(), treasury));
         assertLe(block.timestamp, keys.mintEndTime(), "sale already expired at the fork block");
@@ -92,26 +93,32 @@ contract AllowlistForkTest is Test {
         _strangerIsRefused(fx);
     }
 
-    /// The client's case: every guaranteed wallet claims everything, Pioneers try to mint again in OPERATIVE.
-    function test_EveryGuaranteedWalletMintsItsFullAllocationAndTheSaleSellsOut() public onFork {
+    /// The client's case: every listed wallet claims everything it can, in arrival order, until the stock ends.
+    function test_GuaranteedWalletsMintInArrivalOrderAndTheSaleSellsOut() public onFork {
         Fixture memory fx = _prepare();
         uint256 firstRecruit = fx.pioneers + fx.operatives;
 
         _enter(1, 0);
         uint256 early = _pioneersMintPartOfTheirKeys(fx);
         _allAreRefused(fx, fx.pioneers, fx.accounts.length, "Not allowlisted");
-        assertEq(keys.totalGtdReserved(), guaranteed - early);
+        assertEq(keys.totalGtdReserved(), reservedAtStart - early);
 
         _enter(2, 0);
-        assertEq(keys.totalGtdReserved(), guaranteed - early);
+        assertEq(keys.totalGtdReserved(), reservedAtStart - early);
         _operativesMintInFull(fx);
         _pioneersClaimTheRest(fx);
-        _allAreRefused(fx, firstRecruit, fx.accounts.length, "Not allowlisted");
+        // The stock check comes first: once the paid keys are gone every wallet reads the same refusal.
+        bool stockEnded = keys.mintedByUsers() == paidSupply;
+        _allAreRefused(
+            fx, firstRecruit, fx.accounts.length, stockEnded ? bytes("Max supply reached") : bytes("Not allowlisted")
+        );
         assertEq(keys.totalGtdReserved(), 0);
-        assertEq(keys.mintedByUsers(), guaranteed);
+        assertEq(keys.mintedByUsers(), reservedAtStart);
 
-        _enter(3, 0);
-        _recruitsTakeWhatIsLeft(fx, firstRecruit);
+        if (keys.mintedByUsers() < paidSupply) {
+            _enter(3, 0);
+            _recruitsTakeWhatIsLeft(fx, firstRecruit);
+        }
         _refused(fx, 0, 1, "Max supply reached");
         _assertSoldOutAndWithdrawn();
     }
@@ -131,9 +138,9 @@ contract AllowlistForkTest is Test {
         _mint(fx, firstOperative, limit[2]);
         _mint(fx, firstOperative + 1, 1);
         uint256 used = limit[1] + limit[2] + 1;
-        assertEq(keys.totalGtdReserved(), guaranteed - used);
+        assertEq(keys.totalGtdReserved(), reservedAtStart - used);
 
-        _enter(3, guaranteed - used);
+        _enter(3, reservedAtStart - used);
         assertEq(keys.totalGtdReserved(), 0);
         for (uint256 i = firstRecruit; i < fx.accounts.length; i++) {
             _mint(fx, i, 1);
@@ -207,7 +214,7 @@ contract AllowlistForkTest is Test {
     function _forcedMints(uint8 phaseId, uint256 part) internal {
         Fixture memory fx = _prepare();
         if (keys.currentPhase() == 0) _attempt(_own(fx, 0, 1, 1, 1), "Mint not active");
-        _enter(phaseId, phaseId == 3 ? guaranteed : 0);
+        _enter(phaseId, phaseId == 3 ? reservedAtStart : 0);
         for (uint256 i = part; i < fx.accounts.length; i += 4) {
             uint256 free = _freeMemory();
             _forces(fx, i, phaseId);
@@ -240,7 +247,7 @@ contract AllowlistForkTest is Test {
 
     function _everyWalletReceivesAKey(uint256 part) internal {
         Fixture memory fx = _prepare();
-        _enter(3, guaranteed);
+        _enter(3, reservedAtStart);
         uint256 refused;
         for (uint256 i = part; i < fx.accounts.length; i += 4) {
             uint256 free = _freeMemory();
@@ -290,7 +297,7 @@ contract AllowlistForkTest is Test {
         _refused(fx, operative, 1, "Max mint amount reached for address");
         _refused(fx, recruit, 1, "Not allowlisted");
 
-        _enter(3, guaranteed - limit[1] - limit[2]);
+        _enter(3, reservedAtStart - limit[1] - limit[2]);
         _mint(fx, 0, limit[3]);
         _mint(fx, operative, limit[3]);
         _mint(fx, recruit, limit[3]);
@@ -336,8 +343,9 @@ contract AllowlistForkTest is Test {
         assertEq(keys.tierMembers(2), fx.operatives);
         assertEq(keys.tierMembers(3), fx.recruits);
         guaranteed = fx.pioneers * limit[1] + fx.operatives * limit[2];
-        assertEq(keys.totalGtdReserved(), guaranteed);
-        assertLe(guaranteed, paidSupply);
+        // The lists may ask for more keys than are on sale: the reservation stops at the paid supply.
+        reservedAtStart = guaranteed < paidSupply ? guaranteed : paidSupply;
+        assertEq(keys.totalGtdReserved(), reservedAtStart);
         uint256 treasuryLeft = keys.MAX_TREASURY_SUPPLY() - keys.mintedByTreasury();
         while (treasuryLeft > 0) {
             uint256 batch = treasuryLeft < 100 ? treasuryLeft : 100;
@@ -482,7 +490,7 @@ contract AllowlistForkTest is Test {
         vm.expectRevert(notAdmin);
         keys.setMintPaused(true);
         vm.expectRevert(notAdmin);
-        keys.configurePhase(1, 1, 6166);
+        keys.configurePhase(1, 1, 6000);
         vm.expectRevert(notAdmin);
         keys.configureAllowlist(bytes32(uint256(1)), bytes32(uint256(2)), 1, 0, 0);
         vm.expectRevert(notTreasury);
@@ -519,13 +527,20 @@ contract AllowlistForkTest is Test {
         for (uint256 i = fx.pioneers; i < fx.pioneers + fx.operatives; i++) {
             address wallet = fx.accounts[i];
             assertEq(keys.remainingAllowanceWithProof(2, wallet, 2, fx.proofs[i]), limit[2]);
+            uint256 stock = paidSupply - keys.mintedByUsers();
+            uint256 quota = stock < limit[2] ? stock : limit[2];
             uint256 step = 1 + i % limit[2];
-            for (uint256 left = limit[2]; left > 0;) {
+            for (uint256 left = quota; left > 0;) {
                 uint256 amount = left < step ? left : step;
                 _mint(fx, i, amount);
                 left -= amount;
             }
-            assertEq(keys.gtdMinted(wallet), limit[2]);
+            assertEq(keys.gtdMinted(wallet), quota);
+            if (quota < limit[2]) {
+                // First come, first served: the stock ended before this wallet's allocation.
+                _refused(fx, i, 1, "Max supply reached");
+                continue;
+            }
             assertEq(keys.remainingAllowance(2, wallet), 0);
             _refused(fx, i, 1, "Max mint amount reached for address");
         }
@@ -537,7 +552,18 @@ contract AllowlistForkTest is Test {
             address wallet = fx.accounts[i];
             uint256 left = limit[1] - keys.gtdMinted(wallet);
             assertEq(keys.remainingAllowanceWithProof(2, wallet, 1, fx.proofs[i]), left);
-            _refused(fx, i, left + 1, "Max mint amount reached for address");
+            uint256 stock = paidSupply - keys.mintedByUsers();
+            if (stock < left) {
+                _refused(fx, i, left, "Max supply reached");
+                if (stock > 0) _mint(fx, i, stock);
+                continue;
+            }
+            _refused(
+                fx,
+                i,
+                left + 1,
+                stock == left ? bytes("Max supply reached") : bytes("Max mint amount reached for address")
+            );
             if (left > 0) _mint(fx, i, left);
             assertEq(keys.gtdMinted(wallet), limit[1]);
             assertEq(keys.remainingAllowanceWithProof(2, wallet, 1, fx.proofs[i]), 0);

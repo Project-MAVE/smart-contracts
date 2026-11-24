@@ -13,12 +13,12 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, ReentrancyGuard {
-    uint256 public constant MAX_PUBLIC_SUPPLY = 6166;
-    uint256 public constant MAX_TREASURY_SUPPLY = 500;
+    uint256 public constant MAX_PUBLIC_SUPPLY = 6000;
+    uint256 public constant MAX_TREASURY_SUPPLY = 666;
     uint256 public constant MAX_SUPPLY = MAX_PUBLIC_SUPPLY + MAX_TREASURY_SUPPLY;
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
 
-    uint256 public constant CONTRACT_VERSION = 7;
+    uint256 public constant CONTRACT_VERSION = 8;
     /// After an unsuccessful expiry, only original minters may keep or refund their keys during this window.
     uint256 public constant CHOICE_WINDOW = 4 days;
     /// Gas given to each recipient inside refundBatch: enough for wallets and multisigs, too little to stall a batch.
@@ -348,11 +348,11 @@ contract RyodanKeys is AccessControlDefaultAdminRules, ERC721, IERC4906, Reentra
         emit MintPausedUpdated(paused);
     }
 
-    /// Guaranteed keys: each Pioneer once (Pioneer limit, shared by PIONEER and OPERATIVE), each Operative once.
+    /// Reserve the available paid stock for the early phases, up to their aggregate wallet limits.
     function _reserveGtd(uint256 pioneer, uint256 operative) private {
         uint256 reserved = pioneer * phases[PIONEER].walletLimit + operative * phases[OPERATIVE].walletLimit;
-        require(reserved <= MAX_PUBLIC_SUPPLY - mintedByUsers, "Insufficient GTD supply");
-        totalGtdReserved = reserved;
+        uint256 available = MAX_PUBLIC_SUPPLY - mintedByUsers;
+        totalGtdReserved = reserved < available ? reserved : available;
     }
 
     // Only authorized treasury callers receive successful sale proceeds.

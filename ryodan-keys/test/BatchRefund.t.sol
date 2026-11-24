@@ -133,13 +133,13 @@ contract BatchRefundTest is RyodanKeysFixture {
         keys.refundBatch(new uint256[](0));
         vm.expectRevert("Invalid refund batch size");
         keys.refundBatch(new uint256[](51));
-        _open(6166);
+        _open(6000);
         _buy(bob, 2);
         vm.expectRevert("Mint not ended");
         keys.refundBatch(ids(1, 2));
-        _buy(bob, 6164);
+        _buy(bob, 5998);
         vm.prank(treasury);
-        keys.treasuryMint(500, treasury);
+        keys.treasuryMint(666, treasury);
         vm.warp(end + 4 days + 1);
         vm.expectRevert("All tokens minted");
         keys.refundBatch(ids(1, 2));
