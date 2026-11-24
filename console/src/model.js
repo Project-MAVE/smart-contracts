@@ -56,7 +56,8 @@ const treasuryKinds = ['treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury
 /** True when the role for this action belongs to a Safe: the console prepares the call, the Safe owners sign it. */
 export function viaSafe(kind, s, account) {
   if (!s?.safe || account?.toLowerCase() === s.safe.address.toLowerCase()) return false;
-  if (adminKinds.includes(kind)) return !s.admin;
+  if (kind === 'acceptAdmin') return Boolean(s.safe.incoming);
+  if (adminKinds.includes(kind)) return !s.admin && !s.safe.incoming;
   return treasuryKinds.includes(kind) && s.safe.treasury && !s.treasuryRole;
 }
 
@@ -65,9 +66,11 @@ export function gate(kind, s, context) {
   if (context.pending) return 'Reconcile the pending transaction before submitting another.';
   if (!s || context.stale) return 'Refresh contract state before submitting.';
   const safe = viaSafe(kind, s, context.account);
+  if (adminKinds.includes(kind) && s.safe?.incoming && !s.admin) return 'The Safe accepts the administrator role first.';
   if (!safe && !context.account) return 'Connect a wallet to continue.';
   if (!safe && !context.correctChain) return 'Switch your wallet to the displayed network.';
   if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v8.';
+  if (kind === 'acceptAdmin' && safe && s.timestamp <= s.safe.incoming.schedule) return 'The transfer can be accepted from the next block.';
   if (!safe && adminKinds.includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
   if (!safe && treasuryKinds.includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
   if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {

@@ -7,6 +7,10 @@ The initial deployment uses nonce zero of `0x51c88C4Ca390C7509aD250D0F6B52c10F4c
 - SBT: `ipfs://bafybeigrmc5l5dy7lwnr3xvn7nkzpsqmmoxpvs7rpialaud6abt7sueu6m/sbt/`
 - NFT: `ipfs://bafybeigrmc5l5dy7lwnr3xvn7nkzpsqmmoxpvs7rpialaud6abt7sueu6m/nft/`
 
+## Ethereum release
+
+[Verified Ryodan Keys v8](https://etherscan.io/address/0x85b1024194cFd547Eb81877f8efF77587e7604f9#code) was deployed in block 26484718. All twelve deployer transactions succeeded. The Safe received 666 keys and the treasury role. The deployer [requested the admin transfer](https://etherscan.io/tx/0x15c8255dc66542d61ce52a3c61a16bf96536a6d150097d42484496519a393019). The [mainnet console](https://ryodan.grooooog.space/#mint) reads the current administrator and pending administrator from the contract. Two Safe owners use the acceptance step to complete the transfer.
+
 ## Simulate
 
 ```sh

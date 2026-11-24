@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b0909" />
-    <meta name="description" content="Ryodan Keys contract control console on Ethereum Sepolia." />
+    <meta name="description" content="Ryodan Keys contract control console on Ethereum mainnet." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>RYODAN / Control</title>
   </head>
@@ -24,10 +24,10 @@
         <div class="sidebar-bottom"><span class="crosshair">⌖</span><p>YOUR KEYS.<br>YOUR COMMAND.</p><span class="muted">YOMI / RYODAN<br>ERC-721 OPERATIONS</span><div class="sidebar-version">CONSOLE v8.0 <span>●</span></div></div>
       </aside>
       <div class="main-shell">
-        <header class="topbar"><div class="breadcrumb">RYODAN <span>/</span> <strong id="page-label">OVERVIEW</strong></div><div class="connection"><span class="network-pill"><i></i><span id="network-name">ETH SEPOLIA</span></span><button id="connect" class="button compact">Connect wallet <span>↗</span></button></div></header>
+        <header class="topbar"><div class="breadcrumb">RYODAN <span>/</span> <strong id="page-label">OVERVIEW</strong></div><div class="connection"><span class="network-pill"><i></i><span id="network-name">ETH MAINNET</span></span><button id="connect" class="button compact">Connect wallet <span>↗</span></button></div></header>
         <main>
           <div class="hero">
-            <div><div class="eyebrow"><span class="signal"></span> CONTRACT OPERATIONS / TESTNET</div><h1>TAKE<br><span>CONTROL.</span></h1><p class="hero-copy">One collection. Every command.<br>Manage the Ryodan Keys lifecycle on chain.</p></div>
+            <div><div class="eyebrow"><span class="signal"></span> CONTRACT OPERATIONS / MAINNET</div><h1>TAKE<br><span>CONTROL.</span></h1><p class="hero-copy">One collection. Every command.<br>Manage the Ryodan Keys lifecycle on chain.</p></div>
             <div class="hero-art" aria-hidden="true"><div class="art-corner top" id="hero-supply">RYODAN / 旅団 / 6,666 KEYS</div><img class="hero-logo" src="/ryodan-logo.svg" alt="" width="606" height="565" /><div class="art-corner bottom">◇ NON-FUNGIBLE / FULLY ON-CHAIN CONTROL</div></div>
           </div>
           <div class="contract-bar"><div class="contract-select"><label for="deployment">TARGET CONTRACT</label><select id="deployment" aria-label="Target contract"></select></div><a id="contract-link" class="address" target="_blank" rel="noopener noreferrer">Awaiting deployment</a><button id="refresh" class="icon-button" aria-label="Refresh contract state">↻</button><span id="sync-status" class="sync-status">CONNECTING…</span></div>
@@ -38,7 +38,7 @@
             <div id="safe-section" hidden>
               <div class="section-heading"><h2><span>00 /</span> SAFE OPERATIONS</h2><span class="section-tag" id="safe-tag">SAFE</span></div>
               <article class="panel safe-panel">
-                <div class="panel-kicker">THIS CONTRACT IS RUN BY A SAFE <span id="safe-policy">OWNERS SIGN TOGETHER</span></div>
+                <div class="panel-kicker"><span id="safe-kicker">THIS CONTRACT IS RUN BY A SAFE</span> <span id="safe-policy">OWNERS SIGN TOGETHER</span></div>
                 <dl class="identity"><dt>SAFE</dt><dd><a id="safe-address" class="address" target="_blank" rel="noopener noreferrer">—</a></dd><dt>OWNERS</dt><dd id="safe-owners" class="multiline">—</dd><dt>ROLES</dt><dd id="safe-roles">—</dd><dt>HOW TO OPERATE</dt><dd>Connect the wallet of a Safe owner and press the next step. The first owner approves it; a second owner opens the same step and executes it. Each of them clicks once here and confirms once in the wallet. This page follows the chain and marks the step as done. Without an owner wallet, each step can be downloaded as a batch file for the Safe app.</dd></dl>
                 <div class="template-downloads"><a class="button" id="safe-builder" target="_blank" rel="noopener noreferrer">Open Transaction Builder ↗</a><a class="button" id="safe-queue" target="_blank" rel="noopener noreferrer">Open the Safe queue ↗</a></div>
                 <ol class="safe-steps" id="safe-steps" aria-label="Launch sequence"></ol>
@@ -78,7 +78,7 @@
               <label for="snapshot-file">OR IMPORT AN EXISTING ALLOWLIST.JSON</label><input id="snapshot-file" type="file" accept=".json,application/json" />
               <p id="snapshot-summary" class="form-note">No snapshot loaded.</p><dl id="snapshot-details" class="token-result"></dl>
               <div class="template-downloads"><button id="download-snapshot" class="button" type="button">Download allowlist.json ↓</button><button id="download-checker" class="button" type="button">Download check-data.js ↓</button></div>
-              <p class="form-note">Give both generated files to the mint/checker frontend. Archive the original CSVs and their hashes. This test deployment uses test membership; the downloadable templates are empty.</p>
+              <p class="form-note">Give both generated files to the mint/checker frontend. Archive the original CSVs and their hashes. The downloadable templates are empty.</p>
               <form id="snapshot-form"><button class="button primary" type="submit" data-action="allowlist">Review snapshot on chain ↗</button><p class="action-hint" data-hint="allowlist"></p></form>
               <div class="rule-note amber"><span>!</span><p>Starting Pioneer permanently freezes the root and membership counts. Review the snapshot and guaranteed capacity first. Prices and per-wallet caps remain editable within the available supply.</p></div>
             </article>
@@ -96,7 +96,7 @@
           <section id="batch-refund-panel" class="panel below" hidden><div class="panel-kicker">BATCH REFUND / ONE SIGNATURE</div><form id="batch-refund-form"><label for="refund-ids">TOKEN IDS (COMMAS OR NEW LINES, MAXIMUM 50)</label><textarea id="refund-ids" name="ids" rows="3" placeholder="1, 2, 4" required></textarea><p class="form-note">Anyone can submit a batch. Each original minter receives the exact amount paid for their key. All IDs must be eligible and unique: any failure reverts the whole batch. During the keep-or-refund window only the minter's own keys are accepted, and a wallet that refuses ETH gets a pending refund instead of blocking the batch.</p><button class="button primary" type="submit" data-action="refund">Review batch refund ↗</button><p class="action-hint" data-hint="refund"></p></form></section>
 
           <section class="activity" aria-label="Session transaction activity"><div class="section-heading"><h2><span>SYS /</span> ACTIVITY LOG</h2><span class="section-tag" id="block-label">NO BLOCK YET</span></div><div id="pending-box" class="pending-box" hidden><p id="pending-label"></p><button id="reconcile" class="button compact">Check receipt ↻</button><form id="replacement-form"><label for="replacement-hash">REPLACEMENT / CANCELLATION TRANSACTION HASH</label><div class="inline-fields"><input id="replacement-hash" name="hash" placeholder="0x…" required /><button class="button compact">Track replacement</button></div></form></div><ol id="activity-log"><li><span class="log-time">SYSTEM</span><span class="log-kind">READY</span><span>Console initialized. Waiting for contract state.</span></li></ol></section>
-          <footer><span>RYODAN KEYS / OPERATOR CONSOLE</span><span>ETHEREUM TESTNET <span class="footer-cross">✳</span> VERIFY. SIGN. CONFIRM.</span></footer>
+          <footer><span>RYODAN KEYS / OPERATOR CONSOLE</span><span>ETHEREUM MAINNET <span class="footer-cross">✳</span> VERIFY. SIGN. CONFIRM.</span></footer>
         </main>
       </div>
     </div>

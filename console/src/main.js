@@ -10,11 +10,11 @@ const $ = selector => document.querySelector(selector);
 const all = selector => [...document.querySelectorAll(selector)];
 const text = (selector, value) => { $(selector).textContent = String(value); };
 const local = import.meta.env.DEV && import.meta.env.VITE_CHAIN_ID === '31337';
-const chainId = local ? 31337 : 11155111;
+const chainId = local ? 31337 : deployment.chainId;
 const chainHex = `0x${chainId.toString(16)}`;
-const networkName = local ? 'LOCAL ANVIL' : 'ETH SEPOLIA';
+const networkName = local ? 'LOCAL ANVIL' : 'ETH MAINNET';
 const rpcUrls = local ? [import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:8547'] : [
-  'https://ethereum-sepolia-rpc.publicnode.com', 'https://rpc.sepolia.ethpandaops.io',
+  'https://ethereum-rpc.publicnode.com', 'https://rpc.mevblocker.io',
 ];
 const deployments = local ? [{ address: getAddress(import.meta.env.VITE_CONTRACT_ADDRESS), label: 'Local / integration test' }] : [
   ...(deployment.address ? [deployment] : []),
@@ -34,7 +34,7 @@ let draft = null;
 let pending = null;
 let walletEventsInstalled = false;
 const storageKey = () => `ryodan:pending:${chainId}:${selected.address.toLowerCase()}`;
-const explorer = (type, value) => local ? null : `https://sepolia.etherscan.io/${type}/${value}`;
+const explorer = (type, value) => local ? null : `https://etherscan.io/${type}/${value}`;
 const short = value => `${value.slice(0, 6)}…${value.slice(-4)}`;
 const utc = seconds => new Date(Number(seconds) * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC');
 const stale = () => !refreshedAt || performance.now() - refreshedAt > 45000;
@@ -177,7 +177,10 @@ function render() {
 let safeSignature = '';
 const ownerVerbs = { approve: 'Approve as owner', execute: 'Execute as owner', wait: 'Approved · waiting for another owner', connect: 'Prepare for the Safe', observe: 'Prepare for the Safe' };
 
+const stepKind = (id, s) => ({ accept: 'acceptAdmin', allowlist: 'allowlist', treasury: 'treasuryMint' })[id] || (s.currentPhase > 0n && s.paused ? 'pause' : 'advance');
+
 function stepAction(id, s) {
+  if (id === 'accept') return { kind: 'acceptAdmin', label: 'Accept administrator role', method: 'acceptDefaultAdminTransfer', args: [], warning: `Irreversible: the Safe becomes the only administrator and ${s.safe.incoming.from} loses the role in this same transaction.` };
   if (id === 'allowlist') {
     const loaded = currentSnapshot();
     return { kind: 'allowlist', label: 'Load frozen allowlist snapshot', method: 'configureAllowlist', args: [loaded.root, loaded.snapshotHash, BigInt(loaded.counts.pioneer), BigInt(loaded.counts.operative), BigInt(loaded.counts.recruit)], expectedPhase: 0n };
@@ -197,7 +200,7 @@ function stepAction(id, s) {
 // Owner approvals already on chain for the next open step, so a second owner sees at once that it only has to execute.
 async function stepApprovals(s, target) {
   const step = launchSteps(s, currentSnapshot()).find(item => !item.done);
-  if (!step || gate({ allowlist: 'allowlist', treasury: 'treasuryMint' }[step.id] || (s.currentPhase > 0n && s.paused ? 'pause' : 'advance'), s, { busy: false, pending: null, stale: false })) return null;
+  if (!step || gate(stepKind(step.id, s), s, { busy: false, pending: null, stale: false })) return null;
   const action = stepAction(step.id, s);
   const calls = [action, ...(action.followUp ? [action.followUp] : [])].map(call => batchCall(abi, target, call.method, call.args));
   return { step: step.id, ...await confirmations(provider, s.safe, safeTransaction(s.safe, calls), { blockTag: s.block }) };
@@ -220,10 +223,11 @@ function renderSafe(s) {
     if (id !== '#safe-address') $(id).hidden = !href;
   }
   text('#safe-owners', `${safe.owners.join('\n')}\n${!account ? 'Connect the wallet of one of these owners to approve or execute a step.' : account === safe.address ? 'The connected wallet is this Safe.' : safe.owner ? 'The connected wallet is one of the owners.' : 'The connected wallet is not an owner.'}`);
-  text('#safe-roles', [`Administrator`, safe.treasury && 'Treasury', `holds ${safe.keys} key${safe.keys === 1n ? '' : 's'}`, `Safe ${safe.version}`].filter(Boolean).join(' · '));
-  const kinds = { allowlist: 'allowlist', treasury: 'treasuryMint', open: s.currentPhase > 0n && s.paused ? 'pause' : 'advance' };
+  text('#safe-kicker', safe.incoming ? 'THIS CONTRACT IS BEING HANDED TO A SAFE' : 'THIS CONTRACT IS RUN BY A SAFE');
+  text('#safe-roles', [safe.incoming ? 'Administrator once it accepts' : 'Administrator', safe.treasury && 'Treasury', `holds ${safe.keys} key${safe.keys === 1n ? '' : 's'}`, `Safe ${safe.version}`].filter(Boolean).join(' · '));
   const direct = account && account !== safe.address && walletChain === chainId;
   const asSafe = account === safe.address && walletChain === chainId;
+  $('#safe-steps').style.setProperty('--steps', steps.length);
   $('#safe-steps').replaceChildren(...steps.map((step, index) => {
     const item = document.createElement('li');
     item.className = `safe-step ${step.status.toLowerCase()}`;
@@ -235,7 +239,7 @@ function renderSafe(s) {
     if (!step.done) {
       const button = document.createElement('button');
       const left = s.maxTreasury - s.treasuryMinted;
-      button.type = 'button'; button.className = `button wide ${step.status === 'NEXT' ? 'primary' : ''}`; button.dataset.safeStep = step.id; button.dataset.kind = kinds[step.id];
+      button.type = 'button'; button.className = `button wide ${step.status === 'NEXT' ? 'primary' : ''}`; button.dataset.safeStep = step.id; button.dataset.kind = stepKind(step.id, s);
       button.textContent = `${asSafe ? 'Send to the Safe wallet' : ownerVerbs[direct ? ownerStep(safe, approved, account) : 'connect']}${step.id === 'treasury' ? ` · next ${left < TREASURY_BLOCK ? left : TREASURY_BLOCK} keys` : ''} ↗`;
       const hint = document.createElement('p'); hint.className = 'action-hint';
       item.append(button, hint);
@@ -378,7 +382,7 @@ async function connect() {
     catch (cause) {
       // Rabby reports an unknown chain as an internal error that wraps code 4902.
       if (!(cause?.code === 4902 || cause?.data?.originalError?.code === 4902 || /unrecognized chain/i.test(cause?.message || '')) || local) throw cause;
-      await injected.request({ method: 'wallet_addEthereumChain', params: [{ chainId: chainHex, chainName: 'Ethereum Sepolia', nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 }, rpcUrls, blockExplorerUrls: ['https://sepolia.etherscan.io'] }] });
+      await injected.request({ method: 'wallet_addEthereumChain', params: [{ chainId: chainHex, chainName: 'Ethereum Mainnet', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls, blockExplorerUrls: ['https://etherscan.io'] }] });
       await injected.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex }] });
     }
   }
@@ -711,7 +715,7 @@ function selectDeployment() {
     $('#deployment').disabled = true;
     text('#contract-link', 'No v8 contract deployed');
     text('#deadline-remaining', 'No v8 contract deployed');
-    text('#sync-status', 'NO V6 CONTRACT');
+    text('#sync-status', 'NO V8 CONTRACT');
     notice('No Ryodan Keys v8 contract is deployed on this network yet. This console manages only v8.');
     renderControls();
     return;
@@ -723,7 +727,7 @@ function selectDeployment() {
   notice('Reading the selected contract…');
   text('#contract-link', selected.address);
   const href = explorer('address', selected.address);
-  if (href) { $('#contract-link').href = href; $('#contract-link').title = 'Open this contract on Sepolia Etherscan'; }
+  if (href) { $('#contract-link').href = href; $('#contract-link').title = 'Open this contract on Etherscan'; }
   else $('#contract-link').removeAttribute('href');
   loadPending();
   void refresh({ force: true });

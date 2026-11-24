@@ -90,7 +90,10 @@ export function launchSteps(s, snapshot) {
   const current = Number(s.currentPhase);
   const names = ['Pioneer', 'Operative', 'Recruit', 'Civilian'];
   const opened = current === 4 && !s.paused;
+  const incoming = s.safe?.incoming;
   const steps = [
+    ...(incoming ? [{ id: 'accept', title: 'Accept the administrator role', done: false,
+      detail: `${incoming.from} deployed this contract and hands it over. One Safe transaction accepts: from then on only this Safe administers the contract and that wallet loses the role.` }] : []),
     { id: 'allowlist', title: 'Load the allowlist', done: listed || (s.allowlistConfigured && current > 0),
       detail: listed ? `On chain: ${s.tierCounts.join(' / ')} wallets, root ${s.allowlistRoot.slice(0, 10)}…${s.allowlistRoot.slice(-4)}.`
         : s.allowlistConfigured ? current > 0 ? 'A snapshot is frozen on chain, but it is not the one loaded in this console.' : 'A different snapshot is on chain. Loading replaces it until Pioneer starts.'

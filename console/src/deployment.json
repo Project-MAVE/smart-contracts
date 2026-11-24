@@ -1,8 +1,8 @@
 {
-  "chainId": 11155111,
-  "address": "0x28097DF55dA295bB969b8B187c26978D63D099B8",
-  "label": "v7 / Safe-managed",
+  "chainId": 1,
+  "address": "0x85b1024194cFd547Eb81877f8efF77587e7604f9",
+  "label": "v8 / Ethereum mainnet",
   "admin": "0x31Cd849c982ED10a94A66b4FD7867e97656952Eb",
-  "deploymentBlock": 12196120,
-  "runtimeCodeHash": "0xd8fa2ce7c0d3a4927b0ed3b61125bd7c3b9f5983c11ceb5add86320a7cb41d32"
+  "deploymentBlock": 26484718,
+  "runtimeCodeHash": "0x4209a41e6a9039ed969a8bf3ed358c4e3cc6292406acc0646f90f78544fd5478"
 }

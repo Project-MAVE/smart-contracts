@@ -1,4 +1,4 @@
-import { Contract, FetchRequest, JsonRpcProvider, ZeroHash } from 'ethers';
+import { Contract, FetchRequest, JsonRpcProvider, ZeroAddress, ZeroHash } from 'ethers';
 import abi from '../../ryodan-keys/abi/RyodanKeys.json';
 import { proofFor } from './allowlist.js';
 import { assertSupported } from './model.js';
@@ -37,7 +37,7 @@ export async function snapshot(provider, contractAddress, account, chainId, allo
     firstTokenId: 'FIRST_TOKEN_ID', choiceWindow: 'CHOICE_WINDOW', choiceWindowOpen: 'choiceWindowOpen', sbtBaseURI: 'sbtBaseURI', nftBaseURI: 'nftBaseURI',
     totalKept: 'totalKept', keptFunds: 'keptFunds', keptWithdrawn: 'keptWithdrawn', totalBurned: 'totalBurned', totalPendingRefund: 'totalPendingRefund',
     allowlistRoot: 'allowlistRoot', allowlistSnapshotHash: 'allowlistSnapshotHash', allowlistConfigured: 'allowlistConfigured',
-    currentPhase: 'currentPhase', paused: 'mintPaused', reserved: 'totalGtdReserved', adminAddress: 'defaultAdmin',
+    currentPhase: 'currentPhase', paused: 'mintPaused', reserved: 'totalGtdReserved', adminAddress: 'defaultAdmin', pendingAdmin: 'pendingDefaultAdmin',
   };
   const values = await Promise.all(Object.entries(getters).map(async ([key, method]) => [key, await keys[method](options)]));
   const state = Object.fromEntries(values);
@@ -45,6 +45,12 @@ export async function snapshot(provider, contractAddress, account, chainId, allo
   state.balance = await provider.getBalance(contractAddress, block.number);
   // The administrator is a Safe when its address answers as one; its owners then sign every privileged call there.
   state.safe = await readSafe(provider, state.adminAddress, options);
+  // An administrator transfer waiting for a Safe: its owners sign the acceptance, so that Safe is the one shown.
+  const [incoming, schedule] = state.pendingAdmin;
+  if (!state.safe && incoming !== ZeroAddress) {
+    state.safe = await readSafe(provider, incoming, options);
+    if (state.safe) state.safe.incoming = { from: state.adminAddress, schedule };
+  }
   if (state.safe) {
     [state.safe.treasury, state.safe.keys] = await Promise.all([keys.hasRole(state.treasuryRoleId, state.safe.address, options), keys.balanceOf(state.safe.address, options)]);
     state.safe.owner = isOwner(state.safe, account);
