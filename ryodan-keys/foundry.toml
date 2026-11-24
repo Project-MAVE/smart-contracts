@@ -25,3 +25,12 @@ depth = 128
 [profile.fork]
 gas_limit = "18446744073709551615"
 fs_permissions = [{ access = "read", path = "./fixtures" }]
+
+# Match the rehearsed v8 runtime even when submodules have been initialized recursively.
+[profile.mainnet]
+auto_detect_remappings = false
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "forge-std/=lib/forge-std/src/",
+    "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+]

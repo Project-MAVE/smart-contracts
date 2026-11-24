@@ -21,7 +21,7 @@ State after deploy: phase 0, no allowlist root, no key minted, no admin transfer
 
 ```sh
 cd console
-hush run --name <deployer key> --env PRIVATE_KEY --redact -- node scripts/deploy.mjs --admin <Safe> --deadline <unix> --sbt-base <ipfs folder/> --nft-base <ipfs folder/>
+hush run --name <deployer key> --env PRIVATE_KEY --redact -- node scripts/deploy.mjs --admin <Safe> --deadline <unix>
 hush run --name <Etherscan key> --env ETHERSCAN_API_KEY --redact -- node scripts/verify-etherscan.mjs --safe
 ```
 
@@ -144,11 +144,11 @@ Etherscan automatically associates the QA contract's identical runtime with the 
 
 Dedicated Sepolia wallet: `0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc`, with both admin and treasury roles. Secret name: `YOMI_RYODAN_SEPOLIA_DEPLOYER`. Etherscan key name: `YOMI_ETHERSCAN_API_KEY`. Use hush injection; never put values in source, browser code, logs or plaintext files.
 
-The v4 deploys above used the v4 script of that time. The current script deploys **v6** only, writes `deployments/sepolia-v6.json` (`sepolia-v6-refund.json` with `--qa`) and requires both metadata folders outside local Anvil. `--deadline <unix>` fixes the immutable deadline (default: 30 days after deploy) and `--pioneers <a,b,...>` adds wallets to the test Pioneer snapshot next to the test wallet. From the repository root, after successful Foundry/static/frontend checks and an optimized build:
+The v4 deploys above used the v4 script of that time. The current script deploys **v8**, writes `deployments/sepolia-v8.json` (`sepolia-v8-refund.json` with `--qa`) and uses the approved IPFS folders on both Sepolia and local Anvil. `--deadline <unix>` fixes the immutable deadline (default: 30 days after deploy) and `--pioneers <a,b,...>` adds wallets to the test Pioneer snapshot next to the test wallet. From the repository root, after successful Foundry/static/frontend checks and an optimized build:
 
 ```sh
 hush run --name YOMI_RYODAN_SEPOLIA_DEPLOYER --env PRIVATE_KEY --redact -- \
-  node console/scripts/deploy.mjs --sbt-base <ipfs-or-https-folder/> --nft-base <ipfs-or-https-folder/>
+  node console/scripts/deploy.mjs
 node console/scripts/deploy.mjs --verify
 ```
 

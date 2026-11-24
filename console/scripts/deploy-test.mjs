@@ -28,7 +28,11 @@ try {
   }
   const activePath = join(directory, 'active.json');
   const qaPath = join(directory, 'qa.json');
+  await assert.rejects(run(activePath, '--sbt-base', 'https://example.com/sbt/'), /approved SBT and NFT/);
+  await assert.rejects(run(activePath, '--nft-base', 'https://example.com/nft/'), /approved SBT and NFT/);
   const active = await run(activePath);
+  assert.equal(active.sbtBaseURI, 'ipfs://bafybeigrmc5l5dy7lwnr3xvn7nkzpsqmmoxpvs7rpialaud6abt7sueu6m/sbt/');
+  assert.equal(active.nftBaseURI, 'ipfs://bafybeigrmc5l5dy7lwnr3xvn7nkzpsqmmoxpvs7rpialaud6abt7sueu6m/nft/');
   assert.equal(active.version, 8);
   assert.equal(active.currentPhase, 1);
   const resumed = await run(activePath);

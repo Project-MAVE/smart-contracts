@@ -13,8 +13,11 @@ const verifyOnly = args.includes('--verify');
 const refund = args.includes('--refund');
 const burnTreasury = args.includes('--burn-treasury');
 const qa = args.includes('--qa') || refund || burnTreasury;
-const sbtBase = option('--sbt-base', local ? 'ipfs://ryodan-sbt-local/' : null);
-const nftBase = option('--nft-base', local ? 'ipfs://ryodan-nft-local/' : null);
+const metadataRoot = 'ipfs://bafybeigrmc5l5dy7lwnr3xvn7nkzpsqmmoxpvs7rpialaud6abt7sueu6m';
+const sbtBase = `${metadataRoot}/sbt/`;
+const nftBase = `${metadataRoot}/nft/`;
+if (option('--sbt-base', sbtBase) !== sbtBase || option('--nft-base', nftBase) !== nftBase)
+  throw new Error('Metadata folders must match the approved SBT and NFT IPFS URIs');
 const chainId = local ? 31337 : 11155111;
 const fixedDeadline = option('--deadline', null);
 const pioneerWallets = (option('--pioneers', '') || '').split(',').map(value => value.trim()).filter(Boolean);
@@ -51,6 +54,8 @@ try { manifest = JSON.parse(await readFile(manifestPath, 'utf8')); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
 manifest ||= { chainId, deployer, admin, version: 8, purpose: qa ? 'refund' : safeManaged ? 'safe-managed' : 'management', transactions: {}, checks: [] };
 if (manifest.chainId !== chainId || manifest.deployer !== deployer || (manifest.admin || deployer) !== admin || manifest.version !== 8) throw new Error('Manifest context mismatch');
+if (manifest.address && (manifest.sbtBaseURI !== sbtBase || manifest.nftBaseURI !== nftBase))
+  throw new Error('Manifest metadata differs from the approved IPFS folders');
 async function save() {
   await writeFile(`${manifestPath}.tmp`, JSON.stringify(manifest, null, 2) + '\n');
   await rename(`${manifestPath}.tmp`, manifestPath);
@@ -68,8 +73,6 @@ async function confirm(hash) {
 }
 if (!manifest.address) {
   if (verifyOnly || refund || burnTreasury) throw new Error('Deploy first');
-  const base = /^(ipfs:\/\/[^/\s?#]+\/|https:\/\/[^/\s?#]+\/)([^\s?#]*\/)?$/;
-  if (!base.test(sbtBase || '') || !base.test(nftBase || '')) throw new Error('Pass --sbt-base and --nft-base: ipfs:// or https:// folders ending with /');
   const block = await provider.getBlock('latest');
   // The deadline is fixed at deploy. The QA deployment gets a short one so its refund flow can run.
   const deadline = fixedDeadline ? Number(fixedDeadline) : block.timestamp + (qa ? 3600 : 30 * 86400);
@@ -96,7 +99,7 @@ await check('Exact runtime bytecode matches current compiler artifact', blank(ru
 await check('Immutable deadline in the runtime code equals the deploy deadline', immutables.length > 0 && immutables.every(({ start, length }) => BigInt('0x' + runtime.slice(2 + start * 2, 2 + (start + length) * 2)) === BigInt(manifest.deadline)));
 manifest.runtimeCodeHash = keccak256(runtime);
 await check('Contract version 8', await keys.CONTRACT_VERSION() === 8n);
-await check('Deadline and metadata folders are the ones fixed at deploy', await keys.mintEndTime() === BigInt(manifest.deadline) && await keys.sbtBaseURI() === manifest.sbtBaseURI && await keys.nftBaseURI() === manifest.nftBaseURI);
+await check('Deadline and metadata folders are the ones fixed at deploy', await keys.mintEndTime() === BigInt(manifest.deadline) && await keys.sbtBaseURI() === sbtBase && await keys.nftBaseURI() === nftBase);
 await check('No function can move the deadline', !artifact.abi.some(item => item.name === 'setMintEndTime'));
 if (safeManaged) {
   const treasuryRole = await keys.TREASURY_ROLE();
