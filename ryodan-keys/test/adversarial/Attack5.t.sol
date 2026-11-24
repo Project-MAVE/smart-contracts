@@ -92,7 +92,7 @@ contract K_Hostage is Fixture {
     address internal buyer = makeAddr("buyer");
 
     function test_K06_AdminPausingForeverCannotTrapBuyerFunds() public {
-        _openCivilian(6166, 0.01 ether);
+        _openCivilian(6000, 0.01 ether);
         _buy(buyer, 3);
         keys.setMintPaused(true);
         _toEnd();
@@ -106,8 +106,8 @@ contract K_Hostage is Fixture {
     }
 
     function test_K07_TreasuryThatNeverMintsCannotBlockRefundsOrTakeTheProceeds() public {
-        _openCivilian(6166, 0.01 ether);
-        _buy(buyer, 6166);
+        _openCivilian(6000, 0.01 ether);
+        _buy(buyer, 6000);
         vm.warp(end + 4 days + 1);
         assertFalse(keys.soldOut());
         assertTrue(keys.refundsAvailable());
@@ -118,14 +118,14 @@ contract K_Hostage is Fixture {
         uint256[] memory ids = new uint256[](3);
         ids[0] = 1;
         ids[1] = 2;
-        ids[2] = 6166;
+        ids[2] = 6000;
         keys.refundBatch(ids);
         assertEq(buyer.balance, 0.03 ether);
         assertTrue(_solvent());
     }
 
     function test_K08_KeptKeysAloneFundTheTreasuryWithdrawal() public {
-        _openCivilian(6166, 0.01 ether);
+        _openCivilian(6000, 0.01 ether);
         _buy(buyer, 4);
         _toEnd();
         uint256[] memory keep = new uint256[](2);

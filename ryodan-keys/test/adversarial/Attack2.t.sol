@@ -231,7 +231,7 @@ contract E_Refunds is Fixture {
     }
 
     function test_E15_BatchSizeLimits() public {
-        _openCivilian(6166, 0.01 ether);
+        _openCivilian(6000, 0.01 ether);
         _buy(address(0xAA), 51);
         _toEnd();
         uint256[] memory ids = new uint256[](51);
@@ -415,17 +415,17 @@ contract F_Reentrancy is Fixture {
 
     function test_F05_BurnReentryAtSelloutIsHarmless() public {
         ReenterNFT w = new ReenterNFT(keys);
-        _openCivilian(6166, 0.01 ether);
+        _openCivilian(6000, 0.01 ether);
         w.setMode(4);
         vm.deal(address(w), 100 ether);
-        _buy(address(0xAA), 6166);
+        _buy(address(0xAA), 6000);
         vm.prank(treasury);
-        keys.treasuryMint(500, address(w));
-        assertEq(w.burnOk(), 500);
+        keys.treasuryMint(666, address(w));
+        assertEq(w.burnOk(), 666);
         assertTrue(keys.soldOut());
-        assertEq(keys.totalSupply(), 6166);
-        assertEq(keys.totalBurned(), 500);
-        assertEq(keys.mintedByTreasury(), 500);
+        assertEq(keys.totalSupply(), 6000);
+        assertEq(keys.totalBurned(), 666);
+        assertEq(keys.mintedByTreasury(), 666);
     }
 
     function test_F06_BurnBeforeSelloutReverts() public {

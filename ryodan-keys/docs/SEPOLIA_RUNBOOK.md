@@ -1,8 +1,33 @@
 # Sepolia runbook — v7 test deployment and historical v1–v6
 
-> The current contract is **Ryodan Keys v7: 6,666 keys = 6,166 paid + 500 treasury, token IDs 1–6666.** The v7 console manages only the v7 deployment below and refuses every older contract listed further down.
+> The current contract is **Ryodan Keys v7: 6,666 keys = 6,166 paid + 500 treasury, token IDs 1–6666.** The v7 console manages only the v7 Safe-managed deployment below and refuses every older contract listed further down.
 
-## V7 test deployment (current)
+## V7 Safe-managed deployment (current)
+
+Deployed 2026-11-23 on Ethereum Sepolia **11155111** with the client's Safe as admin and treasury from the constructor, as on mainnet. The deploy wallet holds no role and sent no transaction after the deployment: the Safe loads the allowlist, mints the 500 treasury keys and opens Pioneer.
+
+| Item | Value |
+| --- | --- |
+| Contract | [`0x28097DF55dA295bB969b8B187c26978D63D099B8`](https://sepolia.etherscan.io/address/0x28097DF55dA295bB969b8B187c26978D63D099B8) |
+| Deploy transaction | [`0x2f8fbd5b…762bad68`](https://sepolia.etherscan.io/tx/0x2f8fbd5b2c3534bf99eb083558160759762bc530e1a96abfe432a17a682bad68), block 12196120, source `main` 4dc1a1f |
+| Deadline (immutable) | 1795629600 = **2026-11-25 18:00:00 UTC**, the mainnet value |
+| Admin and treasury | Safe [`0x31Cd849c982ED10a94A66b4FD7867e97656952Eb`](https://app.safe.global/home?safe=sep:0x31Cd849c982ED10a94A66b4FD7867e97656952Eb), 2 of 3, same address, owners and threshold as on mainnet; deploy wallet `0x51c88C4C…39bc` has no role |
+| `sbtBaseURI` / `nftBaseURI` | `ipfs://bafybeigrmc5l5dy7lwnr3xvn7nkzpsqmmoxpvs7rpialaud6abt7sueu6m/sbt/` / `…/nft/` |
+| Runtime code hash | `0xd8fa2ce7c0d3a4927b0ed3b61125bd7c3b9f5983c11ceb5add86320a7cb41d32` (identical to the previous v7 deployment) |
+| Etherscan | [**Exact Match**](https://sepolia.etherscan.io/address/0x28097DF55dA295bB969b8B187c26978D63D099B8#code), constructor arguments, creation and runtime bytecode match |
+| Allowlist for the Safe to load | the snapshot of the previous v7 deployment: 105 / 1,403 / 5,705, root `0x684eef196d6778d493101719a1baa468b9bad7e8cfb647aec304c535626c0273`, snapshotHash `0x4340544089b569df44f052e55b46721daaa5c1c717169631e82803d98698ae1d` |
+
+State after deploy: phase 0, no allowlist root, no key minted, no admin transfer pending.
+
+```sh
+cd console
+hush run --name <deployer key> --env PRIVATE_KEY --redact -- node scripts/deploy.mjs --admin <Safe> --deadline <unix> --sbt-base <ipfs folder/> --nft-base <ipfs folder/>
+hush run --name <Etherscan key> --env ETHERSCAN_API_KEY --redact -- node scripts/verify-etherscan.mjs --safe
+```
+
+Evidence: [deploy checks](../deployments/sepolia-v7-safe.json), [Etherscan verification](../deployments/sepolia-v7-safe-etherscan.json).
+
+## V7 test deployment (team wallet, superseded)
 
 Deployed 2026-11-23 on Ethereum Sepolia **11155111**, in launch order: client lists, the whole treasury before Pioneer, then Pioneer.
 

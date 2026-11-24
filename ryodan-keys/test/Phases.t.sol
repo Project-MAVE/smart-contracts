@@ -115,10 +115,10 @@ contract PhasesTest is ListedFixture {
             assertEq(price, prices[id - 1]);
             assertEq(limit, limits[id - 1]);
         }
-        assertEq(keys.CONTRACT_VERSION(), 7);
+        assertEq(keys.CONTRACT_VERSION(), 8);
         assertEq(keys.MAX_SUPPLY(), 6666);
-        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6166);
-        assertEq(keys.MAX_TREASURY_SUPPLY(), 500);
+        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6000);
+        assertEq(keys.MAX_TREASURY_SUPPLY(), 666);
         assertEq(keys.CHOICE_WINDOW(), 4 days);
     }
 
@@ -164,12 +164,19 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.remainingAllowance(3, bob), 10);
     }
 
-    function test_ClientListsFitTheGuaranteedSupply() public {
-        keys.configureAllowlist(bytes32(uint256(1)), keccak256("23-nov"), 100, 1403, 5705);
-        assertEq(keys.totalGtdReserved(), 6012);
+    function test_ClientListsAreAcceptedAndReserveIsCappedAtPaidSupply() public {
+        keys.configureAllowlist(
+            0x2a19f9ca68d2a0630ce1ebd9842e9e359d31054a708cd4aabc2d411a72bb51b4,
+            0xa49a0a4717ed59a01c4b2a53fd1b1e4d2ec33e0480b6a03fd83261bb42b44bed,
+            105,
+            1455,
+            5699
+        );
+        assertTrue(keys.allowlistConfigured());
+        assertEq(keys.totalGtdReserved(), 6000);
         RyodanKeys other = new RyodanKeys(end, HIDDEN, NFT, address(this), treasury);
-        vm.expectRevert("Insufficient GTD supply");
-        other.configureAllowlist(bytes32(uint256(1)), keccak256("too-many"), 100, 1442, 0);
+        other.configureAllowlist(bytes32(uint256(1)), keccak256("larger"), 105, 1475, 0);
+        assertEq(other.totalGtdReserved(), 6000);
     }
 
     function test_ThreeExclusiveTiersEnforceHierarchyAndProofsBeforeFirstMint() public {
@@ -314,14 +321,14 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.totalGtdReserved(), 0);
     }
 
-    function test_GtdOverbookingRejectedAtSnapshotAndQuotaUpdate() public {
-        vm.expectRevert("Insufficient GTD supply");
-        keys.configureAllowlist(bytes32(uint256(1)), keccak256("large"), 1542, 0, 0);
-        assertFalse(keys.allowlistConfigured());
+    function test_GtdOverbookingIsCappedAtSnapshotAndQuotaUpdate() public {
+        keys.configureAllowlist(bytes32(uint256(1)), keccak256("large"), 1580, 0, 0);
+        assertTrue(keys.allowlistConfigured());
+        assertEq(keys.totalGtdReserved(), 6000);
         _three();
-        vm.expectRevert("Insufficient GTD supply");
-        keys.configurePhase(1, 1, 6166);
         assertEq(keys.totalGtdReserved(), 8);
+        keys.configurePhase(1, 1, 6000);
+        assertEq(keys.totalGtdReserved(), 6000);
     }
 
     function test_ExactGtdCapacityIsUsableAcrossInheritedTiers() public {
@@ -331,22 +338,22 @@ contract PhasesTest is ListedFixture {
         accounts[1] = alice;
         tiers[0] = 1;
         tiers[1] = 2;
-        keys.configurePhase(1, 1, 3083);
-        keys.configurePhase(2, 1, 3083);
+        keys.configurePhase(1, 1, 3000);
+        keys.configurePhase(2, 1, 3000);
         _lists(accounts, tiers);
-        assertEq(keys.totalGtdReserved(), 6166);
+        assertEq(keys.totalGtdReserved(), 6000);
         _next();
         _mintListed(bob, 2000);
         _next();
-        assertEq(keys.totalGtdReserved(), 4166);
-        _buy(bob, 1083);
-        _mintListed(alice, 3083);
-        assertEq(keys.mintedByUsers(), 6166);
+        assertEq(keys.totalGtdReserved(), 4000);
+        _buy(bob, 1000);
+        _mintListed(alice, 3000);
+        assertEq(keys.mintedByUsers(), 6000);
         assertEq(keys.totalGtdReserved(), 0);
     }
 
     function test_UnusedGuaranteesReleaseAndCivilianReceivesRemainder() public {
-        keys.configurePhase(4, 1, 6166);
+        keys.configurePhase(4, 1, 6000);
         _three();
         _next();
         _mintListed(bob, 2);
@@ -357,19 +364,19 @@ contract PhasesTest is ListedFixture {
         assertEq(keys.totalGtdReserved(), 0);
         _mintListed(treasury, 4);
         _next();
-        _buy(bob, 6157);
-        assertEq(keys.mintedByUsers(), 6166);
+        _buy(bob, 5991);
+        assertEq(keys.mintedByUsers(), 6000);
         assertEq(keys.remainingAllowance(1, bob), 0);
     }
 
     function test_RecruitIsFcfsAndCannotExceedRemainingSupply() public {
         _one(bob, 3);
         assertEq(keys.totalGtdReserved(), 0);
-        keys.configurePhase(3, 1, 6166);
+        keys.configurePhase(3, 1, 6000);
         _next();
         _next();
         _next();
-        _mintListed(bob, 6166);
+        _mintListed(bob, 6000);
         vm.deal(alice, 1);
         vm.prank(alice);
         vm.expectRevert("Max supply reached");
@@ -403,7 +410,7 @@ contract PhasesTest is ListedFixture {
         vm.expectRevert("Phases locked");
         keys.configurePhase(4, 1, 2);
         vm.expectRevert("Phases locked");
-        keys.configurePhase(4, 1, 6166);
+        keys.configurePhase(4, 1, 6000);
         assertEq(keys.remainingAllowance(4, bob), 5);
     }
 

@@ -1,5 +1,5 @@
 import { buildSnapshot, capacity, checkerScript, tiers, validateSnapshot } from './allowlist.js';
-import { deadlineUTC } from './model.js';
+import { SUPPORTED_VERSION, deadlineUTC } from './model.js';
 import initial from './allowlist.json';
 
 const $ = selector => document.querySelector(selector);
@@ -22,7 +22,9 @@ export function renderAllowlist(state) {
   let allocation;
   try {
     const budget = capacity(loaded.counts, state?.phases?.[0].limit, state?.phases?.[1].limit, state?.maxPaid);
-    allocation = `Full-list budget at these caps: ${budget.total} guaranteed keys (${budget.pioneer} Pioneer + ${budget.operative} Operative). ${budget.unreserved} initially unreserved. Actual open guarantees: ${state?.reserved ?? 0n}.`;
+    allocation = budget.oversubscribed
+      ? `Full-list budget at these caps: ${budget.total} keys (${budget.pioneer} Pioneer + ${budget.operative} Operative), ${budget.oversubscribed} more than the paid supply. The reservation stops at ${budget.reserved}: keys go to the wallets that mint first. Actual open guarantees: ${state?.reserved ?? 0n}.`
+      : `Full-list budget at these caps: ${budget.total} guaranteed keys (${budget.pioneer} Pioneer + ${budget.operative} Operative). ${budget.unreserved} initially unreserved. Actual open guarantees: ${state?.reserved ?? 0n}.`;
   } catch (cause) { allocation = cause.message; }
   $('#snapshot-summary').textContent = `${state?.snapshotMatches ? 'Matches the on-chain snapshot.' : 'This snapshot is not loaded on the selected contract.'} ${allocation} ${duplicateRows ? `${duplicateRows} repeated rows removed.` : ''}`;
 }
@@ -58,9 +60,9 @@ export function mountAllowlist({ getState, refresh, review, error, notice }) {
     event.preventDefault();
     Promise.resolve().then(() => {
       const state = getState(); validateSnapshot(loaded);
-      if (state?.version !== 7n) throw new Error('Select a v7 contract.');
-      capacity(loaded.counts, state.phases[0].limit, state.phases[1].limit, state.maxPaid - state.paid);
-      return review({ kind: 'allowlist', label: 'Load frozen allowlist snapshot', method: 'configureAllowlist', args: [loaded.root, loaded.snapshotHash, ...tiers.map(tier => BigInt(loaded.counts[tier]))], expectedPhase: 0n, warning: 'Review the CSV counts, hashes and GTD budget. Starting Pioneer permanently freezes this membership snapshot. Publish the matching allowlist.json and check-data.js to the frontend.' });
+      if (state?.version !== SUPPORTED_VERSION) throw new Error('Select a v8 contract.');
+      const budget = capacity(loaded.counts, state.phases[0].limit, state.phases[1].limit, state.maxPaid - state.paid);
+      return review({ kind: 'allowlist', label: 'Load frozen allowlist snapshot', method: 'configureAllowlist', args: [loaded.root, loaded.snapshotHash, ...tiers.map(tier => BigInt(loaded.counts[tier]))], expectedPhase: 0n, warning: `${budget.oversubscribed ? `The lists ask for ${budget.total} keys, ${budget.oversubscribed} more than the ${budget.reserved} paid keys left: they sell in order of arrival and later wallets may find none. ` : ''}Review the CSV counts, hashes and GTD budget. Starting Pioneer permanently freezes this membership snapshot. Publish the matching allowlist.json and check-data.js to the frontend.` });
     }).catch(error);
   });
 }

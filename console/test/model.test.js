@@ -5,7 +5,7 @@ import { address, assertSupported, deadlineUTC, gate, phase, remaining, refundId
 const account = '0x51c88C4Ca390C7509aD250D0F6B52c10F4cE39bc';
 const context = { account, correctChain: true, busy: false, pending: null, stale: false };
 const v6 = {
-  version: 7n, deadline: 200n, timestamp: 100n, maxPaid: 6166n, maxTreasury: 500n, firstTokenId: 1n, choiceWindow: 345600n,
+  version: 8n, deadline: 200n, timestamp: 100n, maxPaid: 6000n, maxTreasury: 666n, firstTokenId: 1n, choiceWindow: 345600n,
   paid: 1n, treasuryMinted: 0n, walletMinted: 10n, limit: 4n, balance: 10n ** 16n, admin: true, treasuryRole: true,
   currentPhase: 1n, paused: false, reserved: 16n, phaseAllowance: 4n, phaseWalletMinted: 0n, allowlistConfigured: true,
   publicActive: false, whitelistActive: true, whitelisted: true, soldOut: false, refundsAvailable: false,
@@ -14,15 +14,15 @@ const v6 = {
 const expired = { ...v6, timestamp: 201n, refundsAvailable: true, choiceWindowOpen: true };
 const writes = ['mint', 'treasuryMint', 'withdraw', 'admin', 'phaseAdmin', 'allowlist', 'advance', 'pause', 'refund', 'settle', 'claimPending', 'withdrawKept', 'burnTreasury'];
 
-test('only contract version 7 is accepted; v1 (no CONTRACT_VERSION) through v6 and later versions are refused', () => {
-  assert.doesNotThrow(() => assertSupported(7n));
-  assert.throws(() => assertSupported(null), /without CONTRACT_VERSION \(v1\)\. This console manages only Ryodan Keys v7/);
-  for (const version of [2n, 3n, 4n, 5n, 6n, 8n]) assert.throws(() => assertSupported(version), new RegExp(`version ${version}\\. This console manages only Ryodan Keys v7`));
+test('only contract version 8 is accepted; v1 (no CONTRACT_VERSION) through v7 and later versions are refused', () => {
+  assert.doesNotThrow(() => assertSupported(8n));
+  assert.throws(() => assertSupported(null), /without CONTRACT_VERSION \(v1\)\. This console manages only Ryodan Keys v8/);
+  for (const version of [2n, 3n, 4n, 5n, 6n, 7n, 9n]) assert.throws(() => assertSupported(version), new RegExp(`version ${version}\\. This console manages only Ryodan Keys v8`));
   assert.throws(() => assertSupported(4n), error => error.code === 'UNSUPPORTED_CONTRACT');
 });
-test('every write is blocked when the loaded state is not v7', () => {
-  for (const version of [1n, 2n, 3n, 4n, 5n, 6n, 8n]) {
-    for (const kind of writes) assert.equal(gate(kind, { ...expired, version, soldOut: false }, context), 'This console manages only Ryodan Keys v7.');
+test('every write is blocked when the loaded state is not v8', () => {
+  for (const version of [1n, 2n, 3n, 4n, 5n, 6n, 7n, 9n]) {
+    for (const kind of writes) assert.equal(gate(kind, { ...expired, version, soldOut: false }, context), 'This console manages only Ryodan Keys v8.');
   }
 });
 test('exact integer validation rejects unsafe amount syntax and bounds', () => {
@@ -48,14 +48,15 @@ test('all writes stop on stale data, wrong chain, pending transaction or disconn
 test('allowances are per phase, independent of lifetime purchases', () => {
   assert.equal(remaining(v6), 4n);
   assert.equal(remaining({ ...v6, phaseAllowance: 0n }), 0n);
-  assert.equal(remaining({ ...v6, currentPhase: 3n, paid: 6156n, reserved: 8n }), 2n);
+  assert.equal(remaining({ ...v6, currentPhase: 3n, paid: 5990n, reserved: 8n }), 2n);
+  assert.equal(remaining({ ...v6, currentPhase: 2n, paid: 5998n, reserved: 6000n }), 2n);
   assert.equal(phase(v6), 'PIONEER');
   assert.equal(phase({ ...v6, currentPhase: 2n }), 'OPERATIVE');
   assert.equal(phase({ ...v6, currentPhase: 3n }), 'RECRUIT');
   assert.equal(phase({ ...v6, currentPhase: 4n }), 'CIVILIAN');
   assert.equal(phase({ ...v6, paused: true }), 'PAUSED');
   assert.equal(phase({ ...v6, currentPhase: 0n }), 'NOT STARTED');
-  assert.equal(phase({ ...v6, paid: 6166n }), 'PAID CAP');
+  assert.equal(phase({ ...v6, paid: 6000n }), 'PAID CAP');
   assert.equal(phase({ ...v6, timestamp: 201n }), 'EXPIRED');
 });
 test('mint requires an allowlisted wallet in allowlist phases and an open sale', () => {

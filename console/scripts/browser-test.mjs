@@ -130,7 +130,7 @@ try {
   await page.locator('a[data-page="sale"]').click();
   assert.equal(await page.locator('#deadline-form').isVisible(), false);
   assert.equal(await keys.mintEndTime(), BigInt(initialDeadline));
-  report('v7 deadline is fixed at deploy: the console shows no deadline form');
+  report('v8 deadline is fixed at deploy: the console shows no deadline form');
   await transact('#advance-form', async () => await keys.currentPhase() === 2n && await keys.mintPaused());
   assert(await keys.allowlisted(2, accounts[0]));
   await transact('#pause-form', async () => !await keys.mintPaused());
@@ -159,7 +159,7 @@ try {
   await page.waitForFunction(() => document.querySelector('#token-result').textContent.includes('None: treasury key'));
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: fileURLToPath(new URL('metadata-desktop.png', output)), fullPage: true, animations: 'disabled' });
-  report('v7 read-only metadata page: SBT and NFT folders from chain, locked key reads the SBT set, no reveal form');
+  report('v8 read-only metadata page: SBT and NFT folders from chain, locked key reads the SBT set, no reveal form');
   await page.locator('a[data-page="access"]').click();
   await page.locator('#role-account').fill(accounts[1]);
   await transact('#role-form', async () => (await keys.pendingDefaultAdmin())[0] === accounts[1] && await keys.hasRole(ZeroHash, accounts[0]));
@@ -256,7 +256,7 @@ try {
   const snapshotId = await provider.send('evm_snapshot', []);
   const civilianPrice = 15n * 10n ** 15n;
   await (await keys.mint(19, 4, civilianPrice, { value: 19n * civilianPrice })).wait();
-  let paidLeft = 6166 - 5 - 19;
+  let paidLeft = 6000 - 5 - 19;
   for (let index = 1; paidLeft > 0; index++) {
     const buyer = `0x${(0xc0ffee000000n + BigInt(index)).toString(16).padStart(40, '0')}`;
     await provider.send('anvil_setBalance', [buyer, '0x56bc75e2d63100000']);
@@ -266,7 +266,7 @@ try {
     await provider.send('anvil_stopImpersonatingAccount', [buyer]);
     paidLeft -= amount;
   }
-  for (let left = 499; left > 0; left -= 50) await (await keys.treasuryMint(Math.min(left, 50), accounts[0])).wait();
+  for (let left = 665; left > 0; left -= 50) await (await keys.treasuryMint(Math.min(left, 50), accounts[0])).wait();
   await page.locator('#refresh').click();
   await page.waitForFunction(() => document.querySelector('#metric-phase').textContent === 'SOLD OUT');
   assert.equal(await page.locator('#metric-metadata').textContent(), 'NFT SET');
@@ -276,7 +276,7 @@ try {
   await page.waitForFunction(nft => document.querySelector('#token-result').textContent.includes(`${nft}6666.json`) && document.querySelector('#token-result').textContent.includes('Unlocked: sold out'), nftBase);
   assert.equal(await keys.tokenURI(1), `${nftBase}1.json`);
   await page.locator('a[data-page="treasury"]').click();
-  assert.equal(await provider.getBalance(target), 92515500000000000000n);
+  assert.equal(await provider.getBalance(target), 90025500000000000000n);
   assert.match(await page.locator('[data-hint="withdraw"]').textContent(), /after the mint deadline/);
   await assert.rejects(keys.withdraw.staticCall(), /Mint not ended/);
   await provider.send('evm_increaseTime', [31 * 86400]);
@@ -284,7 +284,7 @@ try {
   await page.locator('#refresh').click();
   await page.waitForFunction(() => !document.querySelector('[data-action="withdraw"]').disabled);
   await transact('#withdraw-form', async () => await provider.getBalance(target) === 0n);
-  report('Full 6,666-key sale (6,166 paid + 500 treasury): every key reads the NFT set by itself (key 6666 included); the 92.5155 ETH withdrawal waits for the deadline');
+  report('Full 6,666-key sale (6,000 paid + 666 treasury): every key reads the NFT set by itself (key 6666 included); the 90.0255 ETH withdrawal waits for the deadline');
   await provider.send('evm_revert', [snapshotId]);
 
   await provider.send('evm_increaseTime', [31 * 86400]);
@@ -359,10 +359,11 @@ try {
     throw new Error('Console server did not restart');
   };
   const mocks = {
-    v1: { initcode: '0x6460006000fd6000526005601bf3', message: /without CONTRACT_VERSION \(v1\)\. This console manages only Ryodan Keys v7/ },
-    v4: { initcode: '0x69600460005260206000f3600052600a6016f3', message: /version 4\. This console manages only Ryodan Keys v7/ },
-    v5: { initcode: '0x69600560005260206000f3600052600a6016f3', message: /version 5\. This console manages only Ryodan Keys v7/ },
-    v6: { initcode: '0x69600660005260206000f3600052600a6016f3', message: /version 6\. This console manages only Ryodan Keys v7/ },
+    v1: { initcode: '0x6460006000fd6000526005601bf3', message: /without CONTRACT_VERSION \(v1\)\. This console manages only Ryodan Keys v8/ },
+    v4: { initcode: '0x69600460005260206000f3600052600a6016f3', message: /version 4\. This console manages only Ryodan Keys v8/ },
+    v5: { initcode: '0x69600560005260206000f3600052600a6016f3', message: /version 5\. This console manages only Ryodan Keys v8/ },
+    v6: { initcode: '0x69600660005260206000f3600052600a6016f3', message: /version 6\. This console manages only Ryodan Keys v8/ },
+    v7: { initcode: '0x69600760005260206000f3600052600a6016f3', message: /version 7\. This console manages only Ryodan Keys v8/ },
   };
   await page.setViewportSize({ width: 1440, height: 1100 });
   for (const [name, mock] of Object.entries(mocks)) {
@@ -376,7 +377,7 @@ try {
     if (name === 'v4') await page.screenshot({ path: fileURLToPath(new URL('unsupported-v4.png', output)), animations: 'disabled' });
   }
   assert.deepEqual(errors, []);
-  report('A v1, v4, v5 or v6 contract is refused: UNSUPPORTED CONTRACT, explicit message, every action disabled');
+  report('A v1, v4, v5, v6 or v7 contract is refused: UNSUPPORTED CONTRACT, explicit message, every action disabled');
   await writeFile(new URL('browser-verification.json', output), JSON.stringify({ checks, contract: target, chainId: 31337 }, null, 2) + '\n');
 } catch (error) {
   if (page) {

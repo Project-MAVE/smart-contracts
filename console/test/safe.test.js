@@ -1,0 +1,165 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { Interface } from 'ethers';
+import { approveCall, batchCall, batchCalldata, batchChecksum, batchFile, executeCall, executionSignatures, isOwner, launchSteps, ownerStep, safeGasNeeded, safeInterface, safeLinks, safeTransaction, TRANSACTION_GAS_CAP } from '../src/safe.js';
+import { gate, viaSafe } from '../src/model.js';
+
+const abi = JSON.parse(await readFile(new URL('../../ryodan-keys/abi/RyodanKeys.json', import.meta.url), 'utf8'));
+const keys = '0x28097DF55dA295bB969b8B187c26978D63D099B8';
+const safeAddress = '0x31Cd849c982ED10a94A66b4FD7867e97656952Eb';
+const owners = ['0x64Edd77035E6d19d4d28CCEf71ae0487B9d770Ec', '0x07a7a4993c2bA83f87738991Db4B34162ba84Bf9', '0x69012B90cCB872Fb5b650922CaA71193255E9d74'];
+const root = '0x684eef196d6778d493101719a1baa468b9bad7e8cfb647aec304c535626c0273';
+const snapshotHash = '0x4340544089b569df44f052e55b46721daaa5c1c717169631e82803d98698ae1d';
+const iface = new Interface(abi);
+const safe = { address: safeAddress, owners, threshold: 2n, nonce: 0n, version: '1.5.0', treasury: true, keys: 0n, owner: false };
+const fresh = {
+  version: 8n, deadline: 200n, timestamp: 100n, maxPaid: 6000n, maxTreasury: 666n, firstTokenId: 1n, paid: 0n, treasuryMinted: 0n, balance: 0n,
+  admin: false, treasuryRole: false, currentPhase: 0n, paused: true, allowlistConfigured: false, snapshotMatches: false, allowlistRoot: `0x${'0'.repeat(64)}`,
+  tierCounts: [0n, 0n, 0n], soldOut: false, refundsAvailable: false, choiceWindowOpen: false, keptFunds: 0n, keptWithdrawn: 0n, safe,
+};
+const snapshot = { counts: { pioneer: 105, operative: 1403, recruit: 5705 } };
+const nobody = { account: null, correctChain: false, busy: false, pending: null, stale: false };
+
+test('every launch call is exported as method plus string inputs and decodes to the exact calldata', () => {
+  for (const [method, args] of [
+    ['configureAllowlist', [root, snapshotHash, 105n, 1403n, 5705n]], ['treasuryMint', [100n, safeAddress]], ['advancePhase', []], ['setMintPaused', [false]], ['setMintPaused', [true]],
+    ['configurePhase', [1n, 7500000000000000n, 4n]], ['withdraw', []], ['withdrawKept', []], ['burnTreasuryKeys', [[1n, 2n, 500n]]], ['beginDefaultAdminTransfer', [owners[0]]],
+  ]) {
+    const call = batchCall(abi, keys, method, args);
+    assert.equal(call.to, keys);
+    assert.equal(call.value, '0');
+    assert.equal(call.contractMethod.name, method);
+    assert.ok(Object.values(call.contractInputsValues).every(value => typeof value === 'string'), 'the Transaction Builder refuses numbers');
+    assert.equal(batchCalldata(call), iface.encodeFunctionData(method, args));
+  }
+  assert.throws(() => batchCall(abi, keys, 'treasuryMint', [100n]), /Unknown call/);
+});
+
+test('a batch file carries the Transaction Builder checksum and any later edit breaks it', () => {
+  const file = batchFile({ chainId: 11155111, safe: safeAddress, name: 'Open Pioneer', description: 'two calls', createdAt: 1795440000000,
+    transactions: [batchCall(abi, keys, 'advancePhase', []), batchCall(abi, keys, 'setMintPaused', [false])] });
+  assert.deepEqual([file.version, file.chainId, file.meta.createdFromSafeAddress, file.transactions.length], ['1.0', '11155111', safeAddress, 2]);
+  const { checksum, ...meta } = file.meta;
+  assert.match(checksum, /^0x[0-9a-f]{64}$/);
+  assert.equal(batchChecksum({ ...file, meta }), checksum);
+  assert.equal(batchChecksum({ ...file, meta: { ...meta, name: 'Renamed in the Safe' } }), checksum, 'the name is not part of the checksum');
+  const tampered = structuredClone({ ...file, meta });
+  tampered.transactions[1].contractInputsValues.paused = 'true';
+  assert.notEqual(batchChecksum(tampered), checksum);
+  assert.throws(() => batchFile({ chainId: 1, safe: safeAddress, name: 'x', description: 'x', transactions: [] }), /at least one call/);
+});
+
+test('a Safe transaction must fit the per-transaction gas cap', () => {
+  assert.equal(TRANSACTION_GAS_CAP, 2n ** 24n);
+  assert.ok(safeGasNeeded(12_324_824n) < TRANSACTION_GAS_CAP, '100 treasury keys measured on Sepolia fit');
+  assert.ok(safeGasNeeded(15_910_333n) < TRANSACTION_GAS_CAP, '130 measured on Sepolia still fit, with little room');
+  assert.ok(safeGasNeeded(16_400_000n) > TRANSACTION_GAS_CAP, 'a call estimated at 16.4M gas does not');
+});
+
+test('with a Safe as administrator the privileged calls are prepared without a wallet, everything else is unchanged', () => {
+  for (const kind of ['allowlist', 'phaseAdmin', 'admin', 'treasuryMint']) {
+    assert.equal(viaSafe(kind, fresh, null), true);
+    assert.equal(gate(kind, fresh, nobody), '');
+  }
+  assert.equal(gate('advance', fresh, nobody), 'Load the allowlist snapshot before starting Pioneer.');
+  assert.equal(gate('pause', fresh, nobody), 'Start Pioneer before resuming minting.');
+  assert.equal(gate('mint', fresh, nobody), 'Connect a wallet to continue.');
+  assert.equal(gate('withdraw', fresh, nobody), 'All 6,666 keys must mint before this operation unlocks.');
+  assert.equal(viaSafe('mint', fresh, null), false);
+  assert.equal(gate('allowlist', { ...fresh, version: 7n }, nobody), 'This console manages only Ryodan Keys v8.');
+  assert.equal(gate('allowlist', fresh, { ...nobody, stale: true }), 'Refresh contract state before submitting.');
+  const withoutTreasury = { ...fresh, safe: { ...safe, treasury: false } };
+  assert.equal(viaSafe('treasuryMint', withoutTreasury, null), false);
+  assert.equal(gate('treasuryMint', withoutTreasury, { ...nobody, account: owners[0], correctChain: true }), 'The connected wallet needs the treasury role.');
+  const direct = { ...fresh, safe: null };
+  assert.equal(gate('allowlist', direct, nobody), 'Connect a wallet to continue.');
+  assert.equal(gate('allowlist', direct, { ...nobody, account: owners[0], correctChain: true }), 'The connected wallet needs the administrator role.');
+});
+
+test('a wallet connected as the Safe itself signs in the wallet, an owner prepares for the Safe', () => {
+  const asSafe = { ...fresh, admin: true, treasuryRole: true };
+  assert.equal(viaSafe('allowlist', asSafe, safeAddress.toLowerCase()), false);
+  assert.equal(gate('allowlist', asSafe, { ...nobody, account: safeAddress, correctChain: true }), '');
+  assert.equal(gate('allowlist', asSafe, { ...nobody, account: safeAddress, correctChain: false }), 'Switch your wallet to the displayed network.');
+  assert.equal(viaSafe('allowlist', fresh, owners[1]), true);
+  assert.equal(isOwner(safe, owners[1].toLowerCase()), true);
+  assert.equal(isOwner(safe, keys), false);
+  assert.equal(isOwner(null, owners[1]), false);
+});
+
+test('the launch sequence follows chain state: list, treasury in blocks of 100, then each opening', () => {
+  const status = s => launchSteps(s, snapshot).map(step => step.status).join(' ');
+  const steps = launchSteps(fresh, snapshot);
+  assert.deepEqual(steps.map(step => step.id), ['allowlist', 'treasury', 'open']);
+  assert.equal(status(fresh), 'NEXT WAITING WAITING');
+  assert.match(steps[0].detail, /105 Pioneer \/ 1403 Operative \/ 5705 Recruit/);
+  assert.match(steps[1].detail, /^0 \/ 666 minted\. 7 Safe transaction\(s\) of up to 100 keys left/);
+  assert.equal(steps[2].title, 'Open Pioneer');
+  const listed = { ...fresh, allowlistConfigured: true, snapshotMatches: true, allowlistRoot: root, tierCounts: [105n, 1403n, 5705n] };
+  assert.equal(status(listed), 'DONE NEXT WAITING');
+  assert.match(launchSteps({ ...listed, treasuryMinted: 250n }, snapshot)[1].detail, /^250 \/ 666 minted\. 5 Safe transaction/);
+  assert.match(launchSteps({ ...fresh, allowlistConfigured: true }, snapshot)[0].detail, /A different snapshot is on chain/);
+  const minted = { ...listed, treasuryMinted: 666n };
+  assert.equal(status(minted), 'DONE DONE NEXT');
+  const pioneer = launchSteps({ ...minted, currentPhase: 1n, paused: false }, snapshot)[2];
+  assert.deepEqual([pioneer.title, pioneer.status], ['Open Operative', 'NEXT']);
+  assert.match(pioneer.detail, /^Pioneer is open and minting\. Next: one Safe transaction with two calls, advance to Operative then resume minting\. Pioneer closes for good\./);
+  assert.equal(launchSteps({ ...minted, currentPhase: 1n, paused: true }, snapshot)[2].title, 'Resume Pioneer');
+  assert.equal(launchSteps({ ...minted, currentPhase: 4n, paused: true }, snapshot)[2].title, 'Resume Civilian');
+  assert.equal(status({ ...minted, currentPhase: 4n, paused: false }), 'DONE DONE DONE');
+  assert.equal(status({ ...minted, currentPhase: 2n, paused: false, timestamp: 201n }), 'DONE DONE DONE');
+});
+
+test('Safe links exist only for the networks the Safe app serves', () => {
+  const links = safeLinks(11155111, safeAddress);
+  assert.equal(links.home, `https://app.safe.global/home?safe=sep:${safeAddress}`);
+  assert.equal(links.builder, `https://app.safe.global/apps/open?safe=sep:${safeAddress}&appUrl=https%3A%2F%2Fapps-portal.safe.global%2Ftx-builder`);
+  assert.equal(safeLinks(1, safeAddress).queue, `https://app.safe.global/transactions/queue?safe=eth:${safeAddress}`);
+  assert.equal(safeLinks(31337, safeAddress), null);
+});
+
+test('owners act in turn: approve until one approval is missing, then the next owner executes', () => {
+  const [a, b, c] = owners;
+  assert.equal(ownerStep(safe, [], null), 'connect');
+  assert.equal(ownerStep(safe, [], keys), 'observe');
+  assert.equal(ownerStep(safe, [], a), 'approve');
+  assert.equal(ownerStep(safe, [a], a.toLowerCase()), 'wait');
+  assert.equal(ownerStep(safe, [a], b), 'execute');
+  assert.equal(ownerStep(safe, [a, b], c), 'execute');
+  assert.equal(ownerStep(safe, [a, b], keys), 'execute', 'with every approval on chain any wallet may execute');
+  const three = { ...safe, threshold: 3n };
+  assert.equal(ownerStep(three, [a], b), 'approve');
+  assert.equal(ownerStep(three, [a, b], c), 'execute');
+  assert.equal(ownerStep({ ...safe, threshold: 1n }, [], a), 'execute');
+});
+
+test('execution signatures list exactly the threshold of approving owners, in ascending address order', () => {
+  const [a, b, c] = owners;
+  const words = signatures => signatures.slice(2).match(/.{130}/g).map(chunk => [`0x${chunk.slice(24, 64)}`, chunk.slice(64, 128), chunk.slice(128)]);
+  const signed = words(executionSignatures(safe, [a], b));
+  assert.deepEqual(signed.map(item => item[0]), [b, a].map(owner => owner.toLowerCase()).sort((x, y) => BigInt(x) < BigInt(y) ? -1 : 1));
+  assert.ok(signed.every(item => /^0+$/.test(item[1]) && item[2] === '01'), 'approved-hash signatures: zero s, v = 1');
+  assert.equal(words(executionSignatures(safe, [a, b, c], c)).length, 2);
+  assert.deepEqual(words(executionSignatures(safe, [a, b], keys)).map(item => item[0]).sort(), [a, b].map(owner => owner.toLowerCase()).sort());
+  assert.throws(() => executionSignatures(safe, [], a), /not have enough owner approvals/);
+  assert.throws(() => executionSignatures(safe, [a], a), /not have enough owner approvals/);
+  assert.throws(() => executionSignatures(safe, [a], keys), /not have enough owner approvals/);
+});
+
+test('one call goes straight to the contract, several are packed for MultiSendCallOnly by delegatecall', () => {
+  const single = safeTransaction(safe, [batchCall(abi, keys, 'treasuryMint', [100n, safeAddress])]);
+  assert.deepEqual([single.to, single.value, single.operation, single.data], [keys, 0n, 0, iface.encodeFunctionData('treasuryMint', [100n, safeAddress])]);
+  const advance = iface.encodeFunctionData('advancePhase'), resume = iface.encodeFunctionData('setMintPaused', [false]);
+  const batch = safeTransaction(safe, [batchCall(abi, keys, 'advancePhase', []), batchCall(abi, keys, 'setMintPaused', [false])]);
+  assert.deepEqual([batch.to, batch.value, batch.operation], ['0xA83c336B20401Af773B6219BA5027174338D1836', 0n, 1]);
+  const entry = data => `00${keys.slice(2).toLowerCase()}${'0'.repeat(64)}${(data.length / 2 - 1).toString(16).padStart(64, '0')}${data.slice(2)}`;
+  const packed = `${entry(advance)}${entry(resume)}`;
+  assert.equal(batch.data, `0x8d80ff0a${'20'.padStart(64, '0')}${(packed.length / 2).toString(16).padStart(64, '0')}${packed.padEnd(Math.ceil(packed.length / 64) * 64, '0')}`);
+  assert.throws(() => safeTransaction({ ...safe, version: '1.1.1' }, [batchCall(abi, keys, 'advancePhase', []), batchCall(abi, keys, 'setMintPaused', [false])]), /Download the batch for the Safe app/);
+  const hash = `0x${'ab'.repeat(32)}`;
+  assert.deepEqual(approveCall(safe, hash), { to: safeAddress, data: `0xd4d9bdcd${'ab'.repeat(32)}` });
+  const execute = executeCall(safe, single, executionSignatures(safe, [owners[0]], owners[1]));
+  const decoded = safeInterface.decodeFunctionData('execTransaction', execute.data);
+  assert.deepEqual([execute.to, decoded[0], decoded[1], decoded[2], decoded[3], decoded[4], decoded[5], decoded[6]], [safeAddress, keys, 0n, single.data, 0n, 0n, 0n, 0n]);
+});

@@ -97,14 +97,13 @@ abstract contract TreeFixture is RyodanKeysFixture {
 }
 
 contract GtdReserveTest is TreeFixture {
-    function test_ClientListsReserveOnce6012AndEveryGuaranteedKeyIsMintable() public {
-        // 1,506 wallets and 6,062 keys in one test exceed the default test gas limit.
+    function test_ClientListsSellFirstComeFirstServedUpTo6000() public {
+        // 1,563 wallets and 6,000 keys in one test exceed the default test gas limit.
         vm.pauseGasMetering();
-        _wallets(100, 1403, 3);
-        assertEq(keys.totalGtdReserved(), 6012);
-        assertEq(keys.MAX_PUBLIC_SUPPLY() - keys.totalGtdReserved(), 154);
+        _wallets(105, 1455, 3);
+        // The lists ask for 6,240 keys; the reservation stops at the 6,000 keys on sale.
+        assertEq(keys.totalGtdReserved(), 6000);
 
-        // PIONEER: Pioneers take 0 to 4 keys each, so most of the Pioneer allocation moves on to OPERATIVE.
         _advance();
         uint256 mintedInPioneer;
         for (uint256 i; i < pioneers.length; i++) {
@@ -113,49 +112,51 @@ contract GtdReserveTest is TreeFixture {
             _mintGtd(pioneers[i], amount);
             mintedInPioneer += amount;
         }
-        assertEq(mintedInPioneer, 200);
+        assertEq(mintedInPioneer, 210);
         _mintGtd(operatives[0], 1, "Not allowlisted");
-        assertEq(keys.totalGtdReserved(), 5812);
+        assertEq(keys.totalGtdReserved(), 5790);
+        assertEq(_unclaimed(), 6030);
 
-        // Opening OPERATIVE releases nothing: the unused Pioneer keys stay guaranteed.
         vm.expectEmit(true, true, false, true, address(keys));
         emit PhaseAdvanced(1, 2, 0);
         _advance();
-        assertEq(keys.totalGtdReserved(), 5812);
-        assertEq(keys.totalGtdReserved(), _unclaimed());
+        assertEq(keys.totalGtdReserved(), 5790);
 
-        // OPERATIVE: every Operative mints in full first, then every Pioneer claims what is left of its four keys.
-        for (uint256 i; i < operatives.length; i++) {
+        // OPERATIVE: wallets mint in arrival order until the 6,000 keys are gone.
+        for (uint256 i; i < 1447; i++) {
             _mintGtd(operatives[i], 4);
         }
-        assertEq(keys.totalGtdReserved(), 200);
-        _mintGtd(operatives[1402], 1, "Max mint amount reached for address");
-        for (uint256 i; i < pioneers.length; i++) {
-            uint256 left = 4 - i % 5;
-            assertEq(keys.remainingAllowance(2, pioneers[i]) + (i % 5 == 0 ? 4 : 0), left);
-            _mintGtd(pioneers[i], left + 1, "Max mint amount reached for address");
-            if (left > 0) _mintGtd(pioneers[i], left);
-            assertEq(keys.gtdMinted(pioneers[i]), 4);
-            assertEq(keys.remainingAllowance(2, pioneers[i]), 0);
-        }
+        assertEq(keys.mintedByUsers(), 5998);
+        assertEq(keys.totalGtdReserved(), 2);
+        _mintGtd(operatives[1447], 4, "Max supply reached");
+        _mintGtd(operatives[1447], 2);
+        assertEq(keys.mintedByUsers(), 6000);
         assertEq(keys.totalGtdReserved(), 0);
-        assertEq(keys.mintedByUsers(), 6012);
+        _mintGtd(operatives[1448], 1, "Max supply reached");
+        _mintGtd(pioneers[1], 1, "Max supply reached");
+        // The per-wallet reading ignores the stock: a mint page must also read the keys left on sale.
+        assertEq(keys.remainingAllowance(2, pioneers[1]), 3);
+        assertEq(keys.MAX_PUBLIC_SUPPLY() - keys.mintedByUsers(), 0);
 
-        // RECRUIT and CIVILIAN are not guaranteed: wallets accumulate there, up to the 154 keys left.
+        // The later phases open with nothing left to sell; the treasury keeps its 666 keys.
         vm.expectEmit(true, true, false, true, address(keys));
         emit PhaseAdvanced(2, 3, 0);
         _advance();
-        _mintGtd(pioneers[0], 10);
-        _mintGtd(operatives[0], 10);
-        _mintGtd(recruits[0], 10);
-        assertEq(keys.gtdMinted(pioneers[0]), 4);
-        assertEq(keys.mintedAmount(pioneers[0]), 14);
+        _mintGtd(recruits[0], 1, "Max supply reached");
         _advance();
         vm.deal(bob, 1 ether);
         vm.prank(bob);
-        keys.mint{value: 0.3 ether}(20, 4, 0.015 ether);
-        assertEq(keys.mintedByUsers(), 6062);
-        assertEq(keys.totalGtdReserved(), 0);
+        vm.expectRevert("Max supply reached");
+        keys.mint{value: 0.015 ether}(1, 4, 0.015 ether);
+        assertFalse(keys.soldOut());
+        vm.prank(treasury);
+        keys.treasuryMint(666, treasury);
+        vm.prank(treasury);
+        vm.expectRevert("Max supply reached while minting to treasury");
+        keys.treasuryMint(1, treasury);
+        assertEq(keys.mintedByTreasury(), 666);
+        assertEq(keys.totalSupply(), 6666);
+        assertTrue(keys.soldOut());
     }
 
     function test_ReservationHasNoPhaseBucketsAndIsReleasedOnlyWhenRecruitOpens() public {

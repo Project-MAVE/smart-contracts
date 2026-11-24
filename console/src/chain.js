@@ -2,6 +2,7 @@ import { Contract, FetchRequest, JsonRpcProvider, ZeroHash } from 'ethers';
 import abi from '../../ryodan-keys/abi/RyodanKeys.json';
 import { proofFor } from './allowlist.js';
 import { assertSupported } from './model.js';
+import { isOwner, readSafe } from './safe.js';
 
 export { abi };
 
@@ -36,12 +37,18 @@ export async function snapshot(provider, contractAddress, account, chainId, allo
     firstTokenId: 'FIRST_TOKEN_ID', choiceWindow: 'CHOICE_WINDOW', choiceWindowOpen: 'choiceWindowOpen', sbtBaseURI: 'sbtBaseURI', nftBaseURI: 'nftBaseURI',
     totalKept: 'totalKept', keptFunds: 'keptFunds', keptWithdrawn: 'keptWithdrawn', totalBurned: 'totalBurned', totalPendingRefund: 'totalPendingRefund',
     allowlistRoot: 'allowlistRoot', allowlistSnapshotHash: 'allowlistSnapshotHash', allowlistConfigured: 'allowlistConfigured',
-    currentPhase: 'currentPhase', paused: 'mintPaused', reserved: 'totalGtdReserved',
+    currentPhase: 'currentPhase', paused: 'mintPaused', reserved: 'totalGtdReserved', adminAddress: 'defaultAdmin',
   };
   const values = await Promise.all(Object.entries(getters).map(async ([key, method]) => [key, await keys[method](options)]));
   const state = Object.fromEntries(values);
   Object.assign(state, { version, block: block.number, timestamp: BigInt(block.timestamp), walletMinted: 0n, whitelisted: false, admin: false, treasuryRole: false, pendingRefund: 0n });
   state.balance = await provider.getBalance(contractAddress, block.number);
+  // The administrator is a Safe when its address answers as one; its owners then sign every privileged call there.
+  state.safe = await readSafe(provider, state.adminAddress, options);
+  if (state.safe) {
+    [state.safe.treasury, state.safe.keys] = await Promise.all([keys.hasRole(state.treasuryRoleId, state.safe.address, options), keys.balanceOf(state.safe.address, options)]);
+    state.safe.owner = isOwner(state.safe, account);
+  }
   state.tierCounts = await Promise.all([1, 2, 3].map(id => keys.tierMembers(id, options)));
   state.snapshotMatches = Boolean(allowlist && allowlist.root === state.allowlistRoot && allowlist.snapshotHash === state.allowlistSnapshotHash && state.tierCounts.every((count, index) => count === BigInt(allowlist.counts[['pioneer', 'operative', 'recruit'][index]])));
   state.proof = account && state.snapshotMatches ? proofFor(allowlist, account) : null;

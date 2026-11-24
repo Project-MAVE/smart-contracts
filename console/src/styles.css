@@ -22,3 +22,10 @@ input[type="file"]::file-selector-button { background: var(--raised, #231919); c
 }
 
 .plain { font-style: normal; }
+
+.safe-panel{margin:0 0 32px}.safe-panel .multiline{white-space:pre-line}.safe-panel .address{overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:3px}
+.safe-steps{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border);background:var(--side)}
+.safe-step{padding:18px 16px;border-right:1px solid var(--border);min-width:0;display:flex;flex-direction:column;gap:9px}.safe-step:last-child{border-right:0}.safe-step.next{background:#311616;box-shadow:inset 0 3px var(--accent)}.safe-step.done{opacity:.7}
+.safe-step strong{font-size:14px;letter-spacing:.3px}.safe-step .phase-state{font-size:9px;letter-spacing:.6px;color:var(--muted)}.safe-step.next .phase-state{color:var(--accent-text)}.safe-step .form-note{margin:0;flex:1}.safe-step .action-hint{margin:0}.safe-step .action-hint:empty{display:none}
+#review-details dd{overflow-wrap:anywhere;white-space:pre-line}
+@media(max-width:800px){.safe-steps{grid-template-columns:1fr}.safe-step{border-right:0;border-bottom:1px solid var(--border)}.safe-step:last-child{border-bottom:0}}

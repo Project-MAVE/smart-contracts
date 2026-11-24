@@ -280,21 +280,21 @@ contract KeepOrRefundTest is RyodanKeysFixture {
 
     function test_TokenIdsStartAtOneTreasuryFirst() public {
         vm.prank(treasury);
-        keys.treasuryMint(500, treasury);
+        keys.treasuryMint(666, treasury);
         assertEq(keys.ownerOf(1), treasury);
-        assertEq(keys.ownerOf(500), treasury);
+        assertEq(keys.ownerOf(666), treasury);
         vm.expectRevert();
         keys.ownerOf(0);
         _open(10);
         _buy(bob, 1);
-        assertEq(keys.ownerOf(501), bob);
-        assertEq(keys.originalMinter(501), bob);
-        assertEq(keys.tokenURI(501), "ipfs://sbt/501.json");
+        assertEq(keys.ownerOf(667), bob);
+        assertEq(keys.originalMinter(667), bob);
+        assertEq(keys.tokenURI(667), "ipfs://sbt/667.json");
     }
 
     function test_SupplyIs6000Plus666() public view {
-        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6166);
-        assertEq(keys.MAX_TREASURY_SUPPLY(), 500);
+        assertEq(keys.MAX_PUBLIC_SUPPLY(), 6000);
+        assertEq(keys.MAX_TREASURY_SUPPLY(), 666);
         assertEq(keys.MAX_SUPPLY(), 6666);
         assertEq(keys.CHOICE_WINDOW(), 4 days);
     }

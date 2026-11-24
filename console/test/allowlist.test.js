@@ -48,11 +48,11 @@ test('snapshot detects modified counts, source digests, proof nodes, leaves and 
     const copy = structuredClone(snapshot); mutate(copy); assert.throws(() => validateSnapshot(copy));
   }
 });
-test('GTD counts each Pioneer once across PIONEER and OPERATIVE and rejects overbooking', () => {
-  assert.deepEqual(capacity({ pioneer: 100, operative: 1403 }), { pioneer: 400n, operative: 5612n, total: 6012n, unreserved: 154n });
-  assert.equal(capacity({ pioneer: 1541, operative: 0 }).total, 6164n);
-  assert.throws(() => capacity({ pioneer: 100, operative: 1442 }), /6166 paid/);
-  assert.throws(() => capacity({ pioneer: 100, operative: 1403 }, 4n, 4n, 6000n), /6012 keys; only 6000/);
+test('GTD counts each Pioneer once across PIONEER and OPERATIVE and caps oversubscribed lists at the paid supply', () => {
+  assert.deepEqual(capacity({ pioneer: 100, operative: 1390 }), { pioneer: 400n, operative: 5560n, total: 5960n, reserved: 5960n, unreserved: 40n, oversubscribed: 0n });
+  assert.equal(capacity({ pioneer: 1500, operative: 0 }).oversubscribed, 0n);
+  assert.deepEqual(capacity({ pioneer: 105, operative: 1455 }), { pioneer: 420n, operative: 5820n, total: 6240n, reserved: 6000n, unreserved: 0n, oversubscribed: 240n });
+  assert.deepEqual(capacity({ pioneer: 100, operative: 1403 }, 4n, 4n, 5000n), { pioneer: 400n, operative: 5612n, total: 6012n, reserved: 5000n, unreserved: 0n, oversubscribed: 1012n });
   assert.equal(capacity({ pioneer: 1, operative: 0 }, 3n, 10n).total, 3n);
   assert.throws(() => capacity({ pioneer: 1, operative: 0 }, 0n, 10n));
   assert.throws(() => buildSnapshot({ 'pioneer.csv': csvTemplate }, frozen), /Missing operative/);

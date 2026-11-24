@@ -121,15 +121,15 @@ contract J_Extras is Fixture {
     }
 
     function test_J06_CapsRejectTheExactBoundary() public {
-        _openCivilian(6166, 0.01 ether);
-        _buy(address(0xAA), 6165);
+        _openCivilian(6000, 0.01 ether);
+        _buy(address(0xAA), 5999);
         vm.deal(address(0xAA), 100 ether);
         vm.prank(address(0xAA));
         vm.expectRevert("Max supply reached");
         keys.mint{value: 0.02 ether}(2, 4, 0.01 ether);
         vm.prank(address(0xAA));
         keys.mint{value: 0.01 ether}(1, 4, 0.01 ether);
-        assertEq(keys.mintedByUsers(), 6166);
+        assertEq(keys.mintedByUsers(), 6000);
     }
 
     function test_J07_PreApprovedOperatorCanMoveAKeptKey() public {

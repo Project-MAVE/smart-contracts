@@ -221,8 +221,8 @@ contract RyodanKeysInvariantTest is StdInvariant, Test {
     }
 
     function invariant_SupplyAndCapsRemainConsistent() public view {
-        assertLe(keys.mintedByUsers(), 6166);
-        assertLe(keys.mintedByTreasury(), 500);
+        assertLe(keys.mintedByUsers(), 6000);
+        assertLe(keys.mintedByTreasury(), 666);
         uint256 phaseTotal;
         for (uint8 phaseId = 1; phaseId <= 4; phaseId++) {
             (,, uint256 minted,,) = keys.phases(phaseId);

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { JsonRpcProvider } from 'ethers';
 import assert from 'node:assert/strict';
 
-const directory = await mkdtemp(join(tmpdir(), 'ryodan-v7-deploy-'));
+const directory = await mkdtemp(join(tmpdir(), 'ryodan-v8-deploy-'));
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const rpc = 'http://127.0.0.1:28547';
 const anvil = spawn(process.env.ANVIL_BIN || `${homedir()}/.foundry/bin/anvil`, ['--host', '127.0.0.1', '--port', '28547', '--silent'], { stdio: 'ignore' });
@@ -29,15 +29,15 @@ try {
   const activePath = join(directory, 'active.json');
   const qaPath = join(directory, 'qa.json');
   const active = await run(activePath);
-  assert.equal(active.version, 7);
+  assert.equal(active.version, 8);
   assert.equal(active.currentPhase, 1);
   const resumed = await run(activePath);
   assert.deepEqual(resumed.transactions, active.transactions);
-  console.log('PASS v7 management deployment (5-argument constructor) and idempotent resumption');
+  console.log('PASS v8 management deployment (5-argument constructor) and idempotent resumption');
   const qa = await run(qaPath, '--qa');
   assert.equal(qa.currentPhase, 4);
   assert(qa.checks.includes('Mixed-price reserve equals 0.0555 ETH'));
-  console.log('PASS v7 QA deployment mints all four phases with independent counters, IDs from 1');
+  console.log('PASS v8 QA deployment mints all four phases with independent counters, IDs from 1');
   await assert.rejects(run(qaPath, '--refund'), /Keep-or-refund window open/);
   await provider.send('evm_increaseTime', [3601]);
   await provider.send('evm_mine', []);

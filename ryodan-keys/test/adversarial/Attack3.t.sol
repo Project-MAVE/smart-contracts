@@ -99,7 +99,7 @@ contract H_Metadata is Fixture {
 
     function test_H04_SelloutAnnouncementOnlyAt6666() public {
         address collector = makeAddr("collector");
-        _openCivilian(6166, 0.01 ether);
+        _openCivilian(6000, 0.01 ether);
         vm.recordLogs();
         _buy(collector, 10);
         bytes32 sig = keccak256("BatchMetadataUpdate(uint256,uint256)");
@@ -109,7 +109,7 @@ contract H_Metadata is Fixture {
             if (logs[i].topics[0] == sig) seen++;
         }
         assertEq(seen, 0);
-        _buy(collector, 6156);
+        _buy(collector, 5990);
         logs = vm.getRecordedLogs();
         seen = 0;
         for (uint256 i; i < logs.length; i++) {
@@ -118,7 +118,7 @@ contract H_Metadata is Fixture {
         assertEq(seen, 0);
         vm.recordLogs();
         vm.prank(treasury);
-        keys.treasuryMint(500, treasury);
+        keys.treasuryMint(666, treasury);
         logs = vm.getRecordedLogs();
         seen = 0;
         for (uint256 i; i < logs.length; i++) {

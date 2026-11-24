@@ -1,12 +1,12 @@
-# Ryodan Keys v7
+# Ryodan Keys v8
 
-ERC-721 sale for the NEOMARS mint: four sequential mint phases, inherited list eligibility, guaranteed allocations, phase prices and caps fixed before Pioneer opens, a deadline fixed at deploy, keep-or-refund after an unsuccessful sale and two numbered metadata sets (SBT while locked, NFT once unlocked) with no reveal transaction. v7 applies the client's pre-mainnet changes of 2026-11-22/23 to v6; see [docs/V7_CHANGES.md](docs/V7_CHANGES.md).
+ERC-721 sale for the NEOMARS mint: four sequential mint phases, inherited list eligibility, guaranteed allocations, phase prices and caps fixed before Pioneer opens, a deadline fixed at deploy, keep-or-refund after an unsuccessful sale and two numbered metadata sets (SBT while locked, NFT once unlocked) with no reveal transaction. v7 applied the client's pre-mainnet changes of 2026-11-22/23 to v6 ([docs/V7_CHANGES.md](docs/V7_CHANGES.md)); v8 restores the 6,000 + 666 supply and accepts lists larger than the paid supply, sold in order of arrival ([docs/V8_CHANGES.md](docs/V8_CHANGES.md)).
 
 ## Supply
 
-**6,666 keys = 6,166 paid + 500 treasury** (`MAX_PUBLIC_SUPPLY = 6166`, `MAX_TREASURY_SUPPLY = 500`, `MAX_SUPPLY = 6666`). Token IDs run from **1 to 6666** (key #0042 is token 42) and are assigned in one sequence across paid and treasury mints. Civilian receives the paid supply remaining after Recruit; it has no fixed separate allocation.
+**6,666 keys = 6,000 paid + 666 treasury** (`MAX_PUBLIC_SUPPLY = 6000`, `MAX_TREASURY_SUPPLY = 666`, `MAX_SUPPLY = 6666`). Token IDs run from **1 to 6666** (key #0042 is token 42) and are assigned in one sequence across paid and treasury mints. Civilian receives the paid supply remaining after Recruit; it has no fixed separate allocation.
 
-The sale succeeds only when all 6,666 keys are minted: 6,166 paid **and** 500 treasury. `treasuryMint` checks only the treasury role, the deadline and the 500 cap, not the phase: mint the 500 treasury keys before Pioneer opens (they then take IDs 1–500).
+The sale succeeds only when all 6,666 keys are minted: 6,000 paid **and** 666 treasury. `treasuryMint` checks only the treasury role, the deadline and the 666 cap, not the phase: mint the 666 treasury keys before Pioneer opens (they then take IDs 1–666).
 
 ## Phases
 
@@ -17,7 +17,7 @@ The sale succeeds only when all 6,666 keys are minted: 6,166 paid **and** 500 tr
 | Recruit | 0.0135 ETH | 10 | Pioneer + Operative + Recruit; FCFS |
 | Civilian | 0.015 ETH | 20 | Public; FCFS |
 
-The constructor sets the approved prices and caps. `configurePhase` works only while `currentPhase == 0`: from the moment Pioneer opens no role can change a price or a cap. Caps restart in every phase except that a Pioneer shares one cap across the two guaranteed phases, so each Pioneer is reserved once: the guaranteed reservation is `Pioneer count × Pioneer cap + Operative count × Operative cap` (6,012 with the 2026-11-23 lists: 100 × 4 + 1,403 × 4). Guaranteed keys are a single reservation (`totalGtdReserved`), not split by phase: `gtdMinted(account)` counts each wallet's mints across Pioneer and Operative, unused guarantees stay reserved through Operative, and the reservation is released only when Recruit opens. A Pioneer can mint 4 + 10 + 20 = 34 keys across the four phases. Phase selection is controlled by the contract: users cannot choose or revisit a phase.
+The constructor sets the approved prices and caps. `configurePhase` works only while `currentPhase == 0`: from the moment Pioneer opens no role can change a price or a cap. Caps restart in every phase except that a Pioneer shares one cap across the two guaranteed phases, so each Pioneer is reserved once: the guaranteed reservation is `Pioneer count × Pioneer cap + Operative count × Operative cap`, capped at the paid supply still unsold. The 2026-11-24 lists ask for 6,240 keys (105 × 4 + 1,455 × 4) against 6,000 for sale: the reservation is 6,000 and Pioneer and Operative keys go in order of arrival. Guaranteed keys are a single reservation (`totalGtdReserved`), not split by phase: `gtdMinted(account)` counts each wallet's mints across Pioneer and Operative, unused guarantees stay reserved through Operative, and the reservation is released only when Recruit opens. A Pioneer can mint 4 + 10 + 20 = 34 keys across the four phases. Phase selection is controlled by the contract: users cannot choose or revisit a phase.
 
 ## Roles
 

@@ -77,7 +77,7 @@ contract Handler is Test {
     function configure(uint256 limit, uint256 price) external {
         uint8 ph = keys.currentPhase();
         if (ph == 0 || ph > 4) return;
-        limit = bound(limit, 1, 6166);
+        limit = bound(limit, 1, 6000);
         if (ph == 1 && limit % 2 != 0) limit += 1;
         price = bound(price, 1, 0.1 ether);
         vm.prank(admin);

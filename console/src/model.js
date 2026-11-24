@@ -23,10 +23,10 @@ export function deadlineUTC(value) {
   return BigInt(Math.floor(time.getTime() / 1000));
 }
 
-export const SUPPORTED_VERSION = 7n;
+export const SUPPORTED_VERSION = 8n;
 
 export function assertSupported(version) {
-  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v7.`), { code: 'UNSUPPORTED_CONTRACT' });
+  if (version !== SUPPORTED_VERSION) throw Object.assign(new Error(`Unsupported contract ${version === null || version === undefined ? 'without CONTRACT_VERSION (v1)' : `version ${version}`}. This console manages only Ryodan Keys v8.`), { code: 'UNSUPPORTED_CONTRACT' });
 }
 
 export const phaseNames = ['Not started', 'Pioneer', 'Operative', 'Recruit', 'Civilian'];
@@ -50,15 +50,26 @@ export function phase(s) {
   return s.currentPhase === 0n ? 'NOT STARTED' : s.paused ? 'PAUSED' : phaseNames[Number(s.currentPhase)].toUpperCase();
 }
 
+const adminKinds = ['admin', 'phaseAdmin', 'allowlist', 'advance', 'pause'];
+const treasuryKinds = ['treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury'];
+
+/** True when the role for this action belongs to a Safe: the console prepares the call, the Safe owners sign it. */
+export function viaSafe(kind, s, account) {
+  if (!s?.safe || account?.toLowerCase() === s.safe.address.toLowerCase()) return false;
+  if (adminKinds.includes(kind)) return !s.admin;
+  return treasuryKinds.includes(kind) && s.safe.treasury && !s.treasuryRole;
+}
+
 export function gate(kind, s, context) {
   if (context.busy) return 'Another transaction is being reviewed or submitted.';
   if (context.pending) return 'Reconcile the pending transaction before submitting another.';
   if (!s || context.stale) return 'Refresh contract state before submitting.';
-  if (!context.account) return 'Connect a wallet to continue.';
-  if (!context.correctChain) return 'Switch your wallet to the displayed network.';
-  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v7.';
-  if (['admin', 'phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
-  if (['treasuryMint', 'withdraw', 'withdrawKept', 'burnTreasury'].includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
+  const safe = viaSafe(kind, s, context.account);
+  if (!safe && !context.account) return 'Connect a wallet to continue.';
+  if (!safe && !context.correctChain) return 'Switch your wallet to the displayed network.';
+  if (s.version !== SUPPORTED_VERSION) return 'This console manages only Ryodan Keys v8.';
+  if (!safe && adminKinds.includes(kind) && !s.admin) return 'The connected wallet needs the administrator role.';
+  if (!safe && treasuryKinds.includes(kind) && !s.treasuryRole) return 'The connected wallet needs the treasury role.';
   if (['phaseAdmin', 'allowlist', 'advance', 'pause'].includes(kind)) {
     if (s.timestamp > s.deadline || s.soldOut) return 'Sale configuration is closed after expiry or sellout.';
     if (kind === 'allowlist' && s.currentPhase !== 0n) return 'The snapshot is frozen: Pioneer has already started.';
