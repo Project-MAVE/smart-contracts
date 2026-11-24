@@ -126,6 +126,7 @@ function renderControls() {
   });
   $('#deployment').disabled = busy || Boolean(pending);
   $('#connect').disabled = busy;
+  $('#phase-preview').disabled = busy || Boolean(pending || draft) || !state || state.currentPhase >= 4n;
   $('#confirm-transaction').disabled = busy || !draft || draft.owner?.step === 'wait';
 }
 
@@ -211,7 +212,12 @@ function confirmDialog(selector) {
   });
 }
 
-async function confirmPhaseChange(action) {
+function phaseCount(snapshot) {
+  return snapshot.currentPhase === 0n ? snapshot.paid : snapshot.phases[Number(snapshot.currentPhase) - 1].minted;
+}
+
+async function confirmPhaseChange(action, preview = false) {
+  for (const label of all('[data-preview-only]')) label.hidden = !preview;
   const phaseId = Number(action.expectedPhase);
   const minted = action.phaseMinted;
   const scope = phaseId ? `nella fase ${phaseNames[phaseId]}` : 'nella vendita';
@@ -444,7 +450,7 @@ async function review(action) {
     validate(action);
     const reviewAccount = account;
     const reviewAddress = selected.address;
-    if (action.kind === 'advance') action.phaseMinted = state.phases[Number(state.currentPhase) - 1]?.minted ?? state.paid;
+    if (action.kind === 'advance') action.phaseMinted = phaseCount(state);
     if (action.kind === 'advance' && state.safe && !action.followUp) throw new Error('Open phases from Safe Operations: one Safe transaction advances and resumes minting.');
     const safe = action.followUp || viaSafe(action.kind, state, account) ? state.safe : null;
     const keys = new Contract(selected.address, abi, safe ? provider : await signerForCurrentWallet());
@@ -637,6 +643,21 @@ onForm('#mint-form', data => {
   const amount = unsigned(data.get('amount'), state?.maxPaid || 6000n, 1n);
   const proof = state?.currentPhase < 4n ? state.proof : null;
   return review({ kind: 'mint', label: 'Mint Ryodan Keys', method: proof ? 'mintWithProof' : 'mint', args: [amount, state?.currentPhase, state?.price, ...(proof ? [proof.tier, proof.proof] : [])] });
+});
+$('#phase-preview').addEventListener('click', async () => {
+  if (busy || pending || draft) return;
+  busy = true;
+  renderControls();
+  try {
+    if (!await refresh({ force: true, quiet: true }) || state.currentPhase >= 4n) return;
+    await confirmPhaseChange({ expectedPhase: state.currentPhase, phaseMinted: phaseCount(state) }, true);
+  } catch (cause) {
+    error(cause);
+  } finally {
+    busy = false;
+    renderControls();
+    $('#phase-preview').focus();
+  }
 });
 onForm('#advance-form', () => review({ kind: 'advance', label: `Advance to ${phaseNames[Number(state.currentPhase) + 1]}`, method: 'advancePhase', args: [], expectedPhase: state.currentPhase, warning: 'Irreversible phase closure: unused guarantees are released, earlier phases cannot reopen. The next phase starts paused.' }));
 onForm('#pause-form', () => review({ kind: 'pause', label: state.paused ? 'Resume active phase' : 'Pause active phase', method: 'setMintPaused', args: [!state.paused], expectedPhase: state.currentPhase }));

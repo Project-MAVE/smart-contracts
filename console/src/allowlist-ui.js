@@ -42,19 +42,9 @@ export function mountAllowlist({ getState, refresh, review, error, notice }) {
       const result = buildSnapshot(sources, new Date(Number(deadlineUTC($('#snapshot-date').value)) * 1000).toISOString(), { pioneer: state?.phases?.[0].limit, operative: state?.phases?.[1].limit, paidSupply: state?.maxPaid });
       loaded = result.snapshot; duplicateRows = result.duplicateRows;
       renderAllowlist(state); await refresh({ force: true, quiet: true });
-      notice('Snapshot generated. Download both files and review the on-chain load before starting Pioneer.');
+      notice('Snapshot generated. Review the counts and hashes before loading the list.');
     } catch (cause) { error(cause); }
   });
-  $('#snapshot-file').addEventListener('change', async () => {
-    try {
-      const file = $('#snapshot-file').files[0]; if (!file) return;
-      if (file.size > 20_000_000) throw new Error('Snapshot must be smaller than 20 MB.');
-      loaded = validateSnapshot(JSON.parse(await file.text())); duplicateRows = 0;
-      renderAllowlist(getState()); await refresh({ force: true, quiet: true });
-      notice('Snapshot imported and proofs validated. Compare its root with the selected contract.');
-    } catch (cause) { error(cause); }
-  });
-  $('#download-snapshot').addEventListener('click', () => download('allowlist.json', JSON.stringify(loaded, null, 2) + '\n', 'application/json'));
   $('#download-checker').addEventListener('click', () => download('check-data.js', checkerScript(loaded), 'text/javascript'));
   $('#snapshot-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -62,7 +52,7 @@ export function mountAllowlist({ getState, refresh, review, error, notice }) {
       const state = getState(); validateSnapshot(loaded);
       if (state?.version !== SUPPORTED_VERSION) throw new Error('Select a v8 contract.');
       const budget = capacity(loaded.counts, state.phases[0].limit, state.phases[1].limit, state.maxPaid - state.paid);
-      return review({ kind: 'allowlist', label: 'Load frozen allowlist snapshot', method: 'configureAllowlist', args: [loaded.root, loaded.snapshotHash, ...tiers.map(tier => BigInt(loaded.counts[tier]))], expectedPhase: 0n, warning: `${budget.oversubscribed ? `The lists ask for ${budget.total} keys, ${budget.oversubscribed} more than the ${budget.reserved} paid keys left: they sell in order of arrival and later wallets may find none. ` : ''}Review the CSV counts, hashes and GTD budget. Starting Pioneer permanently freezes this membership snapshot. Publish the matching allowlist.json and check-data.js to the frontend.` });
+      return review({ kind: 'allowlist', label: 'Load frozen allowlist snapshot', method: 'configureAllowlist', args: [loaded.root, loaded.snapshotHash, ...tiers.map(tier => BigInt(loaded.counts[tier]))], expectedPhase: 0n, warning: `${budget.oversubscribed ? `The lists ask for ${budget.total} keys, ${budget.oversubscribed} more than the ${budget.reserved} paid keys left: they sell in order of arrival and later wallets may find none. ` : ''}Review the CSV counts, hashes and GTD budget. Starting Pioneer permanently freezes this membership snapshot.` });
     }).catch(error);
   });
 }

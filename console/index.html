@@ -54,7 +54,9 @@
             <div class="phase-track" aria-label="Mint phase sequence"></div>
             <article class="panel phase-command">
               <div><div class="panel-kicker">SEQUENTIAL MINT</div><h3 id="phase-command-title">Not started</h3><p class="form-note" id="advance-note">Advance closes the previous phase permanently and releases its unused guarantees. Review the next phase, then resume minting.</p><p class="form-note" id="gtd-reserve">Reading guaranteed allocations…</p></div>
-              <div><form id="advance-form"><button class="button primary wide" type="submit" data-action="advance" id="advance-label">Review next phase ↗</button><p class="action-hint" data-hint="advance"></p></form><form id="pause-form"><button class="button wide" type="submit" data-action="pause" id="pause-label">Review resume ↗</button><p class="action-hint" data-hint="pause"></p></form></div>
+              <div>
+                <button id="phase-preview" class="button wide" type="button" disabled>Preview phase change · read only</button>
+                <form id="advance-form"><button class="button primary wide" type="submit" data-action="advance" id="advance-label">Review next phase ↗</button><p class="action-hint" data-hint="advance"></p></form><form id="pause-form"><button class="button wide" type="submit" data-action="pause" id="pause-label">Review resume ↗</button><p class="action-hint" data-hint="pause"></p></form></div>
             </article>
             <div class="work-grid below">
               <article class="panel"><div class="panel-kicker">PHASE PRICE & WALLET LIMIT</div><form id="phase-form">
@@ -74,10 +76,9 @@
               <form id="csv-form" class="below"><div class="inline-fields"><div><label for="csv-files">COMPLETED CSV FILES (ALL THREE)</label><input id="csv-files" type="file" accept=".csv,text/csv" multiple required /></div><div><label for="snapshot-date">FREEZE MOMENT (UTC)</label><input id="snapshot-date" type="datetime-local" step="1" required /></div></div><button class="button" type="submit">Generate snapshot ↗</button></form>
               <div class="rule-note"><span>↳</span><p>CSV processing stays in your browser. Generating files does not change the contract. Repeated addresses are deduplicated with the highest tier winning. Invalid rows must be corrected.</p></div>
               <div class="panel-kicker below">02 / REVIEW & LOAD</div>
-              <label for="snapshot-file">OR IMPORT AN EXISTING ALLOWLIST.JSON</label><input id="snapshot-file" type="file" accept=".json,application/json" />
               <p id="snapshot-summary" class="form-note">No snapshot loaded.</p><dl id="snapshot-details" class="token-result"></dl>
-              <div class="template-downloads"><button id="download-snapshot" class="button" type="button">Download allowlist.json ↓</button><button id="download-checker" class="button" type="button">Download check-data.js ↓</button></div>
-              <p class="form-note">Give both generated files to the mint/checker frontend. Archive the original CSVs and their hashes. The downloadable templates are empty.</p>
+              <div class="template-downloads"><button id="download-checker" class="button" type="button">Download check-data.js ↓</button></div>
+              <p class="form-note">The checker download contains the frozen tier membership. Archive the original CSVs and their hashes. The downloadable templates are empty.</p>
               <form id="snapshot-form"><button class="button primary" type="submit" data-action="allowlist">Review snapshot on chain ↗</button><p class="action-hint" data-hint="allowlist"></p></form>
               <div class="rule-note amber"><span>!</span><p>Starting Pioneer permanently freezes the root and membership counts. Review the snapshot and guaranteed capacity first. Prices and per-wallet caps remain editable within the available supply.</p></div>
             </article>
@@ -102,6 +103,7 @@
     <dialog id="review-dialog"><form method="dialog"><div class="panel-kicker">TRANSACTION REVIEW <button class="icon-button" value="cancel" aria-label="Close transaction review">×</button></div><h2 id="review-title">Review transaction</h2><p class="form-note" id="review-note">Verify these details before opening your wallet.</p><dl id="review-details"></dl><p id="review-warning" class="form-note"></p><div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button id="confirm-transaction" class="button primary" type="button">Sign in wallet ↗</button></div></form></dialog>
     <dialog id="phase-count-dialog" lang="it" aria-labelledby="phase-count-title" aria-describedby="phase-count-question">
       <form method="dialog">
+        <p class="panel-kicker" data-preview-only hidden>Anteprima · sola lettura</p>
         <h2 id="phase-count-title">Chiavi mintate</h2>
         <p id="phase-count-question"></p>
         <div class="dialog-actions">
@@ -112,6 +114,7 @@
     </dialog>
     <dialog id="phase-final-dialog" lang="it" aria-labelledby="phase-final-title" aria-describedby="phase-final-question">
       <form method="dialog">
+        <p class="panel-kicker" data-preview-only hidden>Anteprima · sola lettura</p>
         <h2 id="phase-final-title">Cambio di fase irreversibile</h2>
         <p id="phase-final-question"></p>
         <div class="dialog-actions">

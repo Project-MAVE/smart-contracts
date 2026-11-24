@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import assert from 'node:assert/strict';
-import { validateSnapshot, proofFor } from '../src/allowlist.js';
+import { buildSnapshot, proofFor } from '../src/allowlist.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const rpc = 'http://127.0.0.1:18547';
@@ -97,17 +97,19 @@ try {
   const zip = await fetch(`${url}/templates/ryodan-allowlist-templates.zip`);
   assert.equal(zip.status, 200); assert((await zip.arrayBuffer()).byteLength > 500);
   report('Admin page downloads empty CSV templates and the complete template ZIP');
-  await page.locator('#csv-files').setInputFiles(['pioneer', 'operative', 'recruit'].map((tier, i) => ({ name: `${tier}.csv`, mimeType: 'text/csv', buffer: Buffer.from(`address\n${accounts[i]}\n`) })));
+  const files = ['pioneer', 'operative', 'recruit'].map((tier, i) => ({
+    name: `${tier}.csv`, mimeType: 'text/csv', buffer: Buffer.from(`address\n${accounts[i]}\n`),
+  }));
+  await page.locator('#csv-files').setInputFiles(files);
   await page.locator('#csv-form button').click();
   await page.waitForFunction(() => document.querySelector('#snapshot-summary').textContent.includes('8 guaranteed keys'));
-  const snapshotDownload = page.waitForEvent('download');
-  await page.locator('#download-snapshot').click();
-  const snapshotFile = await snapshotDownload;
-  const built = validateSnapshot(JSON.parse(await readFile(await snapshotFile.path(), 'utf8')));
+  const sources = Object.fromEntries(files.map(file => [file.name, file.buffer]));
+  const freeze = new Date((await page.locator('#snapshot-date').inputValue()) + 'Z').toISOString();
+  const built = buildSnapshot(sources, freeze).snapshot;
   await transact('#snapshot-form', async () => await keys.allowlistRoot() === built.root);
   for (let i = 0; i < 3; i++) { const entry = proofFor(built, accounts[i]); assert(await keys.verifyEligibility(accounts[i], entry.tier, entry.proof)); }
   assert.equal(await keys.totalGtdReserved(), 8n);
-  report('UI builds CSV snapshot, downloads valid proofs and loads matching root and GTD counts (each Pioneer reserved once)');
+  report('UI builds CSV snapshot and loads matching root and GTD counts (each Pioneer reserved once)');
   await page.locator('#phase').selectOption('1');
   await page.locator('#phase-price').fill('0.030');
   await page.locator('#wallet-limit').fill('6');
